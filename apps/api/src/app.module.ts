@@ -6,6 +6,8 @@ import { CategoriesModule } from './categories/categories.module.js'
 import { validateEnv } from './config/env.validation.js'
 import { GLOBAL_RATE_LIMIT } from './config/rate-limit.js'
 import { HealthModule } from './health/health.module.js'
+import { ProductsModule } from './products/products.module.js'
+import { StorageModule } from './storage/storage.module.js'
 import { PrismaModule } from './prisma/prisma.module.js'
 
 // The root module: wires together config, database, rate limiting and every
@@ -21,8 +23,10 @@ import { PrismaModule } from './prisma/prisma.module.js'
     }),
     ThrottlerModule.forRoot([{ name: 'default', ...GLOBAL_RATE_LIMIT }]),
     PrismaModule,
+    StorageModule,
     HealthModule,
     CategoriesModule,
+    ProductsModule,
   ],
   providers: [
     // Registering the guard globally applies the 100 req/min limit to every route.

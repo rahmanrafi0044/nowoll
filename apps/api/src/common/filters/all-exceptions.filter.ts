@@ -14,6 +14,7 @@ interface ErrorShape {
   status: number
   error: string
   message: string
+  details?: string[]
 }
 
 // GLOBAL EXCEPTION FILTER: every error thrown anywhere in the API ends up here
@@ -28,7 +29,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>()
-    const { status, error, message } = this.toErrorShape(exception)
+    const { status, error, message, details } = this.toErrorShape(exception)
 
     if (status >= 500) {
       // TODO(phase 7): also report to Sentry here.
@@ -38,7 +39,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       )
     }
 
-    const body: ApiResponse = { success: false, error, message }
+    const body: ApiResponse = { success: false, error, message, ...(details && { details }) }
     response.status(status).json(body)
   }
 
@@ -60,6 +61,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const status = exception.getStatus()
     const res = exception.getResponse()
     const raw = typeof res === 'string' ? res : (res as { message?: string | string[] }).message
+    // Services may attach a list of specific problems: new BadRequestException({ message, details })
+    const details = typeof res === 'object' ? (res as { details?: unknown }).details : undefined
+    const detailList =
+      Array.isArray(details) && details.every((d) => typeof d === 'string') ? details : undefined
 
     // ValidationPipe reports every invalid field as an array of messages.
     if (Array.isArray(raw)) {
@@ -70,6 +75,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       status,
       error: HttpStatus[status] ?? 'ERROR', // 404 → "NOT_FOUND", 429 → "TOO_MANY_REQUESTS"
       message: raw ?? exception.message,
+      ...(detailList && { details: detailList }),
     }
   }
 

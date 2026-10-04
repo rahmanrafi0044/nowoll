@@ -227,24 +227,30 @@ model Category {
 // A ProductVariant is what you actually stock and sell ("Oxford Cotton Shirt, M, Blue").
 // Price lives on the product; a variant may override it (e.g. XXL costs more).
 model Product {
-  id               String        @id @default(uuid()) @db.Uuid
+  id               String                   @id @default(uuid()) @db.Uuid
   name             String
-  slug             String        @unique // /products/oxford-cotton-shirt
-  description      String?       @db.Text
-  shortDescription String?       @map("short_description")
-  categoryId       String        @map("category_id") @db.Uuid
-  basePrice        Decimal       @map("base_price") @db.Decimal(12, 2)
-  compareAtPrice   Decimal?      @map("compare_at_price") @db.Decimal(12, 2) // the "was ৳1,500" strike-through price
-  status           ProductStatus @default(DRAFT)
-  isFeatured       Boolean       @default(false) @map("is_featured") // homepage "featured" section
+  slug             String                   @unique // /products/oxford-cotton-shirt
+  description      String?                  @db.Text
+  shortDescription String?                  @map("short_description")
+  categoryId       String                   @map("category_id") @db.Uuid
+  basePrice        Decimal                  @map("base_price") @db.Decimal(12, 2)
+  compareAtPrice   Decimal?                 @map("compare_at_price") @db.Decimal(12, 2) // the "was ৳1,500" strike-through price
+  status           ProductStatus            @default(DRAFT)
+  isFeatured       Boolean                  @default(false) @map("is_featured") // homepage "featured" section
   tags             String[]
-  seoTitle         String?       @map("seo_title")
-  seoDescription   String?       @map("seo_description")
-  createdAt        DateTime      @default(now()) @map("created_at")
-  updatedAt        DateTime      @updatedAt @map("updated_at")
-  deletedAt        DateTime?     @map("deleted_at")
-  // NOTE: full-text search (a Postgres tsvector column + GIN index) is added in
-  // Phase 2 step 10 via a raw SQL migration — Prisma can't declare it natively.
+  seoTitle         String?                  @map("seo_title")
+  seoDescription   String?                  @map("seo_description")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  deletedAt        DateTime?                @map("deleted_at")
+  // Full-text search: a "tsvector" (pre-processed list of searchable words)
+  // that Postgres computes automatically from name, tags and description.
+  // Defined in migration *_product_search; Prisma can't express generated
+  // columns, so it's marked Unsupported and never written by our code.
+  // @default(dbgenerated()) + the Gin @@index below just tell Prisma "this
+  // exists in the database on purpose" — without them, the next migration
+  // would try to drop the index and the generated expression.
+  searchVector     Unsupported("tsvector")? @default(dbgenerated()) @map("search_vector")
 
   category   Category         @relation(fields: [categoryId], references: [id])
   variants   ProductVariant[]
@@ -255,6 +261,7 @@ model Product {
   @@index([categoryId])
   @@index([status, createdAt]) // storefront "new arrivals": active products, newest first
   @@index([isFeatured])
+  @@index([searchVector], map: "products_search_vector_idx", type: Gin)
   @@map("products")
 }
 

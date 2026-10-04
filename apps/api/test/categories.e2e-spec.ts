@@ -2,24 +2,9 @@
 // and the real middleware stack. Only AdminGuard is swapped out — real admin
 // sign-in arrives in Phase 4.
 import type { NestExpressApplication } from '@nestjs/platform-express'
-import { Test } from '@nestjs/testing'
 import request from 'supertest'
-import { AppModule } from '../src/app.module.js'
-import { configureApp } from '../src/app.setup.js'
-import { AdminGuard } from '../src/common/guards/admin.guard.js'
+import { createTestApp as createApp } from './utils/app.js'
 import { resetDatabase, testPrisma } from './utils/test-db.js'
-
-async function createApp(options: { asAdmin: boolean }): Promise<NestExpressApplication> {
-  let builder = Test.createTestingModule({ imports: [AppModule] })
-  if (options.asAdmin)
-    builder = builder.overrideGuard(AdminGuard).useValue({ canActivate: () => true })
-  const app = (await builder.compile()).createNestApplication<NestExpressApplication>({
-    logger: false,
-  })
-  configureApp(app)
-  await app.init()
-  return app
-}
 
 afterAll(() => testPrisma().$disconnect())
 

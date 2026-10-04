@@ -1,0 +1,423 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
+import { Prisma, type Product } from '@nowoll/database'
+import { InventoryChangeReason, ProductStatus } from '@nowoll/database/enums'
+import type { Paginated } from '@nowoll/types'
+import { CategoriesService } from '../categories/categories.service.js'
+import { pickUniqueSlug, slugPrefixOf } from '../common/slugs.js'
+import { PrismaService } from '../prisma/prisma.service.js'
+import type { CreateProductDto } from './dto/create-product.dto.js'
+import type { CreateVariantDto } from './dto/create-variant.dto.js'
+import type { ListProductsQuery } from './dto/list-products.query.js'
+import type { UpdateProductDto } from './dto/update-product.dto.js'
+import {
+  distinctColors,
+  distinctSizes,
+  type PublicImage,
+  type PublicVariant,
+  toPublicImage,
+  toPublicVariant,
+} from './product-view.js'
+
+const FALLBACK_SLUG = 'product'
+
+/** Prices arrive as JSON numbers; store them as exact decimals ("1499.50"). */
+export const toDecimal = (n: number) => new Prisma.Decimal(n.toFixed(2))
+const toDecimalOrNull = (n: number | null | undefined) =>
+  n === undefined ? undefined : n === null ? null : toDecimal(n)
+
+// Only these variant/image rows are ever shown or counted.
+const LIVE_VARIANT = { isActive: true, deletedAt: null } satisfies Prisma.ProductVariantWhereInput
+
+export interface ProductCard {
+  id: string
+  name: string
+  slug: string
+  shortDescription: string | null
+  basePrice: Prisma.Decimal
+  compareAtPrice: Prisma.Decimal | null
+  isFeatured: boolean
+  category: { name: string; slug: string }
+  image: PublicImage | null
+  colors: { color: string; colorHex: string | null }[]
+  sizes: string[]
+  inStock: boolean
+}
+
+export interface ProductDetail extends Omit<ProductCard, 'image' | 'colors' | 'sizes'> {
+  description: string | null
+  tags: string[]
+  seoTitle: string | null
+  seoDescription: string | null
+  breadcrumb: { id: string; name: string; slug: string }[]
+  images: PublicImage[]
+  variants: PublicVariant[]
+}
+
+// Shared "include" for loading what a card or detail page needs in ONE query.
+const PUBLIC_INCLUDE = {
+  category: { select: { id: true, name: true, slug: true } },
+  variants: { where: LIVE_VARIANT, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
+  images: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
+} satisfies Prisma.ProductInclude
+
+type ProductWithRelations = Prisma.ProductGetPayload<{ include: typeof PUBLIC_INCLUDE }>
+
+@Injectable()
+export class ProductsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly categories: CategoriesService,
+  ) {}
+
+  // ── Public ─────────────────────────────────────────────────────────────
+
+  /** GET /products — one page of product cards, filtered, searched and sorted. */
+  async list(query: ListProductsQuery): Promise<Paginated<ProductCard>> {
+    const { page, pageSize } = query
+    const empty: Paginated<ProductCard> = { items: [], total: 0, page, pageSize, totalPages: 0 }
+
+    const visibleCategoryIds = query.category
+      ? await this.categories.visibleSubtreeIds(query.category)
+      : [...(await this.categories.visibleCategoryIds())]
+    if (!visibleCategoryIds || visibleCategoryIds.length === 0) return empty
+
+    // Search ranks come from Postgres full-text search (see the product_search migration).
+    const ranks = query.q ? await this.searchRanks(query.q) : null
+    if (ranks && ranks.size === 0) return empty
+
+    const where: Prisma.ProductWhereInput = {
+      status: ProductStatus.ACTIVE,
+      deletedAt: null,
+      categoryId: { in: visibleCategoryIds },
+      ...(ranks && { id: { in: [...ranks.keys()] } }),
+      ...(query.featured !== undefined && { isFeatured: query.featured }),
+      ...((query.minPrice !== undefined || query.maxPrice !== undefined) && {
+        // Filters on the "from" price (decision #6)
+        basePrice: {
+          ...(query.minPrice !== undefined && { gte: query.minPrice }),
+          ...(query.maxPrice !== undefined && { lte: query.maxPrice }),
+        },
+      }),
+      // Size, color and in-stock must all be true for the SAME variant:
+      // "M in Blue, in stock" — not "has an M" + "has something blue".
+      ...((query.size || query.color || query.inStock) && {
+        variants: {
+          some: {
+            ...LIVE_VARIANT,
+            ...(query.size && { size: { equals: query.size, mode: 'insensitive' } }),
+            ...(query.color && { color: { equals: query.color, mode: 'insensitive' } }),
+            ...(query.inStock && { stock: { gt: 0 } }),
+          },
+        },
+      }),
+    }
+
+    const sort = query.sort ?? (ranks ? 'relevance' : 'newest')
+    const total = await this.prisma.product.count({ where })
+    if (total === 0) return empty
+
+    let rows: ProductWithRelations[]
+    if (sort === 'relevance' && ranks) {
+      // Relevance order lives in `ranks`, not in a column, so: get every
+      // matching id, sort by rank here, then load just this page.
+      // Fine for a clothing catalog (hundreds–low thousands of products).
+      const ids = (await this.prisma.product.findMany({ where, select: { id: true } }))
+        .map((p) => p.id)
+        .sort((a, b) => (ranks.get(b) ?? 0) - (ranks.get(a) ?? 0))
+        .slice((page - 1) * pageSize, page * pageSize)
+      const loaded = await this.prisma.product.findMany({
+        where: { id: { in: ids } },
+        include: PUBLIC_INCLUDE,
+      })
+      const byId = new Map(loaded.map((p) => [p.id, p]))
+      rows = ids.map((id) => byId.get(id)).filter((p) => p !== undefined)
+    } else {
+      rows = await this.prisma.product.findMany({
+        where,
+        include: PUBLIC_INCLUDE,
+        orderBy:
+          sort === 'price_asc'
+            ? [{ basePrice: 'asc' }, { id: 'asc' }]
+            : sort === 'price_desc'
+              ? [{ basePrice: 'desc' }, { id: 'asc' }]
+              : [{ createdAt: 'desc' }, { id: 'asc' }], // id = stable tie-breaker for paging
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      })
+    }
+
+    return {
+      items: rows.map((p) => this.toCard(p)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    }
+  }
+
+  /** GET /products/:slug — everything the product page needs. */
+  async findBySlug(slug: string): Promise<ProductDetail> {
+    const product = await this.findVisible({ slug })
+    return {
+      ...this.toCard(product),
+      description: product.description,
+      tags: product.tags,
+      seoTitle: product.seoTitle,
+      seoDescription: product.seoDescription,
+      breadcrumb: await this.categories.breadcrumbFor(product.categoryId),
+      images: product.images.map(toPublicImage),
+      variants: product.variants.map((v) => toPublicVariant(v, product)),
+    }
+  }
+
+  /**
+   * A product a customer may see, with its live variants and images.
+   * Draft, archived and hidden-category products all 404 — customers can't
+   * tell them apart from products that never existed.
+   */
+  async findVisible(where: { slug: string } | { id: string }): Promise<ProductWithRelations> {
+    const product = await this.prisma.product.findFirst({
+      where: { ...where, status: ProductStatus.ACTIVE, deletedAt: null },
+      include: PUBLIC_INCLUDE,
+    })
+    const visibleCategoryIds = await this.categories.visibleCategoryIds()
+    if (!product || !visibleCategoryIds.has(product.categoryId)) {
+      throw new NotFoundException('Product not found')
+    }
+    return product
+  }
+
+  // ── Admin ──────────────────────────────────────────────────────────────
+
+  async create(dto: CreateProductDto): Promise<Product> {
+    const { variants = [], ...fields } = dto
+    await this.assertCategoryUsable(fields.categoryId)
+    assertCompareAtAbove(fields.basePrice, fields.compareAtPrice)
+    assertNoDuplicateVariants(variants)
+    for (const v of variants) assertCompareAtAbove(v.price ?? fields.basePrice, v.compareAtPrice)
+    await this.assertSkusAvailable(variants.map((v) => v.sku))
+
+    const slug = fields.slug
+      ? await this.assertSlugAvailable(fields.slug)
+      : await this.generateUniqueSlug(fields.name)
+
+    // TRANSACTION: the product, its variants and their starting-stock log
+    // entries are saved together — or, if anything fails, not at all.
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          ...fields,
+          slug,
+          basePrice: toDecimal(fields.basePrice),
+          compareAtPrice: toDecimalOrNull(fields.compareAtPrice),
+          status: ProductStatus.DRAFT,
+          // Without an explicit sortOrder, keep the order the admin listed them in
+          // (otherwise all would be 0 with identical timestamps → random order).
+          variants: {
+            create: variants.map((v, i) => variantData({ ...v, sortOrder: v.sortOrder ?? i })),
+          },
+        },
+        include: { variants: true },
+      })
+      await logInitialStock(tx, product.variants)
+      return product
+    })
+  }
+
+  async update(id: string, dto: UpdateProductDto): Promise<Product> {
+    const existing = await this.findAdminOrThrow(id)
+
+    if (dto.categoryId) await this.assertCategoryUsable(dto.categoryId)
+    assertCompareAtAbove(
+      dto.basePrice ?? existing.basePrice.toNumber(),
+      dto.compareAtPrice === undefined ? existing.compareAtPrice?.toNumber() : dto.compareAtPrice,
+    )
+    // Like categories: renaming keeps the slug so shared links keep working.
+    if (dto.slug && dto.slug !== existing.slug) await this.assertSlugAvailable(dto.slug)
+    if (dto.status === ProductStatus.ACTIVE) await assertPublishable(this.prisma, id)
+
+    return this.prisma.product.update({
+      where: { id },
+      data: {
+        ...dto,
+        basePrice: dto.basePrice === undefined ? undefined : toDecimal(dto.basePrice),
+        compareAtPrice: toDecimalOrNull(dto.compareAtPrice),
+      },
+    })
+  }
+
+  /** Soft delete: hidden everywhere, but kept for order history and old links. */
+  async remove(id: string): Promise<{ id: string }> {
+    await this.findAdminOrThrow(id)
+    await this.prisma.product.update({
+      where: { id },
+      data: { status: ProductStatus.ARCHIVED, deletedAt: new Date(), isFeatured: false },
+    })
+    return { id }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────
+
+  private toCard(p: ProductWithRelations): ProductCard {
+    const firstImage = p.images[0]
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      shortDescription: p.shortDescription,
+      basePrice: p.basePrice,
+      compareAtPrice: p.compareAtPrice,
+      isFeatured: p.isFeatured,
+      category: { name: p.category.name, slug: p.category.slug },
+      image: firstImage ? toPublicImage(firstImage) : null,
+      colors: distinctColors(p.variants),
+      sizes: distinctSizes(p.variants),
+      inStock: p.variants.some((v) => v.stock > 0),
+    }
+  }
+
+  /** Product ids matching the search words, with a relevance score each. */
+  private async searchRanks(q: string): Promise<Map<string, number>> {
+    // websearch_to_tsquery understands what people type into search boxes:
+    // plain words, "exact phrases" and -excluded words. It never throws on odd input.
+    // $queryRaw with ${q} sends q as a PARAMETER, so this is safe from SQL injection.
+    const rows = await this.prisma.$queryRaw<{ id: string; rank: number }[]>`
+      SELECT id::text AS id, ts_rank(search_vector, websearch_to_tsquery('english', ${q}))::float8 AS rank
+      FROM products
+      WHERE search_vector @@ websearch_to_tsquery('english', ${q})
+        AND deleted_at IS NULL AND status = 'ACTIVE'`
+    return new Map(rows.map((r) => [r.id, r.rank]))
+  }
+
+  private async findAdminOrThrow(id: string): Promise<Product> {
+    const product = await this.prisma.product.findFirst({ where: { id, deletedAt: null } })
+    if (!product) throw new NotFoundException('Product not found')
+    return product
+  }
+
+  private async assertCategoryUsable(categoryId: string): Promise<void> {
+    const category = await this.prisma.category.findFirst({
+      where: { id: categoryId, deletedAt: null },
+    })
+    if (!category) throw new BadRequestException('Category not found.')
+  }
+
+  private async assertSlugAvailable(slug: string): Promise<string> {
+    const taken = await this.prisma.product.findUnique({
+      where: { slug },
+      select: { deletedAt: true },
+    })
+    if (taken) {
+      throw new ConflictException(
+        taken.deletedAt
+          ? `The slug "${slug}" belongs to an archived product. Choose another.`
+          : `The slug "${slug}" is already in use. Choose another.`,
+      )
+    }
+    return slug
+  }
+
+  async assertSkusAvailable(skus: string[]): Promise<void> {
+    if (skus.length === 0) return
+    const taken = await this.prisma.productVariant.findMany({
+      where: { sku: { in: skus } },
+      select: { sku: true },
+    })
+    if (taken.length > 0) {
+      throw new ConflictException(`SKU already in use: ${taken.map((t) => t.sku).join(', ')}`)
+    }
+  }
+
+  private async generateUniqueSlug(name: string): Promise<string> {
+    const existing = await this.prisma.product.findMany({
+      where: { slug: { startsWith: slugPrefixOf(name, FALLBACK_SLUG) } },
+      select: { slug: true },
+    })
+    return pickUniqueSlug(name, new Set(existing.map((p) => p.slug)), FALLBACK_SLUG)
+  }
+}
+
+// ── Rules shared with VariantsService and the CSV importer ──────────────────
+
+/** DTO → database row for a new variant. */
+export function variantData(v: CreateVariantDto) {
+  return {
+    ...v,
+    stock: v.stock ?? 0,
+    price: toDecimalOrNull(v.price),
+    compareAtPrice: toDecimalOrNull(v.compareAtPrice),
+  }
+}
+
+/** A "was ৳X" price must be higher than the selling price, or it's misleading. */
+export function assertCompareAtAbove(price: number, compareAt: number | null | undefined): void {
+  if (compareAt !== null && compareAt !== undefined && compareAt <= price) {
+    throw new BadRequestException(
+      `compareAtPrice (${compareAt}) must be higher than the selling price (${price}).`,
+    )
+  }
+}
+
+/** Two variants with the same size AND color in one request is always a mistake. */
+export function assertNoDuplicateVariants(
+  variants: Pick<CreateVariantDto, 'sku' | 'size' | 'color'>[],
+): void {
+  const combos = new Set<string>()
+  const skus = new Set<string>()
+  for (const v of variants) {
+    const combo = `${v.size.toLowerCase()} / ${v.color.toLowerCase()}`
+    if (combos.has(combo))
+      throw new BadRequestException(`Duplicate variant: ${v.size} / ${v.color}`)
+    if (skus.has(v.sku)) throw new BadRequestException(`Duplicate SKU in request: ${v.sku}`)
+    combos.add(combo)
+    skus.add(v.sku)
+  }
+}
+
+/** Writes an INITIAL_STOCK log entry for each new variant that starts with stock. */
+export async function logInitialStock(
+  tx: Prisma.TransactionClient,
+  variants: { id: string; stock: number }[],
+  reason: InventoryChangeReason = InventoryChangeReason.INITIAL_STOCK,
+): Promise<void> {
+  const withStock = variants.filter((v) => v.stock > 0)
+  if (withStock.length === 0) return
+  await tx.inventoryLog.createMany({
+    data: withStock.map((v) => ({
+      variantId: v.id,
+      change: v.stock,
+      stockAfter: v.stock,
+      reason,
+      // TODO(phase 4): actorId = the signed-in admin
+    })),
+  })
+}
+
+/**
+ * PUBLISHING RULE (decision #3): an ACTIVE product needs at least one live
+ * variant AND at least one image, so customers never see a product with no
+ * photo or nothing to buy. Checked when publishing, and after removing a
+ * variant or image from a product that is already ACTIVE.
+ */
+export async function assertPublishable(
+  db: Prisma.TransactionClient | PrismaService,
+  productId: string,
+): Promise<void> {
+  const [variants, images] = await Promise.all([
+    db.productVariant.count({ where: { productId, ...LIVE_VARIANT } }),
+    db.productImage.count({ where: { productId } }),
+  ])
+  const missing = [variants === 0 && 'an active variant', images === 0 && 'an image'].filter(
+    Boolean,
+  )
+  if (missing.length > 0) {
+    throw new ConflictException(
+      `A published product needs ${missing.join(' and ')}. Add it first, or set the product back to DRAFT.`,
+    )
+  }
+}

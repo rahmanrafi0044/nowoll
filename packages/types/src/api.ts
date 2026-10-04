@@ -14,6 +14,7 @@ export interface ApiError {
   success: false
   error: string // machine-readable code, e.g. 'NOT_FOUND', 'VALIDATION_ERROR'
   message: string // human-readable, safe to show to the user
+  details?: string[] // optional list, e.g. every problem in a CSV import with its row number
 }
 
 // A DISCRIMINATED UNION: checking `res.success` tells TypeScript which of the
@@ -26,6 +27,7 @@ export interface ApiResponse<T = unknown> {
   data?: T
   message?: string
   error?: string
+  details?: string[]
 }
 
 /** One page of a long list (products, orders, customers…). */

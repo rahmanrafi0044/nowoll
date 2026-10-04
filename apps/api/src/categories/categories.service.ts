@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import type { Category } from '@nowoll/database'
-import { SLUG_MAX_LENGTH, slugify } from '@nowoll/validation'
+import { pickUniqueSlug, slugPrefixOf } from '../common/slugs.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import {
   ancestorsOf,
@@ -91,6 +91,41 @@ export class CategoriesService {
         .sort(compareCategories)
         .map(toPublic),
     }
+  }
+
+  // ── Used by the products module ────────────────────────────────────────
+
+  /** Ids of every category a customer may see (active, with active ancestors). */
+  async visibleCategoryIds(): Promise<Set<string>> {
+    return new Set(visibleCategories(await this.loadAll()).map((c) => c.id))
+  }
+
+  /**
+   * A visible category and all its visible descendants — so filtering by
+   * "Men" also shows products in "Men → Shirts". Null if the slug isn't visible.
+   */
+  async visibleSubtreeIds(slug: string): Promise<string[] | null> {
+    const visible = visibleCategories(await this.loadAll())
+    const root = visible.find((c) => c.slug === slug)
+    if (!root) return null
+
+    const ids = [root.id]
+    for (let i = 0; i < ids.length; i++) {
+      for (const c of visible) if (c.parentId === ids[i]) ids.push(c.id)
+    }
+    return ids
+  }
+
+  /** Breadcrumb for a product page: top level → … → the product's own category. */
+  async breadcrumbFor(categoryId: string): Promise<Pick<PublicCategory, 'id' | 'name' | 'slug'>[]> {
+    const visible = visibleCategories(await this.loadAll())
+    const self = visible.find((c) => c.id === categoryId)
+    if (!self) return []
+    return [...ancestorsOf(categoryId, visible), self].map(({ id, name, slug }) => ({
+      id,
+      name,
+      slug,
+    }))
   }
 
   // ── Admin ──────────────────────────────────────────────────────────────
@@ -196,18 +231,10 @@ export class CategoriesService {
 
   /** "shirts" → "shirts", or "shirts-2", "shirts-3"… if taken. */
   private async generateUniqueSlug(name: string): Promise<string> {
-    const base = slugify(name) || FALLBACK_SLUG
     const existing = await this.prisma.category.findMany({
-      where: { slug: { startsWith: base.slice(0, SLUG_MAX_LENGTH - 6) } },
+      where: { slug: { startsWith: slugPrefixOf(name, FALLBACK_SLUG) } },
       select: { slug: true },
     })
-    const taken = new Set(existing.map((c) => c.slug))
-    if (!taken.has(base)) return base
-
-    for (let n = 2; ; n++) {
-      const suffix = `-${n}`
-      const candidate = `${base.slice(0, SLUG_MAX_LENGTH - suffix.length).replace(/-+$/, '')}${suffix}`
-      if (!taken.has(candidate)) return candidate
-    }
+    return pickUniqueSlug(name, new Set(existing.map((c) => c.slug)), FALLBACK_SLUG)
   }
 }

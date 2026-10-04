@@ -3,6 +3,8 @@ import { NodeEnv, parseAllowedOrigins, validateEnv } from './env.validation.js'
 const valid = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
   ALLOWED_ORIGIN: 'http://localhost:3000',
+  NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
+  SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
 }
 
 describe('validateEnv', () => {
@@ -19,7 +21,13 @@ describe('validateEnv', () => {
   })
 
   it('fails fast when DATABASE_URL is missing', () => {
-    expect(() => validateEnv({ ALLOWED_ORIGIN: 'http://localhost:3000' })).toThrow(/DATABASE_URL/)
+    const { DATABASE_URL: _omit, ...withoutDb } = valid
+    expect(() => validateEnv(withoutDb)).toThrow(/DATABASE_URL/)
+  })
+
+  it('requires the Supabase service role key (needed for image uploads)', () => {
+    const { SUPABASE_SERVICE_ROLE_KEY: _omit, ...rest } = valid
+    expect(() => validateEnv(rest)).toThrow(/SUPABASE_SERVICE_ROLE_KEY/)
   })
 
   it('rejects a non-numeric PORT', () => {
