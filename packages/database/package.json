@@ -5,8 +5,8 @@
   "description": "Prisma schema, migrations and the shared database client",
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "prisma generate && tsc -p tsconfig.json",
-    "typecheck": "prisma generate && tsc -p tsconfig.check.json",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint .",
     "test": "vitest run",
     "db:generate": "prisma generate",

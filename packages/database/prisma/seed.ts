@@ -29,7 +29,11 @@ async function main() {
     await prisma.page.upsert({
       where: { slug: p.slug },
       update: {},
-      create: { ...p, content: `${p.title} — placeholder. Edit in Admin → Content.`, status: 'DRAFT' },
+      create: {
+        ...p,
+        content: `${p.title} — placeholder. Edit in Admin → Content.`,
+        status: 'DRAFT',
+      },
     })
   }
 

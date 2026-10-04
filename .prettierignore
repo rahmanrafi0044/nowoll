@@ -3,3 +3,7 @@ pnpm-lock.yaml
 **/.next
 **/generated
 **/migrations
+
+# Hand-written project docs and infra files — formatted by hand, not by Prettier
+*.md
+docker-compose.yml

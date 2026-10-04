@@ -1,5 +1,5 @@
 import type { PrismaClient } from './generated/prisma/client'
-import { createPrismaClient } from './client'
+import { createPrismaClient, prismaClientOptions } from './client'
 
 // SINGLETON PATTERN: every PrismaClient opens its own pool of database
 // connections. In development, hot-reload re-runs this file on every save; without
@@ -14,7 +14,7 @@ export function getPrisma(): PrismaClient {
   return globalForPrisma.prisma
 }
 
-export { createPrismaClient }
+export { createPrismaClient, prismaClientOptions }
 
 // Re-export the generated client: PrismaClient, the Prisma namespace
 // (Prisma.Decimal, Prisma.TransactionClient, …), every enum, and every model type.
