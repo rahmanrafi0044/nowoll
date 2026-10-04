@@ -6,6 +6,7 @@ import {
   emailSchema,
   paginationSchema,
   slugSchema,
+  slugify,
 } from './schemas.js'
 
 describe('bdPhoneSchema', () => {
@@ -157,5 +158,27 @@ describe('paginationSchema', () => {
   it('caps pageSize at 100 and rejects page 0', () => {
     expect(paginationSchema.safeParse({ pageSize: '500' }).success).toBe(false)
     expect(paginationSchema.safeParse({ page: '0' }).success).toBe(false)
+  })
+})
+
+describe('slugify', () => {
+  it.each([
+    ['Men', 'men'],
+    ["Men's Shirts & Tees", 'mens-shirts-and-tees'],
+    ['  Summer   Collection 2026 ', 'summer-collection-2026'],
+    ['Café Crème', 'cafe-creme'],
+    ['T-Shirts / Polos', 't-shirts-polos'],
+    ['---Hello---', 'hello'],
+    ['শার্ট', ''], // Bangla only → empty; the caller picks a fallback
+    ['Panjabi শার্ট', 'panjabi'],
+  ])('%j → %j', (input, expected) => {
+    expect(slugify(input)).toBe(expected)
+  })
+
+  it('always produces a valid slug (or empty)', () => {
+    for (const name of ['A & B', "It's 100% cotton!", 'x'.repeat(300) + ' y', 'Ünïcödé']) {
+      const slug = slugify(name)
+      expect(slug === '' || slugSchema.safeParse(slug).success).toBe(true)
+    }
   })
 })
