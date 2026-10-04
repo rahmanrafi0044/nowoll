@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body className="flex min-h-screen flex-col">
         <CartHydrator />
-        <header className="border-b border-neutral-200">
+        <header className="border-b border-border">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
             <Link href="/" className="text-xl font-semibold tracking-tight">
               Nowoll
@@ -35,8 +35,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-neutral-200">
-          <div className="mx-auto max-w-7xl px-4 py-6 text-sm text-neutral-500">
+        <footer className="border-t border-border">
+          <div className="mx-auto max-w-7xl px-4 py-6 text-sm text-muted-foreground">
             © {new Date().getFullYear()} Nowoll — always new
           </div>
         </footer>

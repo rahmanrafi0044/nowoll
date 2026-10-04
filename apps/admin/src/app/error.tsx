@@ -1,5 +1,6 @@
 'use client' // error boundaries must be Client Components
 
+import { Button } from '@nowoll/ui'
 import { useEffect } from 'react'
 
 export default function Error({
@@ -17,14 +18,12 @@ export default function Error({
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
       <h1 className="text-2xl font-semibold">Something went wrong</h1>
-      {error.digest && <p className="mt-2 text-xs text-neutral-400">Error ID: {error.digest}</p>}
-      <button
-        type="button"
-        onClick={() => retry()}
-        className="mt-6 rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-      >
+      {error.digest && (
+        <p className="mt-2 text-xs text-muted-foreground">Error ID: {error.digest}</p>
+      )}
+      <Button onClick={() => retry()} className="mt-6">
         Try again
-      </button>
+      </Button>
     </main>
   )
 }

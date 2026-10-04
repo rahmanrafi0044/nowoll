@@ -14,7 +14,7 @@ export default function HomePage() {
   return (
     <section className="mx-auto flex max-w-7xl flex-col items-center px-4 py-24 text-center">
       <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Nowoll</h1>
-      <p className="mt-3 text-lg text-neutral-500">always new</p>
+      <p className="mt-3 text-lg text-muted-foreground">always new</p>
     </section>
   )
 }

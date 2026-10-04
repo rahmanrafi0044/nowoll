@@ -1,5 +1,6 @@
 'use client' // error boundaries must be Client Components
 
+import { Button } from '@nowoll/ui'
 import { useEffect } from 'react'
 
 // Shown when a page crashes while rendering (the "500" page from the spec).
@@ -23,17 +24,15 @@ export default function Error({
   return (
     <section className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
       <h1 className="text-3xl font-semibold tracking-tight">Something went wrong</h1>
-      <p className="mt-3 text-neutral-600">
+      <p className="mt-3 text-muted-foreground">
         Sorry — this page didn’t load properly. Please try again.
       </p>
-      {error.digest && <p className="mt-2 text-xs text-neutral-400">Error ID: {error.digest}</p>}
-      <button
-        type="button"
-        onClick={() => retry()}
-        className="mt-8 rounded-md bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
-      >
+      {error.digest && (
+        <p className="mt-2 text-xs text-muted-foreground">Error ID: {error.digest}</p>
+      )}
+      <Button onClick={() => retry()} className="mt-8">
         Try again
-      </button>
+      </Button>
     </section>
   )
 }

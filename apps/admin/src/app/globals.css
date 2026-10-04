@@ -1,10 +1,10 @@
 @import 'tailwindcss';
+/* Brand colors, fonts and shape — shared with the storefront. Edit them in packages/ui/src/theme.css. */
+@import '@nowoll/ui/theme.css';
 
-/* Temporary base styles — Phase 1 step 8 moves shared tokens into packages/ui. */
-@theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-}
-
-body {
-  @apply bg-neutral-50 text-neutral-900 antialiased;
+/* Admin uses a light grey page background so white cards stand out. */
+@layer base {
+  body {
+    background-color: var(--color-surface-muted);
+  }
 }

@@ -1,0 +1,62 @@
+/* ==========================================================================
+   Nowoll design tokens — THE place to change the brand's look.
+
+   Each `--color-x` here becomes Tailwind classes automatically:
+     --color-brand            → bg-brand, text-brand, border-brand …
+     --color-muted-foreground → text-muted-foreground …
+     --radius-control         → rounded-control
+   They are also plain CSS variables (var(--color-brand)) for custom CSS.
+
+   Components use these SEMANTIC names ("brand", "danger"), never raw colors
+   like "red-700" — so a rebrand is an edit to this file, not to every component.
+
+   Usage, in an app's globals.css (after Tailwind):
+     @import 'tailwindcss';
+     @import '@nowoll/ui/theme.css';
+
+   Text/background pairs below meet WCAG 2.1 AA contrast (≥ 4.5:1).
+   ========================================================================== */
+
+/* Tell Tailwind to scan the shared components for class names, otherwise
+   classes used only inside packages/ui would be missing from the CSS. */
+@source './components';
+
+@theme {
+  /* Brand — monochrome, fashion-store neutral. Change these to rebrand. */
+  --color-brand: #111111;
+  --color-brand-hover: #333333;
+  --color-brand-foreground: #ffffff;
+
+  /* Surfaces & text */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f5f5f5;
+  --color-foreground: #111111;
+  --color-muted-foreground: #5f5f5f;
+  --color-border: #e5e5e5;
+  --color-border-strong: #a3a3a3;
+
+  /* Status colors (order status badges, alerts, form errors) */
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fef2f2;
+  --color-success: #15803d;
+  --color-success-soft: #f0fdf4;
+  --color-warning: #a16207;
+  --color-warning-soft: #fefce8;
+  --color-info: #1d4ed8;
+  --color-info-soft: #eff6ff;
+
+  /* Typography — system fonts: zero download, fast on slow mobile networks. */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Bengali', sans-serif;
+
+  /* Shape */
+  --radius-control: 0.375rem; /* buttons, inputs */
+}
+
+@layer base {
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+}
