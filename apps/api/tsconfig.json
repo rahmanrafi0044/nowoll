@@ -1,0 +1,10 @@
+{
+  "extends": "@nowoll/config/tsconfig/nestjs.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}
