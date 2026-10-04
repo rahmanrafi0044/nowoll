@@ -67,3 +67,9 @@ Thumbs.db
 # Temporary
 tmp/
 temp/
+
+# Windows download metadata (created when copying files from Windows into WSL)
+*:Zone.Identifier
+
+# Turborepo local cache
+.turbo/
