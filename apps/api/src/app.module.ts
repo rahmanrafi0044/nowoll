@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { APP_GUARD } from '@nestjs/core'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
+import { CategoriesModule } from './categories/categories.module.js'
 import { validateEnv } from './config/env.validation.js'
 import { GLOBAL_RATE_LIMIT } from './config/rate-limit.js'
 import { HealthModule } from './health/health.module.js'
@@ -21,6 +22,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     ThrottlerModule.forRoot([{ name: 'default', ...GLOBAL_RATE_LIMIT }]),
     PrismaModule,
     HealthModule,
+    CategoriesModule,
   ],
   providers: [
     // Registering the guard globally applies the 100 req/min limit to every route.
