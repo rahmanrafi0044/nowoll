@@ -34,12 +34,34 @@ export const emailSchema = z
 // ── Slug ─────────────────────────────────────────────────────────────────
 // The URL-friendly name in /products/oxford-cotton-shirt:
 // lowercase letters and digits, single hyphens between words.
+export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+export const SLUG_MAX_LENGTH = 120
+
 export const slugSchema = z
   .string()
   .trim()
   .min(1, 'Slug is required')
-  .max(120, 'Slug is too long')
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers and single hyphens only')
+  .max(SLUG_MAX_LENGTH, 'Slug is too long')
+  .regex(SLUG_PATTERN, 'Use lowercase letters, numbers and single hyphens only')
+
+/**
+ * Turns a name into a slug: "Men's Shirts & Tees" → "mens-shirts-tees".
+ * Used by the API to auto-generate slugs, and by the admin UI to preview them.
+ * Returns "" when nothing usable is left (e.g. a name written only in Bangla) —
+ * the caller decides the fallback.
+ */
+export function slugify(text: string): string {
+  return text
+    .normalize('NFKD') // "é" → "e" + accent mark…
+    .replace(/[\u0300-\u036f]/g, '') // …then drop the accent marks
+    .toLowerCase()
+    .replace(/['’]/g, '') // "men's" → "mens", not "men-s"
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-') // everything else becomes a hyphen
+    .replace(/^-+|-+$/g, '') // no hyphens at the ends
+    .slice(0, SLUG_MAX_LENGTH)
+    .replace(/-+$/g, '') // slicing may leave a trailing hyphen
+}
 
 // ── Money (BDT) ──────────────────────────────────────────────────────────
 // Accepts 1499, 1499.5 or "1499.50" (form inputs give strings). At most 2
