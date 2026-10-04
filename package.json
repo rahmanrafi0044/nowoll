@@ -1,0 +1,32 @@
+{
+  "name": "nowoll",
+  "version": "1.0.0",
+  "description": "Nowoll — always new | E-commerce clothing store (Bangladesh)",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "db:generate": "turbo run db:generate --filter=@nowoll/database",
+    "db:migrate": "turbo run db:migrate --filter=@nowoll/database",
+    "db:studio": "turbo run db:studio --filter=@nowoll/database",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "latest",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0",
+    "prettier": "^3.2.0",
+    "eslint": "^8.57.0",
+    "vitest": "^1.5.0",
+    "@playwright/test": "^1.44.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

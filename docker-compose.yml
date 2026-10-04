@@ -1,0 +1,58 @@
+version: '3.9'
+
+# Nowoll — Local Development Services
+# The Next.js and NestJS apps run OUTSIDE Docker (better hot reload)
+# Docker only manages the infrastructure services
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nowoll-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nowoll
+      POSTGRES_PASSWORD: nowoll_local_password
+      POSTGRES_DB: nowoll_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nowoll -d nowoll_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: nowoll-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Mailpit: catches all outgoing emails during development
+  # Open http://localhost:8025 in your browser to see emails
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: nowoll-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP (Resend uses this in dev mode)
+    environment:
+      MP_MAX_MESSAGES: 200
+      MP_UI_AUTH: ""   # No auth for local dev
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
