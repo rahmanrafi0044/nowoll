@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+
+/* Temporary base styles. Phase 1 step 8 moves brand colors, fonts and spacing
+   into packages/ui as shared design tokens used by storefront AND admin. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  @apply bg-white text-neutral-900 antialiased;
+}

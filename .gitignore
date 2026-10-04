@@ -76,3 +76,7 @@ temp/
 
 # Prisma 7 generated client (rebuilt by `pnpm db:generate`)
 packages/database/src/generated/
+
+# Next.js generated files
+next-env.d.ts
+*.tsbuildinfo
