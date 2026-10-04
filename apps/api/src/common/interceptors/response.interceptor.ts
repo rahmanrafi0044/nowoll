@@ -5,7 +5,7 @@ import {
   type NestInterceptor,
 } from '@nestjs/common'
 import { map, type Observable } from 'rxjs'
-import type { ApiResponse } from '../types/api-response.js'
+import type { ApiResponse } from '@nowoll/types'
 
 // INTERCEPTOR: runs around every controller method. Controllers just
 // `return product` and this wraps it as { success: true, data: product }.

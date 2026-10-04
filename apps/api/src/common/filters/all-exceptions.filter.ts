@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common'
 import { Prisma } from '@nowoll/database'
 import type { Response } from 'express'
-import type { ApiResponse } from '../types/api-response.js'
+import type { ApiResponse } from '@nowoll/types'
 
 interface ErrorShape {
   status: number
