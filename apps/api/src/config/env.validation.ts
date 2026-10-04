@@ -1,5 +1,5 @@
 import { plainToInstance, Type } from 'class-transformer'
-import { IsEnum, IsInt, IsNotEmpty, IsString, Max, Min, validateSync } from 'class-validator'
+import { IsEnum, IsInt, IsNotEmpty, IsString, IsUrl, Max, Min, validateSync } from 'class-validator'
 
 export enum NodeEnv {
   Development = 'development',
@@ -31,6 +31,17 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   ALLOWED_ORIGIN!: string
+
+  // Supabase project URL. It's public (the browser apps use it too), so the
+  // API reuses the same variable rather than a second copy of it.
+  @IsUrl({ require_tld: false })
+  NEXT_PUBLIC_SUPABASE_URL!: string
+
+  // SERVER ONLY. Full access to Supabase Storage (bypasses RLS) — used to
+  // upload and delete product images. Never sent to a browser.
+  @IsString()
+  @IsNotEmpty()
+  SUPABASE_SERVICE_ROLE_KEY!: string
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

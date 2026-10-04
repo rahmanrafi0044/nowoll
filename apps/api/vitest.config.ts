@@ -18,6 +18,10 @@ export default defineConfig({
       DATABASE_URL: TEST_DATABASE_URL,
       TEST_DATABASE_URL,
       ALLOWED_ORIGIN: 'http://localhost:3000,http://localhost:3002',
+      // Dummy values: tests swap in an in-memory image store (test/utils/app.ts),
+      // so nothing is ever uploaded to the real Supabase project.
+      NEXT_PUBLIC_SUPABASE_URL: 'https://test-project.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
     },
     // *.spec.ts = unit tests next to the code; test/*.e2e-spec.ts = HTTP-level integration tests
     include: ['src/**/*.spec.ts', 'test/**/*.e2e-spec.ts'],
