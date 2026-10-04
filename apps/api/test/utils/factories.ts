@@ -83,6 +83,7 @@ export async function makeProduct(fields: {
         },
       }),
     },
-    include: { variants: true, images: true },
+    // Ordered, so tests can rely on variants[0] being the first one listed above.
+    include: { variants: { orderBy: { sortOrder: 'asc' } }, images: true },
   })
 }

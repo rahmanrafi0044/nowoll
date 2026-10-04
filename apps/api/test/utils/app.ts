@@ -3,8 +3,10 @@ import { Test } from '@nestjs/testing'
 import { AppModule } from '../../src/app.module.js'
 import { configureApp } from '../../src/app.setup.js'
 import { AdminGuard } from '../../src/common/guards/admin.guard.js'
+import { LOW_STOCK_ALERTER } from '../../src/inventory/low-stock-alerter.js'
 import { IMAGE_STORAGE } from '../../src/storage/image-storage.js'
 import { MemoryImageStorage } from './memory-image-storage.js'
+import { RecordingLowStockAlerter } from './services.js'
 
 /**
  * Boots the real API (real middleware, real nowoll_test database).
@@ -12,6 +14,7 @@ import { MemoryImageStorage } from './memory-image-storage.js'
  * real admin sign-in arrives in Phase 4.
  * Image storage is ALWAYS the in-memory fake — tests never touch real Supabase.
  * Get it with app.get(IMAGE_STORAGE).
+ * Low-stock alerts are recorded, not logged: app.get(LOW_STOCK_ALERTER).alerts
  */
 export async function createTestApp(options: {
   asAdmin: boolean
@@ -19,6 +22,8 @@ export async function createTestApp(options: {
   let builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(IMAGE_STORAGE)
     .useValue(new MemoryImageStorage())
+    .overrideProvider(LOW_STOCK_ALERTER)
+    .useValue(new RecordingLowStockAlerter())
   if (options.asAdmin)
     builder = builder.overrideGuard(AdminGuard).useValue({ canActivate: () => true })
   const app = (await builder.compile()).createNestApplication<NestExpressApplication>({

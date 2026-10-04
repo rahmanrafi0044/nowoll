@@ -3,6 +3,7 @@ import { Prisma } from '@nowoll/database'
 import { InventoryChangeReason, ProductStatus } from '@nowoll/database/enums'
 import { bdtAmountSchema, SLUG_PATTERN } from '@nowoll/validation'
 import { CsvError, parse } from 'csv-parse/sync'
+import { type StockChange, StockService } from '../../inventory/stock.service.js'
 import { PrismaService } from '../../prisma/prisma.service.js'
 import { assertPublishable, toDecimal } from '../products.service.js'
 import {
@@ -131,7 +132,10 @@ const sameMoney = (a: Prisma.Decimal | null, b: number | null) =>
 
 @Injectable()
 export class CsvImportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stock: StockService,
+  ) {}
 
   async importProducts(file: Buffer, options: { dryRun: boolean }): Promise<ImportSummary> {
     const rows = this.parse(file)
@@ -576,6 +580,7 @@ export class CsvImportService {
   // ── 3. Apply (one transaction) ───────────────────────────────────────────
 
   private async apply(plans: ProductPlan[]): Promise<void> {
+    const stockChanges: StockChange[] = []
     await this.prisma.$transaction(
       async (tx) => {
         for (const plan of plans) {
@@ -628,19 +633,18 @@ export class CsvImportService {
                   sku: v.sku,
                   size: vRest.size!,
                   color: vRest.color!,
-                  stock: v.stock ?? 0,
+                  stock: 0, // starting stock is added below, through StockService
                   sortOrder: nextSort++,
                 },
               })
-              if (created.stock > 0) {
-                await tx.inventoryLog.create({
-                  data: {
+              if (v.stock) {
+                stockChanges.push(
+                  await this.stock.adjust(tx, {
                     variantId: created.id,
-                    change: created.stock,
-                    stockAfter: created.stock,
+                    adjustment: { change: v.stock },
                     reason: InventoryChangeReason.CSV_IMPORT,
-                  },
-                })
+                  }),
+                )
               }
               continue
             }
@@ -652,26 +656,15 @@ export class CsvImportService {
               })
             }
             if (v.stock !== undefined) {
-              // Lock the row and read the stock INSIDE the transaction, so the
-              // logged change is exact even if an order happens at the same time.
-              const locked = await tx.$queryRaw<{ stock: number }[]>`
-                SELECT stock FROM product_variants WHERE id = ${v.existingId}::uuid FOR UPDATE`
-              const before = locked[0]?.stock ?? 0
-              if (before !== v.stock) {
-                await tx.productVariant.update({
-                  where: { id: v.existingId },
-                  data: { stock: v.stock },
-                })
-                await tx.inventoryLog.create({
-                  data: {
-                    variantId: v.existingId,
-                    change: v.stock - before,
-                    stockAfter: v.stock,
-                    reason: InventoryChangeReason.CSV_IMPORT,
-                    // TODO(phase 4): actorId = the signed-in admin
-                  },
-                })
-              }
+              // "Set to" mode: StockService locks the row, so the logged change
+              // is exact even if an order happens at the same moment.
+              stockChanges.push(
+                await this.stock.adjust(tx, {
+                  variantId: v.existingId,
+                  adjustment: { setTo: v.stock },
+                  reason: InventoryChangeReason.CSV_IMPORT,
+                }),
+              )
             }
           }
 
@@ -681,6 +674,7 @@ export class CsvImportService {
       },
       { timeout: 60_000, maxWait: 10_000 }, // large files take longer than the 5s default
     )
+    await this.stock.notifyLowStock(stockChanges) // only after the import has committed
   }
 }
 

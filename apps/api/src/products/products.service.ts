@@ -8,6 +8,7 @@ import { Prisma, type Product } from '@nowoll/database'
 import { InventoryChangeReason, ProductStatus } from '@nowoll/database/enums'
 import type { Paginated } from '@nowoll/types'
 import { CategoriesService } from '../categories/categories.service.js'
+import { StockService } from '../inventory/stock.service.js'
 import { pickUniqueSlug, slugPrefixOf } from '../common/slugs.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import type { CreateProductDto } from './dto/create-product.dto.js'
@@ -72,6 +73,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly categories: CategoriesService,
+    private readonly stock: StockService,
   ) {}
 
   // ── Public ─────────────────────────────────────────────────────────────
@@ -206,8 +208,8 @@ export class ProductsService {
       ? await this.assertSlugAvailable(fields.slug)
       : await this.generateUniqueSlug(fields.name)
 
-    // TRANSACTION: the product, its variants and their starting-stock log
-    // entries are saved together — or, if anything fails, not at all.
+    // TRANSACTION: the product, its variants and their starting stock (with
+    // its log entries) are saved together — or, if anything fails, not at all.
     return this.prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
@@ -224,8 +226,11 @@ export class ProductsService {
         },
         include: { variants: true },
       })
-      await logInitialStock(tx, product.variants)
-      return product
+      await addStartingStock(this.stock, tx, product.variants, variants)
+      return tx.product.findUniqueOrThrow({
+        where: { id: product.id },
+        include: { variants: true },
+      })
     })
   }
 
@@ -344,11 +349,16 @@ export class ProductsService {
 
 // ── Rules shared with VariantsService and the CSV importer ──────────────────
 
-/** DTO → database row for a new variant. */
+/**
+ * DTO → database row for a new variant. Stock always starts at 0: the
+ * requested starting stock is then added through StockService (see
+ * addStartingStock), so it's logged like every other stock change.
+ */
 export function variantData(v: CreateVariantDto) {
+  const { stock: _starting, ...rest } = v
   return {
-    ...v,
-    stock: v.stock ?? 0,
+    ...rest,
+    stock: 0,
     price: toDecimalOrNull(v.price),
     compareAtPrice: toDecimalOrNull(v.compareAtPrice),
   }
@@ -379,23 +389,23 @@ export function assertNoDuplicateVariants(
   }
 }
 
-/** Writes an INITIAL_STOCK log entry for each new variant that starts with stock. */
-export async function logInitialStock(
+/** Gives freshly created variants their requested starting stock (logged as INITIAL_STOCK). */
+export async function addStartingStock(
+  stock: StockService,
   tx: Prisma.TransactionClient,
-  variants: { id: string; stock: number }[],
-  reason: InventoryChangeReason = InventoryChangeReason.INITIAL_STOCK,
+  created: { id: string; sku: string }[],
+  requested: Pick<CreateVariantDto, 'sku' | 'stock'>[],
 ): Promise<void> {
-  const withStock = variants.filter((v) => v.stock > 0)
-  if (withStock.length === 0) return
-  await tx.inventoryLog.createMany({
-    data: withStock.map((v) => ({
-      variantId: v.id,
-      change: v.stock,
-      stockAfter: v.stock,
-      reason,
-      // TODO(phase 4): actorId = the signed-in admin
-    })),
-  })
+  for (const r of requested) {
+    if (!r.stock) continue
+    const variant = created.find((c) => c.sku === r.sku)
+    if (!variant) continue
+    await stock.adjust(tx, {
+      variantId: variant.id,
+      adjustment: { change: r.stock },
+      reason: InventoryChangeReason.INITIAL_STOCK,
+    })
+  }
 }
 
 /**
