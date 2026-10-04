@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,13 +9,18 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { AdminOnly } from '../common/decorators/admin-only.decorator.js'
 import { MAX_IMAGE_BYTES } from '../storage/image-storage.js'
+import { CsvExportService } from './csv/csv-export.service.js'
+import { MAX_IMPORT_BYTES } from './csv/csv-format.js'
+import { CsvImportService } from './csv/csv-import.service.js'
 import { CreateProductDto } from './dto/create-product.dto.js'
+import { ImportProductsQuery } from './dto/import-products.query.js'
 import { ListProductsQuery } from './dto/list-products.query.js'
 import { UpdateImageDto } from './dto/update-image.dto.js'
 import { UpdateProductDto } from './dto/update-product.dto.js'
@@ -27,6 +33,8 @@ export class ProductsController {
   constructor(
     private readonly products: ProductsService,
     private readonly images: ImagesService,
+    private readonly csvExport: CsvExportService,
+    private readonly csvImport: CsvImportService,
   ) {}
 
   @Get()
@@ -34,8 +42,32 @@ export class ProductsController {
     return this.products.list(query)
   }
 
-  // NOTE: fixed paths like /products/export (commit 4) must be declared ABOVE
-  // this route — NestJS matches routes in order, and ':slug' matches anything.
+  // ── CSV (declared BEFORE ':slug' — NestJS matches routes in order, and
+  //    ':slug' would otherwise treat "export" as a product slug) ──
+
+  /** Downloads every non-archived product + variant as a spreadsheet-ready CSV. */
+  @Get('export')
+  @AdminOnly()
+  async exportCsv() {
+    const date = new Date().toISOString().slice(0, 10)
+    return new StreamableFile(await this.csvExport.exportProducts(), {
+      type: 'text/csv; charset=utf-8',
+      disposition: `attachment; filename="nowoll-products-${date}.csv"`,
+    })
+  }
+
+  /** Creates/updates products from a CSV. ?dryRun=true checks the file without saving. */
+  @Post('import')
+  @AdminOnly()
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMPORT_BYTES, files: 1 } }))
+  importCsv(
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+    @Query() query: ImportProductsQuery,
+  ) {
+    if (!file) throw new BadRequestException('Attach a CSV file in the "file" field.')
+    return this.csvImport.importProducts(file.buffer, { dryRun: query.dryRun ?? false })
+  }
+
   @Get(':slug')
   findBySlug(@Param('slug') slug: string) {
     return this.products.findBySlug(slug)

@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer'
+import { Type } from 'class-transformer'
 import {
   IsBoolean,
   IsIn,
@@ -10,13 +10,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator'
-import { Trim } from '../../common/validation/transforms.js'
-
-/** Query strings are always text: "true" → true, "false" → false. */
-const ToBoolean = () =>
-  Transform(({ value }: { value: unknown }) =>
-    value === 'true' ? true : value === 'false' ? false : value,
-  )
+import { ToBoolean, Trim } from '../../common/validation/transforms.js'
 
 export const PRODUCT_SORTS = ['relevance', 'newest', 'price_asc', 'price_desc'] as const
 export type ProductSort = (typeof PRODUCT_SORTS)[number]

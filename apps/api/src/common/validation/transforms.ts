@@ -18,3 +18,9 @@ export const TrimOrNull = () =>
     const trimmed = value.trim()
     return trimmed === '' ? null : trimmed
   })
+
+/** Query strings and form fields are text: "true" → true, "false" → false. */
+export const ToBoolean = () =>
+  Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )

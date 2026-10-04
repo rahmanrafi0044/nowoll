@@ -29,6 +29,19 @@ describe('AllExceptionsFilter', () => {
     })
   })
 
+  it('passes through a list of details when a service provides one', () => {
+    const ex = new BadRequestException({
+      message: '2 problems',
+      details: ['Row 2: bad', 'Row 5: worse'],
+    })
+    expect(filter.toErrorShape(ex)).toEqual({
+      status: 400,
+      error: 'BAD_REQUEST',
+      message: '2 problems',
+      details: ['Row 2: bad', 'Row 5: worse'],
+    })
+  })
+
   it('maps a Prisma unique-constraint error (P2002) to 409 CONFLICT', () => {
     expect(filter.toErrorShape(prismaError('P2002')).status).toBe(HttpStatus.CONFLICT)
   })
