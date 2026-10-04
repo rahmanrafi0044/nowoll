@@ -178,3 +178,23 @@ describe('CategoriesService.remove', () => {
     await expect(service.remove(c.id)).rejects.toBeInstanceOf(NotFoundException)
   })
 })
+
+describe('CategoriesService helpers for products', () => {
+  it('returns a visible category with all visible descendants', async () => {
+    const men = await service.create({ name: 'Men' })
+    const shirts = await service.create({ name: 'Shirts', parentId: men.id })
+    const formal = await service.create({ name: 'Formal', parentId: shirts.id })
+    await service.create({ name: 'Hidden', parentId: men.id, isActive: false })
+
+    expect(new Set(await service.visibleSubtreeIds('men'))).toEqual(
+      new Set([men.id, shirts.id, formal.id]),
+    )
+    expect(await service.visibleSubtreeIds('hidden')).toBeNull()
+  })
+
+  it('builds a breadcrumb ending with the category itself', async () => {
+    const men = await service.create({ name: 'Men' })
+    const shirts = await service.create({ name: 'Shirts', parentId: men.id })
+    expect((await service.breadcrumbFor(shirts.id)).map((c) => c.slug)).toEqual(['men', 'shirts'])
+  })
+})
