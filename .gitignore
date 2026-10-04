@@ -73,3 +73,6 @@ temp/
 
 # Turborepo local cache
 .turbo/
+
+# Prisma 7 generated client (rebuilt by `pnpm db:generate`)
+packages/database/src/generated/
