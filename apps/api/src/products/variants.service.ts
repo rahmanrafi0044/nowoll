@@ -1,14 +1,15 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import type { ProductVariant } from '@nowoll/database'
 import { InventoryChangeReason, ProductStatus } from '@nowoll/database/enums'
+import { StockService } from '../inventory/stock.service.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import type { CreateVariantDto } from './dto/create-variant.dto.js'
 import type { UpdateVariantDto } from './dto/update-variant.dto.js'
 import { type PublicVariant, toPublicVariant } from './product-view.js'
 import {
+  addStartingStock,
   assertCompareAtAbove,
   assertPublishable,
-  logInitialStock,
   ProductsService,
   toDecimal,
   variantData,
@@ -19,6 +20,7 @@ export class VariantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly products: ProductsService,
+    private readonly stock: StockService,
   ) {}
 
   /** GET /variants/product/:productId — live variants of a visible product. */
@@ -61,8 +63,8 @@ export class VariantsService {
       const variant = await tx.productVariant.create({
         data: { ...variantData(dto), sortOrder, productId },
       })
-      await logInitialStock(tx, [variant])
-      return variant
+      await addStartingStock(this.stock, tx, [variant], [dto])
+      return tx.productVariant.findUniqueOrThrow({ where: { id: variant.id } })
     })
   }
 
@@ -133,27 +135,24 @@ export class VariantsService {
 
   private async restore(archived: ProductVariant, dto: CreateVariantDto): Promise<ProductVariant> {
     if (dto.sku !== archived.sku) await this.products.assertSkusAvailable([dto.sku])
-    const { stock, ...fields } = variantData(dto)
+    const { stock: _zero, ...fields } = variantData(dto) // stock is set below, with a log entry
 
-    return this.prisma.$transaction(async (tx) => {
-      const restored = await tx.productVariant.update({
+    const { variant, change } = await this.prisma.$transaction(async (tx) => {
+      await tx.productVariant.update({
         where: { id: archived.id },
-        data: { ...fields, isActive: dto.isActive ?? true, deletedAt: null, stock },
+        data: { ...fields, isActive: dto.isActive ?? true, deletedAt: null },
       })
-      const change = stock - archived.stock
-      if (change !== 0) {
-        await tx.inventoryLog.create({
-          data: {
-            variantId: archived.id,
-            change,
-            stockAfter: stock,
-            reason: InventoryChangeReason.MANUAL_ADJUSTMENT,
-            note: 'Archived variant restored',
-          },
-        })
-      }
-      return restored
+      const change = await this.stock.adjust(tx, {
+        variantId: archived.id,
+        adjustment: { setTo: dto.stock ?? 0 },
+        reason: InventoryChangeReason.MANUAL_ADJUSTMENT,
+        note: 'Archived variant restored',
+      })
+      const variant = await tx.productVariant.findUniqueOrThrow({ where: { id: archived.id } })
+      return { variant, change }
     })
+    await this.stock.notifyLowStock([change])
+    return variant
   }
 
   private async findLiveOrThrow(id: string): Promise<ProductVariant> {

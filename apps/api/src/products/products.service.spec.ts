@@ -6,9 +6,14 @@ import { CategoriesService } from '../categories/categories.service.js'
 import type { PrismaService } from '../prisma/prisma.service.js'
 import type { ListProductsQuery } from './dto/list-products.query.js'
 import { ProductsService } from './products.service.js'
+import { makeStockService } from '../../test/utils/services.js'
 
 const prisma = testPrisma() as unknown as PrismaService
-const service = new ProductsService(prisma, new CategoriesService(prisma))
+const service = new ProductsService(
+  prisma,
+  new CategoriesService(prisma),
+  makeStockService(prisma).stock,
+)
 const list = (q: Partial<ListProductsQuery> = {}) => service.list({ page: 1, pageSize: 24, ...q })
 const slugsOf = async (q: Partial<ListProductsQuery> = {}) =>
   (await list(q)).items.map((p) => p.name)

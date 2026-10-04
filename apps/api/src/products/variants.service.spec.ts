@@ -5,11 +5,14 @@ import { CategoriesService } from '../categories/categories.service.js'
 import type { PrismaService } from '../prisma/prisma.service.js'
 import { ProductsService } from './products.service.js'
 import { VariantsService } from './variants.service.js'
+import { makeStockService } from '../../test/utils/services.js'
 
 const prisma = testPrisma() as unknown as PrismaService
+const { stock } = makeStockService(prisma)
 const service = new VariantsService(
   prisma,
-  new ProductsService(prisma, new CategoriesService(prisma)),
+  new ProductsService(prisma, new CategoriesService(prisma), stock),
+  stock,
 )
 
 beforeEach(() => resetDatabase())
