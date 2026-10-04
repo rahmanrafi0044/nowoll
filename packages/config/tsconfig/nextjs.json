@@ -1,12 +1,12 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "// why": "Next.js compiles TypeScript itself (noEmit) and needs DOM types + bundler-style module resolution.",
+  "// why": "Next.js compiles TypeScript itself (noEmit) and needs DOM types + bundler-style module resolution. Mirrors the official Next.js 16 starter.",
   "extends": "./base.json",
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "allowJs": false,
     "noEmit": true,
     "declaration": false,

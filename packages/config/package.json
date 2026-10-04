@@ -10,16 +10,18 @@
     "./tsconfig/nestjs.json": "./tsconfig/nestjs.json",
     "./tsconfig/nextjs.json": "./tsconfig/nextjs.json",
     "./eslint/base": "./eslint/base.js",
-    "./prettier": "./prettier.js"
+    "./prettier": "./prettier.js",
+    "./eslint/next": "./eslint/next.js"
   },
   "dependencies": {
-    "@eslint/js": "^10.0.0",
+    "@eslint/js": "^9.39.0",
     "eslint-config-prettier": "^10.1.0",
     "globals": "^16.0.0",
-    "typescript-eslint": "^8.71.0"
+    "typescript-eslint": "^8.71.0",
+    "eslint-config-next": "16.3.8"
   },
   "peerDependencies": {
-    "eslint": "^10.0.0",
+    "eslint": "^9.39.0",
     "typescript": "^6.0.0"
   }
 }
