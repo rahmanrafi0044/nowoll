@@ -1,0 +1,771 @@
+// ============================================================================
+// Nowoll — Prisma schema (SINGLE SOURCE OF TRUTH for the database)
+// ============================================================================
+//
+// Conventions used throughout this file — read these once and the rest is easy:
+//
+// • IDs are UUIDs, not 1,2,3…  → can't be guessed from a URL, and safe to
+//   generate on any server without asking the database first.
+// • Field names are camelCase in TypeScript but snake_case in PostgreSQL
+//   (@map / @@map). Postgres folds unquoted names to lowercase, so snake_case
+//   keeps raw SQL, Supabase dashboard and RLS policies readable.
+// • Money is Decimal(12, 2), never Float. Floats can't store 0.10 exactly, and
+//   rounding errors in prices are unacceptable. All amounts are BDT (৳).
+// • Soft delete: tables an admin can "delete" have `deletedAt`. Rows are never
+//   physically removed, so old orders still point at the product they sold.
+// • Snapshots: orders copy names/prices/addresses at purchase time. If a
+//   product is renamed or repriced later, past orders and invoices stay correct.
+// • Business rules (VAT, thresholds, shipping fees) live in the `settings` and
+//   `shipping_zones` tables — never in code (CLAUDE.md Rule 6).
+// ============================================================================
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // CommonJS output so NestJS (CommonJS) and the workers can require() it.
+  moduleFormat        = "cjs"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// ENUMS — a fixed list of allowed values, enforced by the database itself
+// ============================================================================
+
+enum UserRole {
+  CUSTOMER
+  STAFF // can manage orders/products, not settings
+  ADMIN // full access
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+}
+
+enum ProductStatus {
+  DRAFT // being prepared, hidden from storefront
+  ACTIVE // visible and purchasable
+  ARCHIVED // soft-deleted / discontinued
+}
+
+enum OrderStatus {
+  PENDING // created, waiting for payment (SSLCommerz) or confirmation (COD)
+  CONFIRMED // payment verified, or COD order accepted
+  PROCESSING // being packed / courier being booked
+  SHIPPED // handed to courier, tracking number entered
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum PaymentMethod {
+  SSLCOMMERZ
+  COD
+}
+
+enum PaymentStatus {
+  PENDING // COD: until admin marks cash collected. SSLCommerz: until IPN validated
+  PAID
+  FAILED
+  CANCELLED
+  UNDER_REVIEW // SSLCommerz validation API unreachable → a human must check (see docs/integrations/sslcommerz.md)
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentEventType {
+  IPN // server-to-server notification from SSLCommerz
+  VALIDATION // our call to the SSLCommerz validation API
+  REDIRECT_SUCCESS
+  REDIRECT_FAIL
+  REDIRECT_CANCEL
+  REFUND
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+enum DiscountType {
+  PERCENTAGE // value = 10 means 10% off
+  FIXED_AMOUNT // value = 200 means ৳200 off
+}
+
+enum InventoryChangeReason {
+  INITIAL_STOCK
+  ORDER_PLACED
+  ORDER_CANCELLED // stock restored
+  RETURN_RESTOCKED
+  MANUAL_ADJUSTMENT // admin edited stock in the inventory page
+  CSV_IMPORT
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  RECEIVED // item physically came back to the warehouse
+  REFUNDED
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SubscriberStatus {
+  PENDING // signed up, hasn't clicked the confirmation email yet
+  SUBSCRIBED
+  UNSUBSCRIBED
+}
+
+// ============================================================================
+// USERS & ADDRESSES
+// ============================================================================
+
+// Passwords and 2FA (TOTP) are handled by Supabase Auth, which stores them in
+// its own `auth.users` table. This table holds only our app-level profile, and
+// `id` is the SAME UUID Supabase Auth gives the user — that's how we link them.
+// That's why `id` has no @default: we receive it from Supabase, we don't invent it.
+model User {
+  id           String     @id @db.Uuid
+  email        String     @unique
+  fullName     String?    @map("full_name")
+  phone        String?
+  role         UserRole   @default(CUSTOMER)
+  status       UserStatus @default(ACTIVE)
+  bannedReason String?    @map("banned_reason")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  deletedAt    DateTime?  @map("deleted_at")
+
+  addresses      Address[]
+  orders         Order[]
+  wishlistItems  WishlistItem[]
+  reviews        Review[]
+  returnRequests ReturnRequest[]
+  blogPosts      BlogPost[]
+  inventoryLogs  InventoryLog[]       @relation("InventoryActor")
+  statusChanges  OrderStatusHistory[] @relation("StatusChangedBy")
+  discountUsages DiscountUsage[]
+
+  @@index([role]) // admin "list staff" and role checks
+  @@map("users")
+}
+
+// Bangladesh addressing: division → district → area (thana/upazila).
+// `district` is what decides the shipping zone (Dhaka vs outside Dhaka).
+model Address {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  label        String? // "Home", "Office"
+  fullName     String   @map("full_name")
+  phone        String
+  addressLine1 String   @map("address_line1")
+  addressLine2 String?  @map("address_line2")
+  area         String? // thana / upazila
+  district     String
+  division     String
+  postalCode   String?  @map("postal_code")
+  isDefault    Boolean  @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Cascade: an address has no meaning without its owner.
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+// ============================================================================
+// CATALOG — categories, products, variants, images, inventory
+// ============================================================================
+
+// Self-relation: a category can have a parent ("Men" → "Shirts" → "Formal").
+// parentId = null means a top-level category. This gives the nested tree the
+// storefront menu needs without a separate table.
+model Category {
+  id             String    @id @default(uuid()) @db.Uuid
+  name           String
+  slug           String    @unique // used in URLs: /shop/men-shirts
+  description    String?   @db.Text
+  imageUrl       String?   @map("image_url")
+  imageAlt       String?   @map("image_alt")
+  sizeGuide      String?   @map("size_guide") @db.Text // shown on every PDP in this category
+  parentId       String?   @map("parent_id") @db.Uuid
+  sortOrder      Int       @default(0) @map("sort_order")
+  isActive       Boolean   @default(true) @map("is_active")
+  seoTitle       String?   @map("seo_title")
+  seoDescription String?   @map("seo_description")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId]) // fast "get children of X" when building the tree
+  @@map("categories")
+}
+
+// A Product is what the customer sees ("Oxford Cotton Shirt").
+// A ProductVariant is what you actually stock and sell ("Oxford Cotton Shirt, M, Blue").
+// Price lives on the product; a variant may override it (e.g. XXL costs more).
+model Product {
+  id               String        @id @default(uuid()) @db.Uuid
+  name             String
+  slug             String        @unique // /products/oxford-cotton-shirt
+  description      String?       @db.Text
+  shortDescription String?       @map("short_description")
+  categoryId       String        @map("category_id") @db.Uuid
+  basePrice        Decimal       @map("base_price") @db.Decimal(12, 2)
+  compareAtPrice   Decimal?      @map("compare_at_price") @db.Decimal(12, 2) // the "was ৳1,500" strike-through price
+  status           ProductStatus @default(DRAFT)
+  isFeatured       Boolean       @default(false) @map("is_featured") // homepage "featured" section
+  tags             String[]
+  seoTitle         String?       @map("seo_title")
+  seoDescription   String?       @map("seo_description")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  deletedAt        DateTime?     @map("deleted_at")
+  // NOTE: full-text search (a Postgres tsvector column + GIN index) is added in
+  // Phase 2 step 10 via a raw SQL migration — Prisma can't declare it natively.
+
+  category   Category         @relation(fields: [categoryId], references: [id])
+  variants   ProductVariant[]
+  images     ProductImage[]
+  reviews    Review[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([status, createdAt]) // storefront "new arrivals": active products, newest first
+  @@index([isFeatured])
+  @@map("products")
+}
+
+model ProductVariant {
+  id                String    @id @default(uuid()) @db.Uuid
+  productId         String    @map("product_id") @db.Uuid
+  sku               String    @unique // your internal stock code, e.g. NW-OXF-M-BLU
+  size              String // "S", "M", "L", "32", "Free size"
+  color             String
+  colorHex          String?   @map("color_hex") // for the color swatch, e.g. "#1E3A8A"
+  price             Decimal?  @db.Decimal(12, 2) // null = use product.basePrice
+  compareAtPrice    Decimal?  @map("compare_at_price") @db.Decimal(12, 2)
+  stock             Int       @default(0)
+  lowStockThreshold Int?      @map("low_stock_threshold") // null = use the global setting
+  weightGrams       Int?      @map("weight_grams") // for courier booking later
+  isActive          Boolean   @default(true) @map("is_active")
+  sortOrder         Int       @default(0) @map("sort_order")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  images        ProductImage[]
+  inventoryLogs InventoryLog[]
+  orderItems    OrderItem[]
+  wishlistItems WishlistItem[]
+
+  // Unique constraint: you can't accidentally create two "M / Blue" variants of one product.
+  @@unique([productId, size, color])
+  @@index([stock]) // admin "low stock" page scans by stock level
+  @@map("product_variants")
+}
+
+// Images are stored in Supabase Storage; we keep the public URL plus the
+// storage path (needed to delete the file when the image is removed).
+// variantId is optional: set it when a photo shows one specific color.
+model ProductImage {
+  id          String   @id @default(uuid()) @db.Uuid
+  productId   String   @map("product_id") @db.Uuid
+  variantId   String?  @map("variant_id") @db.Uuid
+  url         String
+  storagePath String   @map("storage_path")
+  altText     String   @map("alt_text") // required — accessibility + SEO
+  sortOrder   Int      @default(0) @map("sort_order") // 0 = main image
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([productId, sortOrder])
+  @@map("product_images")
+}
+
+// Append-only audit trail: every stock change writes one row here.
+// `change` is the delta (+10 restock, -2 sale); `stockAfter` lets you read
+// history without re-adding every row.
+model InventoryLog {
+  id         String                @id @default(uuid()) @db.Uuid
+  variantId  String                @map("variant_id") @db.Uuid
+  change     Int
+  stockAfter Int                   @map("stock_after")
+  reason     InventoryChangeReason
+  note       String?
+  orderId    String?               @map("order_id") @db.Uuid
+  actorId    String?               @map("actor_id") @db.Uuid // admin who made a manual change
+  createdAt  DateTime              @default(now()) @map("created_at")
+
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+  order   Order?         @relation(fields: [orderId], references: [id])
+  actor   User?          @relation("InventoryActor", fields: [actorId], references: [id])
+
+  @@index([variantId, createdAt])
+  @@map("inventory_logs")
+}
+
+// ============================================================================
+// SHIPPING
+// ============================================================================
+
+// Zones are rows, not code: admin can change fees any time.
+// `districts` lists which districts belong to this zone. The zone with
+// isDefault = true catches every district not listed elsewhere
+// (that's "Outside Dhaka").
+model ShippingZone {
+  id                    String   @id @default(uuid()) @db.Uuid
+  code                  String   @unique // "DHAKA", "OUTSIDE_DHAKA"
+  name                  String // shown at checkout: "Inside Dhaka"
+  districts             String[]
+  isDefault             Boolean  @default(false) @map("is_default")
+  fee                   Decimal  @db.Decimal(12, 2)
+  freeShippingThreshold Decimal? @map("free_shipping_threshold") @db.Decimal(12, 2) // null = no free shipping
+  estimatedDaysMin      Int?     @map("estimated_days_min")
+  estimatedDaysMax      Int?     @map("estimated_days_max")
+  isActive              Boolean  @default(true) @map("is_active")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@map("shipping_zones")
+}
+
+// ============================================================================
+// DISCOUNTS
+// ============================================================================
+
+model DiscountCode {
+  id                    String       @id @default(uuid()) @db.Uuid
+  code                  String       @unique // stored UPPERCASE so "summer10" == "SUMMER10"
+  description           String?
+  type                  DiscountType
+  value                 Decimal      @db.Decimal(12, 2)
+  minOrderAmount        Decimal?     @map("min_order_amount") @db.Decimal(12, 2)
+  maxDiscountAmount     Decimal?     @map("max_discount_amount") @db.Decimal(12, 2) // caps a percentage discount
+  usageLimit            Int?         @map("usage_limit") // total uses across everyone; null = unlimited
+  usageLimitPerCustomer Int?         @map("usage_limit_per_customer")
+  usedCount             Int          @default(0) @map("used_count") // incremented inside the order transaction
+  startsAt              DateTime?    @map("starts_at")
+  expiresAt             DateTime?    @map("expires_at")
+  isActive              Boolean      @default(true) @map("is_active")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  deletedAt             DateTime?    @map("deleted_at")
+
+  usages DiscountUsage[]
+  orders Order[]
+
+  @@map("discount_codes")
+}
+
+// One row per order that used a code. Lets us enforce the per-customer limit
+// (guests are matched by email) and show usage stats in admin.
+model DiscountUsage {
+  id             String   @id @default(uuid()) @db.Uuid
+  discountCodeId String   @map("discount_code_id") @db.Uuid
+  orderId        String   @unique @map("order_id") @db.Uuid // an order uses at most one code
+  userId         String?  @map("user_id") @db.Uuid
+  email          String
+  amount         Decimal  @db.Decimal(12, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  discountCode DiscountCode @relation(fields: [discountCodeId], references: [id])
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([discountCodeId, email])
+  @@map("discount_usages")
+}
+
+// ============================================================================
+// ORDERS
+// ============================================================================
+
+// userId is optional → guest checkout. Guests are identified by email +
+// orderNumber on the public /orders/track page.
+//
+// orderNumber is a short human-friendly number (shown as "NW-1001") for
+// customers, phone calls and invoices. `id` (UUID) stays the internal key.
+model Order {
+  id            String        @id @default(uuid()) @db.Uuid
+  orderNumber   Int           @unique @default(autoincrement()) @map("order_number")
+  userId        String?       @map("user_id") @db.Uuid
+  status        OrderStatus   @default(PENDING)
+  paymentMethod PaymentMethod @map("payment_method")
+  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
+
+  // Contact (snapshot)
+  email        String
+  phone        String
+  customerName String @map("customer_name")
+
+  // Shipping address (snapshot — copied, not linked, so later edits don't change old orders)
+  shippingAddressLine1 String  @map("shipping_address_line1")
+  shippingAddressLine2 String? @map("shipping_address_line2")
+  shippingArea         String? @map("shipping_area")
+  shippingDistrict     String  @map("shipping_district")
+  shippingDivision     String  @map("shipping_division")
+  shippingPostalCode   String? @map("shipping_postal_code")
+
+  shippingZoneId   String? @map("shipping_zone_id") @db.Uuid
+  shippingZoneName String  @map("shipping_zone_name")
+
+  // Money (all BDT). total = subtotal - discountAmount + shippingFee + vatAmount
+  subtotal       Decimal @db.Decimal(12, 2)
+  discountAmount Decimal @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  shippingFee    Decimal @default(0) @map("shipping_fee") @db.Decimal(12, 2)
+  vatRate        Decimal @default(0) @map("vat_rate") @db.Decimal(5, 2) // % at time of order, e.g. 7.50
+  vatAmount      Decimal @default(0) @map("vat_amount") @db.Decimal(12, 2)
+  total          Decimal @db.Decimal(12, 2)
+
+  discountCodeId String? @map("discount_code_id") @db.Uuid
+  discountCode   String? @map("discount_code") // snapshot of the code text
+
+  // Phase 1 courier flow is manual: admin types these in (docs/integrations/courier.md)
+  courierName    String? @map("courier_name")
+  trackingNumber String? @map("tracking_number")
+
+  customerNote String? @map("customer_note")
+  adminNotes   String? @map("admin_notes") @db.Text
+  cancelReason String? @map("cancel_reason")
+
+  // Timestamps for each milestone — used for the tracking timeline and analytics
+  confirmedAt DateTime? @map("confirmed_at")
+  shippedAt   DateTime? @map("shipped_at")
+  deliveredAt DateTime? @map("delivered_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user           User?                @relation(fields: [userId], references: [id])
+  shippingZone   ShippingZone?        @relation(fields: [shippingZoneId], references: [id])
+  discount       DiscountCode?        @relation(fields: [discountCodeId], references: [id])
+  items          OrderItem[]
+  payments       Payment[]
+  statusHistory  OrderStatusHistory[]
+  inventoryLogs  InventoryLog[]
+  discountUsage  DiscountUsage?
+  reviews        Review[]
+  returnRequests ReturnRequest[]
+
+  @@index([userId, createdAt]) // "My orders", newest first
+  @@index([status, createdAt]) // admin order list filtered by status
+  @@index([email]) // guest order tracking
+  @@index([createdAt]) // analytics / revenue charts by date
+  @@map("orders")
+}
+
+// Each line on the order. Product name, variant label, SKU and price are
+// snapshots — the invoice must never change after the sale.
+model OrderItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  orderId      String   @map("order_id") @db.Uuid
+  productId    String?  @map("product_id") @db.Uuid
+  variantId    String?  @map("variant_id") @db.Uuid
+  productName  String   @map("product_name")
+  variantLabel String   @map("variant_label") // e.g. "M / Blue"
+  sku          String
+  imageUrl     String?  @map("image_url")
+  unitPrice    Decimal  @map("unit_price") @db.Decimal(12, 2)
+  quantity     Int
+  lineTotal    Decimal  @map("line_total") @db.Decimal(12, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  returnItems ReturnItem[]
+
+  @@index([orderId])
+  @@index([productId]) // "top products" analytics + verified-buyer review check
+  @@map("order_items")
+}
+
+// Every status change gets a row: who changed it, from what, to what, and why.
+// Powers the tracking timeline and answers "who cancelled this order?".
+model OrderStatusHistory {
+  id          String       @id @default(uuid()) @db.Uuid
+  orderId     String       @map("order_id") @db.Uuid
+  fromStatus  OrderStatus? @map("from_status")
+  toStatus    OrderStatus  @map("to_status")
+  note        String?
+  changedById String?      @map("changed_by_id") @db.Uuid // null = system (e.g. IPN)
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedBy User? @relation("StatusChangedBy", fields: [changedById], references: [id])
+
+  @@index([orderId, createdAt])
+  @@map("order_status_history")
+}
+
+// ============================================================================
+// PAYMENTS & REFUNDS
+// ============================================================================
+
+// One order can have more than one payment attempt (customer's card fails,
+// they retry). SSLCommerz requires `tran_id` to be unique per attempt, so it
+// lives here (transactionId), not on Order.
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  orderId           String        @map("order_id") @db.Uuid
+  method            PaymentMethod
+  status            PaymentStatus @default(PENDING)
+  amount            Decimal       @db.Decimal(12, 2)
+  currency          String        @default("BDT")
+  transactionId     String        @unique @map("transaction_id") // SSLCommerz tran_id
+  valId             String?       @map("val_id") // SSLCommerz val_id, from a VALIDATED IPN only
+  bankTransactionId String?       @map("bank_transaction_id")
+  cardType          String?       @map("card_type") // e.g. "BKASH-BKash", "VISA-Dutch Bangla"
+  rawResponse       Json?         @map("raw_response") // latest validation response — required for audit
+  paidAt            DateTime?     @map("paid_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  order   Order          @relation(fields: [orderId], references: [id])
+  events  PaymentEvent[]
+  refunds Refund[]
+
+  @@index([orderId])
+  @@index([status])
+  @@map("payments")
+}
+
+// Append-only log of EVERY payload received from / sent to the gateway,
+// including IPNs for unknown orders (paymentId = null). Never edited.
+// This is the evidence if a customer disputes a payment.
+model PaymentEvent {
+  id            String           @id @default(uuid()) @db.Uuid
+  paymentId     String?          @map("payment_id") @db.Uuid
+  transactionId String?          @map("transaction_id")
+  type          PaymentEventType
+  payload       Json
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([transactionId])
+  @@index([paymentId])
+  @@map("payment_events")
+}
+
+model Refund {
+  id              String       @id @default(uuid()) @db.Uuid
+  paymentId       String       @map("payment_id") @db.Uuid
+  returnRequestId String?      @map("return_request_id") @db.Uuid
+  amount          Decimal      @db.Decimal(12, 2)
+  reason          String?
+  status          RefundStatus @default(PENDING)
+  gatewayRefId    String?      @map("gateway_ref_id") // SSLCommerz refund_ref_id
+  rawResponse     Json?        @map("raw_response")
+  processedAt     DateTime?    @map("processed_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  payment       Payment        @relation(fields: [paymentId], references: [id])
+  returnRequest ReturnRequest? @relation(fields: [returnRequestId], references: [id])
+
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+// ============================================================================
+// CUSTOMER FEATURES — wishlist, reviews, returns
+// ============================================================================
+
+model WishlistItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  variantId String   @map("variant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, variantId]) // can't wishlist the same thing twice
+  @@map("wishlist_items")
+}
+
+// orderId proves a verified purchase: the API only accepts a review when that
+// order is DELIVERED and contains this product.
+model Review {
+  id              String       @id @default(uuid()) @db.Uuid
+  productId       String       @map("product_id") @db.Uuid
+  userId          String       @map("user_id") @db.Uuid
+  orderId         String       @map("order_id") @db.Uuid
+  rating          Int // 1–5, enforced by the DTO (and a CHECK constraint in the migration)
+  title           String?
+  body            String       @db.Text
+  status          ReviewStatus @default(PENDING)
+  rejectionReason String?      @map("rejection_reason")
+  approvedAt      DateTime?    @map("approved_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id])
+
+  @@unique([userId, productId]) // one review per customer per product
+  @@index([productId, status]) // PDP: approved reviews for this product
+  @@map("reviews")
+}
+
+model ReturnRequest {
+  id              String       @id @default(uuid()) @db.Uuid
+  orderId         String       @map("order_id") @db.Uuid
+  userId          String       @map("user_id") @db.Uuid
+  status          ReturnStatus @default(REQUESTED)
+  reason          String
+  customerNote    String?      @map("customer_note") @db.Text
+  rejectionReason String?      @map("rejection_reason")
+  adminNote       String?      @map("admin_note") @db.Text
+  refundAmount    Decimal?     @map("refund_amount") @db.Decimal(12, 2)
+  approvedAt      DateTime?    @map("approved_at")
+  rejectedAt      DateTime?    @map("rejected_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  order   Order        @relation(fields: [orderId], references: [id])
+  user    User         @relation(fields: [userId], references: [id])
+  items   ReturnItem[]
+  refunds Refund[]
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@map("return_requests")
+}
+
+// Which items (and how many) are being returned — a customer may return
+// one shirt out of three.
+model ReturnItem {
+  id              String  @id @default(uuid()) @db.Uuid
+  returnRequestId String  @map("return_request_id") @db.Uuid
+  orderItemId     String  @map("order_item_id") @db.Uuid
+  quantity        Int
+  restock         Boolean @default(true) // false if the item came back damaged
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem     @relation(fields: [orderItemId], references: [id])
+
+  @@unique([returnRequestId, orderItemId])
+  @@map("return_items")
+}
+
+// ============================================================================
+// CONTENT — blog, static pages, homepage blocks
+// ============================================================================
+
+model BlogPost {
+  id             String        @id @default(uuid()) @db.Uuid
+  title          String
+  slug           String        @unique
+  excerpt        String?
+  content        String        @db.Text
+  coverImageUrl  String?       @map("cover_image_url")
+  coverImageAlt  String?       @map("cover_image_alt")
+  tags           String[]
+  status         PublishStatus @default(DRAFT)
+  publishedAt    DateTime?     @map("published_at")
+  authorId       String?       @map("author_id") @db.Uuid
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+
+  author User? @relation(fields: [authorId], references: [id])
+
+  @@index([status, publishedAt])
+  @@map("blog_posts")
+}
+
+// Privacy Policy, Terms, Return Policy… editable by admin, so they're rows
+// rather than files in the code.
+model Page {
+  id             String        @id @default(uuid()) @db.Uuid
+  slug           String        @unique // "privacy", "terms", "returns"
+  title          String
+  content        String        @db.Text
+  status         PublishStatus @default(DRAFT)
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@map("pages")
+}
+
+// Flexible content slots for the homepage and site chrome, e.g.
+//   key = "announcement_bar" → data = { text, link, bgColor }
+//   key = "homepage_hero"    → data = { heading, subheading, imageUrl, ctaLabel, ctaHref }
+// Json lets each block have its own shape; the shared Zod schemas validate it.
+model ContentBlock {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  data      Json
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("content_blocks")
+}
+
+model Subscriber {
+  id             String           @id @default(uuid()) @db.Uuid
+  email          String           @unique
+  status         SubscriberStatus @default(PENDING)
+  confirmToken   String?          @unique @map("confirm_token")
+  source         String? // "footer", "homepage", "checkout"
+  confirmedAt    DateTime?        @map("confirmed_at")
+  unsubscribedAt DateTime?        @map("unsubscribed_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@map("subscribers")
+}
+
+// ============================================================================
+// SETTINGS — every admin-configurable business rule (CLAUDE.md Rule 6)
+// ============================================================================
+
+// Key-value store. `value` is Json so it can hold a number, string, or object.
+// Seeded keys (see prisma/seed.ts): store_name, store_email, store_phone,
+// store_address, admin_notification_email, vat_rate, low_stock_threshold,
+// return_window_days.
+// Adding a new setting = inserting a row. No migration, no developer.
+model Setting {
+  key         String   @id
+  value       Json
+  description String? // shown next to the field in admin settings
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}

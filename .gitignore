@@ -67,3 +67,16 @@ Thumbs.db
 # Temporary
 tmp/
 temp/
+
+# Windows download metadata (created when copying files from Windows into WSL)
+*:Zone.Identifier
+
+# Turborepo local cache
+.turbo/
+
+# Prisma 7 generated client (rebuilt by `pnpm db:generate`)
+packages/database/src/generated/
+
+# Next.js generated files
+next-env.d.ts
+*.tsbuildinfo

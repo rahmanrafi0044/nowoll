@@ -1,0 +1,6 @@
+{
+  "// why": "Type-checks everything (including tests, seed and config) without emitting files.",
+  "extends": "@nowoll/config/tsconfig/library.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["src", "prisma/*.ts", "prisma.config.ts", "vitest.config.mts"]
+}

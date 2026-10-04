@@ -1,0 +1,3 @@
+@import 'tailwindcss';
+/* Brand colors, fonts and shape — shared with the admin panel. Edit them in packages/ui/src/theme.css. */
+@import '@nowoll/ui/theme.css';
