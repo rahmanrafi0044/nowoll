@@ -7,6 +7,7 @@ import { NewsletterSection } from '@/components/home/newsletter-section'
 import { ProductSection } from '@/components/home/product-section'
 import { apiGet } from '@/lib/api'
 import { publicEnv } from '@/lib/env'
+import { JsonLd } from '@/lib/json-ld'
 
 // ISR: Next.js serves a ready-made page and rebuilds it in the background at
 // most every 60 seconds (spec: "SSG + ISR (60s)").
@@ -53,24 +54,17 @@ export default async function HomePage() {
   )
 }
 
-/**
- * Structured data (JSON-LD) that tells Google who the store is — can show the
- * name and logo in search results (CLAUDE.md §13).
- * JSON.stringify output is placed inside a <script>, so "<" is escaped to stop
- * any text from closing the script tag early (an XSS precaution).
- */
+/** Organization structured data: tells Google who the store is (CLAUDE.md §13). */
 function OrganizationJsonLd() {
-  const json = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'Nowoll',
-    slogan: 'always new',
-    url: publicEnv.siteUrl,
-  }
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(json).replace(/</g, '\\u003c') }}
+    <JsonLd
+      data={{
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'Nowoll',
+        slogan: 'always new',
+        url: publicEnv.siteUrl,
+      }}
     />
   )
 }

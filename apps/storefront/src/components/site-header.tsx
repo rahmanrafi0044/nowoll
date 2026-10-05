@@ -1,5 +1,6 @@
 import type { CategoryNode } from '@nowoll/types'
 import Link from 'next/link'
+import { CartButton } from './cart-button'
 import { MobileMenu } from './mobile-menu'
 
 // Top-level categories as the main navigation. On phones they move into
@@ -30,8 +31,8 @@ export function SiteHeader({ categories }: { categories: CategoryNode[] }) {
             ))}
           </ul>
         </nav>
-        {/* Cart and account buttons arrive with Phase 3 (cart) and Phase 4 (accounts). */}
-        <div className="w-11" aria-hidden="true" />
+        {/* Account button arrives with Phase 4 (customer accounts). */}
+        <CartButton />
       </div>
     </header>
   )

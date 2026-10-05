@@ -24,8 +24,12 @@ export function ProductSection({
         <h2 id={id} className="text-2xl font-semibold tracking-tight">
           {title}
         </h2>
-        <Link href={viewAllHref} className="text-sm font-medium underline-offset-4 hover:underline">
-          View all<span className="sr-only"> {title.toLowerCase()}</span>
+        <Link
+          href={viewAllHref}
+          aria-label={`View all ${title.toLowerCase()}`}
+          className="text-sm font-medium underline-offset-4 hover:underline"
+        >
+          View all
         </Link>
       </div>
       <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
