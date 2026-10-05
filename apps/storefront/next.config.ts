@@ -37,6 +37,8 @@ const nextConfig: NextConfig = {
   // Security headers on every page (CLAUDE.md §11).
   // TODO(phase 6): add a Content-Security-Policy once the GA4 / GTM / Meta Pixel
   // script origins are known — a CSP added now would just be rewritten then.
+  // Note for that CSP: product color swatches use inline style attributes
+  // (style="background-color: …"), so style-src-attr must allow them.
   async headers() {
     return [
       {

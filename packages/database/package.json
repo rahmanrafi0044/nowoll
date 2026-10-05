@@ -25,14 +25,15 @@
   },
   "devDependencies": {
     "@nowoll/config": "workspace:*",
+    "@nowoll/validation": "workspace:*",
+    "@types/node": "^24.0.0",
     "@types/pg": "^8.23.0",
     "dotenv": "^18.0.0",
-    "prisma": "7.10.0",
     "eslint": "^9.39.0",
+    "prisma": "7.10.0",
     "tsx": "^4.23.0",
     "typescript": "6.0.3",
-    "vitest": "^5.0.3",
-    "@types/node": "^24.0.0"
+    "vitest": "^5.0.3"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

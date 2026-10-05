@@ -6,7 +6,12 @@
 import { config } from 'dotenv'
 import path from 'node:path'
 import { createPrismaClient } from '../src/client'
-import { defaultPages, defaultSettings, defaultShippingZones } from './seed-data'
+import {
+  defaultContentBlocks,
+  defaultPages,
+  defaultSettings,
+  defaultShippingZones,
+} from './seed-data'
 
 config({ path: path.resolve(__dirname, '../../../.env') })
 
@@ -37,19 +42,13 @@ async function main() {
     })
   }
 
-  await prisma.contentBlock.upsert({
-    where: { key: 'announcement_bar' },
-    update: {},
-    create: {
-      key: 'announcement_bar',
-      data: { text: 'Welcome to Nowoll — always new', href: null },
-      isActive: false,
-    },
-  })
+  for (const block of defaultContentBlocks) {
+    await prisma.contentBlock.upsert({ where: { key: block.key }, update: {}, create: block })
+  }
 
   console.log(
     `Seeded ${defaultSettings.length} settings, ${defaultShippingZones.length} shipping zones, ` +
-      `${defaultPages.length} pages, 1 content block.`,
+      `${defaultPages.length} pages, ${defaultContentBlocks.length} content blocks.`,
   )
 }
 

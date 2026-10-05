@@ -9,6 +9,7 @@
     "clean": "rm -rf dist .turbo",
     "dev": "nest start --watch",
     "lint": "eslint .",
+    "seed:demo": "node --env-file-if-exists=../../.env --import tsx scripts/seed-demo.ts",
     "start": "node dist/main.js",
     "storage:setup": "node --env-file-if-exists=../../.env --import tsx scripts/setup-storage.ts",
     "test": "vitest run",

@@ -190,9 +190,15 @@ importers:
 
   apps/storefront:
     dependencies:
+      '@nowoll/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@nowoll/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@nowoll/validation':
+        specifier: workspace:*
+        version: link:../../packages/validation
       '@supabase/ssr':
         specifier: ^0.12.7
         version: 0.12.7(@supabase/supabase-js@2.117.2)
@@ -294,6 +300,9 @@ importers:
       '@nowoll/config':
         specifier: workspace:*
         version: link:../config
+      '@nowoll/validation':
+        specifier: workspace:*
+        version: link:../validation
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.1

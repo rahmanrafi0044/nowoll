@@ -8,7 +8,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "test": "turbo run test",
+    "test": "turbo run test --concurrency=3",
     "test:e2e": "turbo run test:e2e",
     "db:generate": "turbo run db:generate --filter=@nowoll/database",
     "db:migrate": "turbo run db:migrate --filter=@nowoll/database",
@@ -16,7 +16,8 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "storage:setup": "pnpm --filter @nowoll/api storage:setup"
+    "storage:setup": "pnpm --filter @nowoll/api storage:setup",
+    "db:seed:demo": "pnpm --filter @nowoll/api seed:demo --"
   },
   "devDependencies": {
     "@nowoll/config": "workspace:*",
