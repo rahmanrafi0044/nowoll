@@ -89,3 +89,13 @@ export interface ProductFacetsView {
   colors: { color: string; colorHex: string | null }[]
   price: { min: Money; max: Money } | null
 }
+
+/** POST /discounts/validate — what a code would take off the bag (a preview). */
+export interface DiscountPreviewView {
+  code: string
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT'
+  value: Money
+  subtotal: Money
+  discountAmount: Money
+  subtotalAfterDiscount: Money
+}

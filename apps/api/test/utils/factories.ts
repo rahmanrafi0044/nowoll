@@ -87,3 +87,27 @@ export async function makeProduct(fields: {
     include: { variants: { orderBy: { sortOrder: 'asc' } }, images: true },
   })
 }
+
+/** A minimal order row (enough for discount usages etc. to point at). */
+export async function makeOrder(fields: { email?: string } = {}) {
+  return testPrisma().order.create({
+    data: {
+      paymentMethod: 'COD',
+      email: fields.email ?? `buyer${next()}@example.com`,
+      phone: '+8801712345678',
+      customerName: 'Test Buyer',
+      shippingAddressLine1: 'House 1, Road 1',
+      shippingDistrict: 'Dhaka',
+      shippingDivision: 'Dhaka',
+      shippingZoneName: 'Inside Dhaka',
+      subtotal: new Prisma.Decimal(1000),
+      total: new Prisma.Decimal(1000),
+    },
+  })
+}
+
+export async function makeDiscount(fields: Partial<Prisma.DiscountCodeUncheckedCreateInput> = {}) {
+  return testPrisma().discountCode.create({
+    data: { code: `CODE${next()}`, type: 'PERCENTAGE', value: new Prisma.Decimal(10), ...fields },
+  })
+}

@@ -1,4 +1,9 @@
-import { BadRequestException, HttpStatus, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  HttpStatus,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common'
 import type { ArgumentsHost } from '@nestjs/common'
 import { Prisma } from '@nowoll/database'
 import { AllExceptionsFilter } from './all-exceptions.filter.js'
@@ -39,6 +44,18 @@ describe('AllExceptionsFilter', () => {
       error: 'BAD_REQUEST',
       message: '2 problems',
       details: ['Row 2: bad', 'Row 5: worse'],
+    })
+  })
+
+  it('uses a specific error code when the service provides one', () => {
+    const ex = new UnprocessableEntityException({
+      message: 'This code has expired.',
+      code: 'DISCOUNT_EXPIRED',
+    })
+    expect(filter.toErrorShape(ex)).toEqual({
+      status: 422,
+      error: 'DISCOUNT_EXPIRED',
+      message: 'This code has expired.',
     })
   })
 

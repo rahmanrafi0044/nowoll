@@ -11,6 +11,7 @@ import { StorageModule } from './storage/storage.module.js'
 import { InventoryModule } from './inventory/inventory.module.js'
 import { ContentModule } from './content/content.module.js'
 import { SubscribersModule } from './subscribers/subscribers.module.js'
+import { DiscountsModule } from './discounts/discounts.module.js'
 import { PrismaModule } from './prisma/prisma.module.js'
 
 // The root module: wires together config, database, rate limiting and every
@@ -33,6 +34,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     InventoryModule,
     ContentModule,
     SubscribersModule,
+    DiscountsModule,
   ],
   providers: [
     // Registering the guard globally applies the 100 req/min limit to every route.
