@@ -119,3 +119,51 @@ export interface CartQuoteView {
   subtotal: Money
   canCheckout: boolean
 }
+
+/** GET /shipping/rates and the shipping part of a checkout quote. */
+export interface ShippingRateView {
+  id: string
+  code: string
+  name: string
+  fee: Money
+  freeShippingThreshold: Money | null
+  estimatedDaysMin: number | null
+  estimatedDaysMax: number | null
+  districts: string[]
+  isDefault: boolean
+}
+
+/** POST /checkout/quote — every number on the checkout summary. */
+export interface CheckoutQuoteView {
+  lines: {
+    variantId: string
+    productId: string
+    productName: string
+    variantLabel: string
+    sku: string
+    unitPrice: Money
+    quantity: number
+    lineTotal: Money
+  }[]
+  totals: {
+    subtotal: Money
+    discount: Money
+    afterDiscount: Money
+    shippingFee: Money
+    freeShipping: boolean
+    vatRate: Money
+    vatAmount: Money
+    total: Money
+  }
+  discount: { code: string; amount: Money } | null
+  discountProblem: DiscountProblemView | null
+  shipping: ShippingRateView | null
+}
+
+/** Why a discount code can't be used (same codes as the API's 422 errors). */
+export type DiscountProblemView =
+  | { code: 'DISCOUNT_NOT_VALID'; message: string }
+  | { code: 'DISCOUNT_EXPIRED'; message: string }
+  | { code: 'DISCOUNT_USED_UP'; message: string }
+  | { code: 'DISCOUNT_MIN_ORDER'; message: string; shortBy: Money }
+  | { code: 'DISCOUNT_CUSTOMER_LIMIT'; message: string }

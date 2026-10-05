@@ -56,20 +56,45 @@ export class DiscountsService {
    */
   async preview(dto: ValidateDiscountDto): Promise<DiscountPreview> {
     const { subtotal } = await priceCart(this.prisma, dto.items)
-    const code = await this.findByCode(this.prisma, dto.code)
-
-    const refusal = refusalFor(code, subtotal, new Date())
-    if (refusal) refuse(refusal)
-    if (dto.email) await this.assertCustomerLimit(this.prisma, code!, dto.email)
-
-    const amount = discountAmount(code!, subtotal)
+    const result = await this.evaluate(this.prisma, dto.code, subtotal, dto.email)
+    if (!result.ok) return refuse(result.refusal)
     return {
+      code: result.code,
+      type: result.type,
+      value: result.value,
+      subtotal,
+      discountAmount: result.amount,
+      subtotalAfterDiscount: subtotal.minus(result.amount),
+    }
+  }
+
+  /**
+   * "Would this code work on this subtotal, and for how much?" — without
+   * counting a use. Shared by the cart preview and the checkout quote, so
+   * both apply exactly the same rules.
+   */
+  async evaluate(
+    db: Db,
+    rawCode: string,
+    subtotal: Prisma.Decimal,
+    email?: string,
+  ): Promise<
+    | { ok: true; code: string; type: DiscountType; value: Prisma.Decimal; amount: Prisma.Decimal }
+    | { ok: false; refusal: DiscountRefusal }
+  > {
+    const code = await this.findByCode(db, rawCode)
+    const refusal = refusalFor(code, subtotal, new Date())
+    if (refusal) return { ok: false, refusal }
+    if (email) {
+      const limit = await this.customerLimitRefusal(db, code!, email)
+      if (limit) return { ok: false, refusal: limit }
+    }
+    return {
+      ok: true,
       code: code!.code,
       type: code!.type,
       value: code!.value,
-      subtotal,
-      discountAmount: amount,
-      subtotalAfterDiscount: subtotal.minus(amount),
+      amount: discountAmount(code!, subtotal),
     }
   }
 
@@ -231,20 +256,28 @@ export class DiscountsService {
     return code
   }
 
-  private async assertCustomerLimit(db: Db, code: DiscountCode, email: string): Promise<void> {
-    if (code.usageLimitPerCustomer === null) return
+  private async customerLimitRefusal(
+    db: Db,
+    code: DiscountCode,
+    email: string,
+  ): Promise<DiscountRefusal | null> {
+    if (code.usageLimitPerCustomer === null) return null
     const used = await db.discountUsage.count({
       where: { discountCodeId: code.id, email: { equals: email, mode: 'insensitive' } },
     })
-    if (used >= code.usageLimitPerCustomer) {
-      refuse({
-        code: 'DISCOUNT_CUSTOMER_LIMIT',
-        message:
-          code.usageLimitPerCustomer === 1
-            ? "You've already used this code."
-            : `This code can be used ${code.usageLimitPerCustomer} times per customer.`,
-      })
+    if (used < code.usageLimitPerCustomer) return null
+    return {
+      code: 'DISCOUNT_CUSTOMER_LIMIT',
+      message:
+        code.usageLimitPerCustomer === 1
+          ? "You've already used this code."
+          : `This code can be used ${code.usageLimitPerCustomer} times per customer.`,
     }
+  }
+
+  private async assertCustomerLimit(db: Db, code: DiscountCode, email: string): Promise<void> {
+    const refusal = await this.customerLimitRefusal(db, code, email)
+    if (refusal) refuse(refusal)
   }
 
   private async assertCodeFree(code: string): Promise<void> {

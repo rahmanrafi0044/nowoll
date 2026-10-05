@@ -34,4 +34,19 @@ export class SettingsService {
     )
     return FALLBACK
   }
+
+  /**
+   * VAT percentage added at checkout on (products − discount), e.g. 7.5.
+   * Missing/invalid → 0 with a warning: never charge customers an unknown tax.
+   */
+  async vatRate(db: Prisma.TransactionClient | PrismaService = this.prisma): Promise<number> {
+    const row = await db.setting.findUnique({ where: { key: 'vat_rate' } })
+    const value = row?.value
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100)
+      return value
+    this.logger.warn(
+      `Setting vat_rate is ${row ? `invalid (${JSON.stringify(value)})` : 'missing'} — charging 0% VAT. Fix it in Admin → Settings.`,
+    )
+    return 0
+  }
 }

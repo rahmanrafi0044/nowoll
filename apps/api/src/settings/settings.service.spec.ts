@@ -25,3 +25,20 @@ describe('SettingsService.lowStockThreshold', () => {
     expect(await service.lowStockThreshold()).toBe(5)
   })
 })
+
+describe('SettingsService.vatRate', () => {
+  it('reads the rate', async () => {
+    await prisma.setting.create({ data: { key: 'vat_rate', value: 7.5 } })
+    expect(await service.vatRate()).toBe(7.5)
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['text', '7.5'],
+    ['over 100', 150],
+    ['negative', -1],
+  ])('charges 0%% when the setting is %s (never an unknown tax)', async (_label, value) => {
+    if (value !== undefined) await prisma.setting.create({ data: { key: 'vat_rate', value } })
+    expect(await service.vatRate()).toBe(0)
+  })
+})
