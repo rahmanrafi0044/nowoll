@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import type { CategoryNode } from '@nowoll/types'
 import type { AnnouncementBar as AnnouncementBarData } from '@nowoll/validation'
+import { CartDrawer } from '@/components/cart/cart-drawer'
 import { CartHydrator } from '@/components/cart-hydrator'
 import { AnnouncementBar } from '@/components/home/announcement-bar'
 import { SiteFooter } from '@/components/site-footer'
@@ -43,6 +44,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <SiteHeader categories={categories ?? []} />
         <main className="flex-1">{children}</main>
         <SiteFooter />
+        <CartDrawer />
       </body>
     </html>
   )

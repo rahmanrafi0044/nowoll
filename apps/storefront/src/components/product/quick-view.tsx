@@ -2,9 +2,10 @@
 
 import type { ApiResult, ProductDetailView } from '@nowoll/types'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Modal } from '@/components/modal'
 import { publicEnv } from '@/lib/env'
+import { useUiStore } from '@/stores/ui-store'
 import { ProductView } from './product-view'
 
 type Load = { state: 'idle' | 'loading' | 'error' } | { state: 'ready'; product: ProductDetailView }
@@ -14,6 +15,16 @@ type Load = { state: 'idle' | 'loading' | 'error' } | { state: 'ready'; product:
 export function QuickView({ slug, name }: { slug: string; name: string }) {
   const [open, setOpen] = useState(false)
   const [load, setLoad] = useState<Load>({ state: 'idle' })
+
+  // "Add to bag" opens the bag drawer — close this pop-up so they don't stack.
+  // (A store subscription, not render-time logic: it reacts to the moment the bag opens.)
+  useEffect(
+    () =>
+      useUiStore.subscribe((state, previous) => {
+        if (state.cartOpen && !previous.cartOpen) setOpen(false)
+      }),
+    [],
+  )
 
   async function openQuickView() {
     setOpen(true)

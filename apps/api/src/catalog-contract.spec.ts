@@ -4,6 +4,7 @@
 // long before a customer sees a broken page.
 import type {
   CategoryDetail,
+  CartQuoteView,
   CategoryNode,
   DiscountPreviewView,
   ProductCardView,
@@ -15,6 +16,7 @@ import type {
 import { expectTypeOf } from 'vitest'
 import type { PublicCategoryDetail, PublicCategoryNode } from './categories/categories.service.js'
 import type { DiscountPreview } from './discounts/discounts.service.js'
+import type { CartQuote } from './pricing/cart-pricing.js'
 import type { PublicVariant } from './products/product-view.js'
 import type { ProductCard, ProductDetail, ProductFacets } from './products/products.service.js'
 
@@ -33,5 +35,9 @@ describe('API ↔ storefront contract', () => {
 
   it('discounts', () => {
     expectTypeOf<Serialized<DiscountPreview>>().toEqualTypeOf<DiscountPreviewView>()
+  })
+
+  it('cart', () => {
+    expectTypeOf<Serialized<CartQuote>>().toEqualTypeOf<CartQuoteView>()
   })
 })

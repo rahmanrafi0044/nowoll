@@ -99,3 +99,23 @@ export interface DiscountPreviewView {
   discountAmount: Money
   subtotalAfterDiscount: Money
 }
+
+/** POST /cart/price — today's price and availability per line. */
+export interface CartQuoteLineView {
+  variantId: string
+  quantity: number
+  status: 'ok' | 'unavailable' | 'insufficient_stock'
+  productName?: string
+  productSlug?: string
+  variantLabel?: string
+  sku?: string
+  imageUrl?: string | null
+  unitPrice?: Money
+  lineTotal?: Money
+}
+
+export interface CartQuoteView {
+  lines: CartQuoteLineView[]
+  subtotal: Money
+  canCheckout: boolean
+}
