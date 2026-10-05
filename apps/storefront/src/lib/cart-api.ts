@@ -1,4 +1,9 @@
-import type { ApiResult, CartQuoteView, DiscountPreviewView } from '@nowoll/types'
+import type {
+  ApiResult,
+  CartQuoteView,
+  CheckoutQuoteView,
+  DiscountPreviewView,
+} from '@nowoll/types'
 import { publicEnv } from '@/lib/env'
 
 type Items = { variantId: string; quantity: number }[]
@@ -31,3 +36,11 @@ export const fetchCartQuote = (items: Items) => post<CartQuoteView>('/cart/price
 /** What a discount code would take off — a preview; nothing is used up. */
 export const fetchDiscountPreview = (code: string, items: Items) =>
   post<DiscountPreviewView>('/discounts/validate', { code, items })
+
+/** Every number on the checkout summary (shipping, VAT, discount, total). */
+export const fetchCheckoutQuote = (body: {
+  items: Items
+  district?: string
+  discountCode?: string
+  email?: string
+}) => post<CheckoutQuoteView>('/checkout/quote', body)

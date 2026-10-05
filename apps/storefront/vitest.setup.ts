@@ -6,6 +6,7 @@ import { afterEach } from 'vitest'
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  sessionStorage.clear()
 })
 
 // jsdom (the fake browser used in tests) doesn't implement <dialog>.showModal()
