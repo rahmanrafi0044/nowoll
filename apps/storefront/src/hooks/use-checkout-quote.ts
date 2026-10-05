@@ -4,6 +4,7 @@ import type { CheckoutQuoteView } from '@nowoll/types'
 import { useEffect, useState } from 'react'
 import { fetchCheckoutQuote } from '@/lib/cart-api'
 import { useCartStore } from '@/stores/cart-store'
+import { useCheckoutStore } from '@/stores/checkout-store'
 
 export interface CheckoutQuoteState {
   quote: CheckoutQuoteView | null
@@ -28,6 +29,7 @@ export function useCheckoutQuote(
 ): CheckoutQuoteState {
   const items = useCartStore((s) => s.items)
   const discountCode = useCartStore((s) => s.discountCode)
+  const nonce = useCheckoutStore((s) => s.quoteNonce)
   const [result, setResult] = useState<Result | null>(null)
 
   const key = [
@@ -35,6 +37,7 @@ export function useCheckoutQuote(
     discountCode ?? '',
     district ?? '',
     email ?? '',
+    nonce, // bumped after "prices changed" to fetch the new total
   ].join('|')
 
   useEffect(() => {

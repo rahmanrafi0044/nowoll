@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { OrderPlacedView } from '@nowoll/types'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
 export type CheckoutStep = 'contact' | 'address' | 'shipping' | 'payment' | 'review'
@@ -26,6 +27,19 @@ interface CheckoutState {
   contact: Contact | null
   address: ShippingAddress | null
   payment: PaymentChoice | null
+  /**
+   * DOUBLE-SUBMIT PROTECTION: one random key per checkout. Every "Place order"
+   * attempt (including retries after a network error) sends the SAME key, so
+   * the API can never create two orders from one checkout.
+   */
+  attemptKey: string | null
+  /** The order just placed — shown as the confirmation (survives a refresh in this tab). */
+  placed: OrderPlacedView | null
+  /** Bumped to make the summary re-ask the API (e.g. after "prices changed"). */
+  quoteNonce: number
+  ensureAttemptKey: () => string
+  setPlaced: (order: OrderPlacedView) => void
+  refreshQuote: () => void
   complete: (step: CheckoutStep) => void
   goTo: (step: CheckoutStep) => void
   setContact: (c: Contact) => void
@@ -40,6 +54,9 @@ const initial = {
   contact: null,
   address: null,
   payment: null,
+  attemptKey: null,
+  placed: null,
+  quoteNonce: 0,
 }
 
 // What the customer has typed so far. Saved in sessionStorage (decision #5):
@@ -47,8 +64,18 @@ const initial = {
 // localStorage on a shared or family phone.
 export const useCheckoutStore = create<CheckoutState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...initial,
+      ensureAttemptKey: () => {
+        const existing = get().attemptKey
+        if (existing) return existing
+        const key = crypto.randomUUID()
+        set({ attemptKey: key })
+        return key
+      },
+      // A placed order starts a fresh checkout (new key) but keeps the confirmation.
+      setPlaced: (order) => set({ ...initial, placed: order }),
+      refreshQuote: () => set((s) => ({ quoteNonce: s.quoteNonce + 1 })),
       // Marking a step done opens the next one.
       complete: (step) =>
         set((s) => ({

@@ -4,14 +4,23 @@ import { Button } from '@nowoll/ui'
 import { useState } from 'react'
 import { type PaymentChoice, useCheckoutStore } from '@/stores/checkout-store'
 
-const OPTIONS: { value: PaymentChoice; title: string; detail: string }[] = [
+const OPTIONS: { value: PaymentChoice; title: string; detail: string; available: boolean }[] = [
   {
+    // Step 18 decision #6: switched on together with SSLCommerz in steps 19–20.
     value: 'SSLCOMMERZ',
     title: 'Pay online',
-    detail: 'Card, bKash, Nagad or Rocket — through SSLCommerz',
+    detail: 'Card, bKash, Nagad or Rocket — coming soon',
+    available: false,
   },
-  { value: 'COD', title: 'Cash on delivery', detail: 'Pay the courier when your parcel arrives' },
+  {
+    value: 'COD',
+    title: 'Cash on delivery',
+    detail: 'Pay the courier when your parcel arrives',
+    available: true,
+  },
 ]
+
+const isAvailable = (p: PaymentChoice | null) => OPTIONS.some((o) => o.value === p && o.available)
 
 export const paymentLabel = (p: PaymentChoice) => OPTIONS.find((o) => o.value === p)!.title
 
@@ -19,7 +28,7 @@ export function PaymentStep() {
   const saved = useCheckoutStore((s) => s.payment)
   const setPayment = useCheckoutStore((s) => s.setPayment)
   const complete = useCheckoutStore((s) => s.complete)
-  const [choice, setChoice] = useState<PaymentChoice | null>(saved)
+  const [choice, setChoice] = useState<PaymentChoice | null>(isAvailable(saved) ? saved : null)
   const [error, setError] = useState(false)
 
   return (
@@ -30,13 +39,14 @@ export function PaymentStep() {
           {OPTIONS.map((o) => (
             <label
               key={o.value}
-              className="flex cursor-pointer items-start gap-3 rounded-control border border-border-strong p-4 has-[:checked]:border-brand"
+              className={`flex items-start gap-3 rounded-control border border-border-strong p-4 has-[:checked]:border-brand ${o.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
             >
               <input
                 type="radio"
                 name="payment"
                 value={o.value}
                 checked={choice === o.value}
+                disabled={!o.available}
                 onChange={() => setChoice(o.value)}
                 className="mt-1 size-4 accent-brand"
               />
