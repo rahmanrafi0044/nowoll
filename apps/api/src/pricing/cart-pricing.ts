@@ -15,6 +15,7 @@ export interface PricedLine {
   productName: string
   variantLabel: string
   sku: string
+  imageUrl: string | null
   unitPrice: Prisma.Decimal
   quantity: number
   lineTotal: Prisma.Decimal
@@ -44,7 +45,19 @@ export async function priceCart(db: Db, items: CartItemInput[]): Promise<PricedC
       isActive: true,
       product: { status: ProductStatus.ACTIVE, deletedAt: null },
     },
-    include: { product: { select: { id: true, name: true, basePrice: true } } },
+    include: {
+      product: {
+        select: {
+          id: true,
+          name: true,
+          basePrice: true,
+          images: {
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+            select: { url: true, variantId: true },
+          },
+        },
+      },
+    },
   })
   if (variants.length !== quantities.size) {
     throw new BadRequestException({
@@ -62,6 +75,9 @@ export async function priceCart(db: Db, items: CartItemInput[]): Promise<PricedC
       productName: v.product.name,
       variantLabel: `${v.size} / ${v.color}`,
       sku: v.sku,
+      // the photo of this exact color if there is one, else the product's main photo
+      imageUrl:
+        (v.product.images.find((i) => i.variantId === v.id) ?? v.product.images[0])?.url ?? null,
       unitPrice,
       quantity,
       lineTotal: unitPrice.times(quantity),

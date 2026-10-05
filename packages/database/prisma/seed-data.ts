@@ -45,6 +45,12 @@ export const defaultSettings: SettingSeed[] = [
     value: 7,
     description: 'Days after delivery a customer may request a return',
   },
+  {
+    key: 'payment_timeout_minutes',
+    value: 30,
+    description:
+      'Unpaid online orders are cancelled (and their stock released) after this many minutes',
+  },
 ]
 
 export interface ShippingZoneSeed {

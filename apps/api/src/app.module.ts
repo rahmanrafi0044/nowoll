@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { APP_GUARD } from '@nestjs/core'
+import { ScheduleModule } from '@nestjs/schedule'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import { CategoriesModule } from './categories/categories.module.js'
 import { validateEnv } from './config/env.validation.js'
@@ -15,6 +16,7 @@ import { DiscountsModule } from './discounts/discounts.module.js'
 import { CartModule } from './cart/cart.module.js'
 import { CheckoutModule } from './checkout/checkout.module.js'
 import { ShippingModule } from './shipping/shipping.module.js'
+import { OrdersModule } from './orders/orders.module.js'
 import { PrismaModule } from './prisma/prisma.module.js'
 
 // The root module: wires together config, database, rate limiting and every
@@ -28,6 +30,8 @@ import { PrismaModule } from './prisma/prisma.module.js'
       envFilePath: ['../../.env'],
       validate: validateEnv,
     }),
+    // Runs timed jobs like the unpaid-order sweep (until BullMQ in Phase 4).
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ name: 'default', ...GLOBAL_RATE_LIMIT }]),
     PrismaModule,
     StorageModule,
@@ -41,6 +45,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     CartModule,
     ShippingModule,
     CheckoutModule,
+    OrdersModule,
   ],
   providers: [
     // Registering the guard globally applies the 100 req/min limit to every route.

@@ -6,6 +6,7 @@ import type {
   CategoryDetail,
   CartQuoteView,
   CheckoutQuoteView,
+  OrderPlacedView,
   ShippingRateView,
   CategoryNode,
   DiscountPreviewView,
@@ -19,6 +20,7 @@ import { expectTypeOf } from 'vitest'
 import type { PublicCategoryDetail, PublicCategoryNode } from './categories/categories.service.js'
 import type { DiscountPreview } from './discounts/discounts.service.js'
 import type { CheckoutQuote } from './checkout/checkout.service.js'
+import type { PlacedOrder } from './orders/orders.service.js'
 import type { CartQuote } from './pricing/cart-pricing.js'
 import type { ShippingRate } from './shipping/shipping.service.js'
 import type { PublicVariant } from './products/product-view.js'
@@ -48,5 +50,9 @@ describe('API ↔ storefront contract', () => {
   it('checkout', () => {
     expectTypeOf<Serialized<ShippingRate>>().toEqualTypeOf<ShippingRateView>()
     expectTypeOf<Serialized<CheckoutQuote>>().toEqualTypeOf<CheckoutQuoteView>()
+  })
+
+  it('orders', () => {
+    expectTypeOf<Serialized<PlacedOrder>>().toEqualTypeOf<OrderPlacedView>()
   })
 })

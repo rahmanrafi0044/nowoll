@@ -422,7 +422,7 @@ model DiscountUsage {
 // customers, phone calls and invoices. `id` (UUID) stays the internal key.
 model Order {
   id            String        @id @default(uuid()) @db.Uuid
-  orderNumber   Int           @unique @default(autoincrement()) @map("order_number")
+  orderNumber   Int           @unique @default(autoincrement()) @map("order_number") // starts at 10001 (see migration *_order_number_start)
   userId        String?       @map("user_id") @db.Uuid
   status        OrderStatus   @default(PENDING)
   paymentMethod PaymentMethod @map("payment_method")
@@ -460,8 +460,13 @@ model Order {
   trackingNumber String? @map("tracking_number")
 
   customerNote String? @map("customer_note")
-  adminNotes   String? @map("admin_notes") @db.Text
-  cancelReason String? @map("cancel_reason")
+
+  // DOUBLE-SUBMIT PROTECTION: the checkout sends a random key with each
+  // "Place order" attempt. A repeated request with the same key (double tap,
+  // network retry) gets the SAME order back instead of creating a second one.
+  idempotencyKey String? @unique @map("idempotency_key") @db.Uuid
+  adminNotes     String? @map("admin_notes") @db.Text
+  cancelReason   String? @map("cancel_reason")
 
   // Timestamps for each milestone — used for the tracking timeline and analytics
   confirmedAt DateTime? @map("confirmed_at")

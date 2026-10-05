@@ -111,3 +111,28 @@ export async function makeDiscount(fields: Partial<Prisma.DiscountCodeUncheckedC
     data: { code: `CODE${next()}`, type: 'PERCENTAGE', value: new Prisma.Decimal(10), ...fields },
   })
 }
+
+/** The two standard delivery zones (Inside Dhaka ৳60 / Outside Dhaka ৳120). */
+export async function seedShippingZones() {
+  await testPrisma().shippingZone.createMany({
+    data: [
+      {
+        code: 'DHAKA',
+        name: 'Inside Dhaka',
+        districts: ['Dhaka'],
+        fee: new Prisma.Decimal(60),
+        estimatedDaysMin: 1,
+        estimatedDaysMax: 3,
+      },
+      {
+        code: 'OUTSIDE_DHAKA',
+        name: 'Outside Dhaka',
+        districts: [],
+        isDefault: true,
+        fee: new Prisma.Decimal(120),
+        estimatedDaysMin: 3,
+        estimatedDaysMax: 5,
+      },
+    ],
+  })
+}
