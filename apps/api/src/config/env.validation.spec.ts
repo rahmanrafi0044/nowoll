@@ -9,7 +9,13 @@ const valid = {
 
 describe('validateEnv', () => {
   it('accepts a valid environment and converts PORT from string to number', () => {
-    const env = validateEnv({ ...valid, PORT: '4000', NODE_ENV: 'production' })
+    const env = validateEnv({
+      ...valid,
+      PORT: '4000',
+      NODE_ENV: 'production',
+      SSLCOMMERZ_STORE_ID: 's',
+      SSLCOMMERZ_STORE_PASSWORD: 'p',
+    })
     expect(env.PORT).toBe(4000)
     expect(env.NODE_ENV).toBe(NodeEnv.Production)
   })
@@ -28,6 +34,30 @@ describe('validateEnv', () => {
   it('requires the Supabase service role key (needed for image uploads)', () => {
     const { SUPABASE_SERVICE_ROLE_KEY: _omit, ...rest } = valid
     expect(() => validateEnv(rest)).toThrow(/SUPABASE_SERVICE_ROLE_KEY/)
+  })
+
+  it('refuses to start in production without real SSLCommerz credentials', () => {
+    expect(() => validateEnv({ ...valid, NODE_ENV: 'production' })).toThrow(/SSLCOMMERZ_STORE_ID/)
+    expect(() =>
+      validateEnv({
+        ...valid,
+        NODE_ENV: 'production',
+        SSLCOMMERZ_STORE_ID: 'your_store_id',
+        SSLCOMMERZ_STORE_PASSWORD: 'your_store_password',
+      }),
+    ).toThrow(/SSLCOMMERZ_STORE_ID/)
+    expect(
+      validateEnv({
+        ...valid,
+        NODE_ENV: 'production',
+        SSLCOMMERZ_STORE_ID: 'nowoll01',
+        SSLCOMMERZ_STORE_PASSWORD: 'pw',
+      }).NODE_ENV,
+    ).toBe('production')
+  })
+
+  it('starts in development without SSLCommerz credentials', () => {
+    expect(validateEnv(valid).SSLCOMMERZ_STORE_ID).toBeUndefined()
   })
 
   it('rejects a non-numeric PORT', () => {
