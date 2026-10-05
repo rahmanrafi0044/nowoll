@@ -1,4 +1,5 @@
 export * from './api.js'
+export * from './catalog.js'
 export * from './serialized.js'
 
 // Database model types (Product, Order, …) — TYPE-ONLY, so importing them

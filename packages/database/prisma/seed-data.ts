@@ -95,3 +95,31 @@ export const defaultPages: PageSeed[] = [
   { slug: 'terms', title: 'Terms of Service' },
   { slug: 'returns', title: 'Return Policy' },
 ]
+
+export interface ContentBlockSeed {
+  key: string
+  data: Record<string, string | null>
+  isActive: boolean
+}
+
+// Starting homepage content — edited later in Admin → Content (Phase 5).
+// Shapes must match packages/validation/src/content.ts, or the API hides them.
+export const defaultContentBlocks: ContentBlockSeed[] = [
+  {
+    key: 'announcement_bar',
+    data: { text: 'Welcome to Nowoll — always new', href: null },
+    isActive: false,
+  },
+  {
+    key: 'homepage_hero',
+    data: {
+      heading: 'always new',
+      subheading: 'Everyday clothing for Bangladesh — delivered nationwide.',
+      ctaLabel: 'Shop now',
+      ctaHref: '/shop',
+      imageUrl: null,
+      imageAlt: null,
+    },
+    isActive: true,
+  },
+]
