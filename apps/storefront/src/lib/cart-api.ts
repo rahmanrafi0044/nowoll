@@ -4,6 +4,8 @@ import type {
   CheckoutQuoteView,
   DiscountPreviewView,
   OrderPlacedView,
+  OrderReceiptView,
+  OrderTrackingView,
   PaymentInitView,
   PaymentStatusView,
 } from '@nowoll/types'
@@ -86,6 +88,14 @@ export const initPayment = (orderId: string) =>
 /** Is the order paid yet? The thank-you and payment-failed pages ask this. */
 export const fetchPaymentStatus = (orderId: string) =>
   call<PaymentStatusView>('GET', `/payment/status/${encodeURIComponent(orderId)}`)
+
+/** The full receipt for the confirmation page (the random order id is the key). */
+export const fetchReceipt = (orderId: string) =>
+  call<OrderReceiptView>('GET', `/orders/${encodeURIComponent(orderId)}/receipt`)
+
+/** "Track your order": order number + the email or mobile used at checkout (in the body, never the URL). */
+export const trackOrder = (body: { orderNumber: string; contact: string }) =>
+  post<OrderTrackingView>('/orders/track', body)
 
 /**
  * OPEN-REDIRECT GUARD: we only ever send customers to SSLCommerz's own
