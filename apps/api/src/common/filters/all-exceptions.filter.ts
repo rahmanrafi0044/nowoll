@@ -63,6 +63,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const raw = typeof res === 'string' ? res : (res as { message?: string | string[] }).message
     // Services may attach a list of specific problems: new BadRequestException({ message, details })
     const details = typeof res === 'object' ? (res as { details?: unknown }).details : undefined
+    const code = typeof res === 'object' ? (res as { code?: unknown }).code : undefined
+    const errorCode =
+      typeof code === 'string' && /^[A-Z][A-Z0-9_]{2,40}$/.test(code) ? code : undefined
     const detailList =
       Array.isArray(details) && details.every((d) => typeof d === 'string') ? details : undefined
 
@@ -73,7 +76,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     return {
       status,
-      error: HttpStatus[status] ?? 'ERROR', // 404 → "NOT_FOUND", 429 → "TOO_MANY_REQUESTS"
+      // A service may name a specific code (e.g. DISCOUNT_EXPIRED) the frontend can react to;
+      // otherwise the HTTP status name is used: 404 → "NOT_FOUND", 429 → "TOO_MANY_REQUESTS"
+      error: errorCode ?? HttpStatus[status] ?? 'ERROR',
       message: raw ?? exception.message,
       ...(detailList && { details: detailList }),
     }
