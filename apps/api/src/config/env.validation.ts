@@ -1,4 +1,4 @@
-import { plainToInstance, Type } from 'class-transformer'
+import { plainToInstance, Transform, Type } from 'class-transformer'
 import { isSslCommerzConfigured } from '@nowoll/payments'
 import {
   IsEnum,
@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   Max,
   Min,
   validateSync,
@@ -49,6 +50,13 @@ export class EnvironmentVariables {
   @IsUrl({ require_tld: false })
   NEXT_PUBLIC_SUPABASE_URL!: string
 
+  // Supabase's PUBLIC "anon" key (the browser apps have it too). The API uses
+  // it for customer sign-in calls (step 22) — the service role key below is
+  // only for admin-level calls like creating accounts.
+  @IsString()
+  @IsNotEmpty()
+  NEXT_PUBLIC_SUPABASE_ANON_KEY!: string
+
   // SERVER ONLY. Full access to Supabase Storage (bypasses RLS) — used to
   // upload and delete product images. Never sent to a browser.
   @IsString()
@@ -69,6 +77,16 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsIn(['true', 'false'])
   SSLCOMMERZ_IS_LIVE?: 'true' | 'false'
+
+  // Which site the login cookies belong to. Production: ".nowoll.com", so both
+  // nowoll.com (the shop) and api.nowoll.com (this API) see them. Development:
+  // leave empty — localhost cookies are already shared between ports.
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value)) // "COOKIE_DOMAIN=" = not set
+  @IsOptional()
+  @Matches(/^\.?[a-z0-9-]+(\.[a-z0-9-]+)+$/, {
+    message: 'COOKIE_DOMAIN must look like .nowoll.com',
+  })
+  COOKIE_DOMAIN?: string
 
   // The API's own public address. SSLCommerz sends payment notifications and
   // the customer's browser back to it, so in production it must be the real
@@ -109,6 +127,13 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
       'Invalid environment variables:\n  - SSLCOMMERZ_STORE_ID and SSLCOMMERZ_STORE_PASSWORD must be set in production',
     )
   }
+  // Production: the shop (nowoll.com) and API (api.nowoll.com) must share the login cookies.
+  if (env.NODE_ENV === NodeEnv.Production && !env.COOKIE_DOMAIN) {
+    throw new Error(
+      'Invalid environment variables:\n  - COOKIE_DOMAIN must be set in production (e.g. .nowoll.com)',
+    )
+  }
+
   // Payment notifications must reach the real, encrypted address in production.
   if (env.NODE_ENV === NodeEnv.Production) {
     const insecure = (['API_PUBLIC_URL', 'NEXT_PUBLIC_SITE_URL'] as const).filter(

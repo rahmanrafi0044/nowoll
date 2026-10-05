@@ -5,6 +5,7 @@ const valid = {
   ALLOWED_ORIGIN: 'http://localhost:3000',
   NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
 }
 // Production also needs real https addresses (payment notifications go there).
 const production = {
@@ -12,6 +13,7 @@ const production = {
   NODE_ENV: 'production',
   API_PUBLIC_URL: 'https://api.nowoll.com',
   NEXT_PUBLIC_SITE_URL: 'https://nowoll.com',
+  COOKIE_DOMAIN: '.nowoll.com',
 }
 
 describe('validateEnv', () => {
@@ -85,6 +87,22 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...valid, API_PUBLIC_URL: 'api.nowoll.com' })).toThrow(
       /API_PUBLIC_URL/,
     )
+  })
+
+  it('requires the Supabase anon key (customer sign-in)', () => {
+    const { NEXT_PUBLIC_SUPABASE_ANON_KEY: _omit, ...rest } = valid
+    expect(() => validateEnv(rest)).toThrow(/NEXT_PUBLIC_SUPABASE_ANON_KEY/)
+  })
+
+  it('requires COOKIE_DOMAIN in production, and checks its shape', () => {
+    const creds = { SSLCOMMERZ_STORE_ID: 'nowoll01', SSLCOMMERZ_STORE_PASSWORD: 'pw' }
+    const { COOKIE_DOMAIN: _omit, ...noDomain } = production
+    expect(() => validateEnv({ ...noDomain, ...creds })).toThrow(/COOKIE_DOMAIN must be set/)
+    expect(() => validateEnv({ ...valid, COOKIE_DOMAIN: 'https://nowoll.com' })).toThrow(
+      /COOKIE_DOMAIN/,
+    )
+    expect(validateEnv(valid).COOKIE_DOMAIN).toBeUndefined() // fine in development
+    expect(validateEnv({ ...valid, COOKIE_DOMAIN: '' }).COOKIE_DOMAIN).toBeUndefined() // "COOKIE_DOMAIN="
   })
 
   it('rejects a non-numeric PORT', () => {

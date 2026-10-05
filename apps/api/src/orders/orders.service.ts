@@ -74,7 +74,11 @@ export class OrdersService {
    * payment record are saved in ONE transaction; if anything fails (an item
    * sold out a second ago, the discount ran out), NOTHING is saved.
    */
-  async create(dto: CreateOrderDto, idempotencyKey: string): Promise<PlacedOrder> {
+  async create(
+    dto: CreateOrderDto,
+    idempotencyKey: string,
+    userId: string | null = null, // the signed-in customer (step 22); null = guest checkout
+  ): Promise<PlacedOrder> {
     // Same request seen before (double tap / network retry) → the same order back (decision #4).
     const existing = await this.findByIdempotencyKey(idempotencyKey)
     if (existing) return existing
@@ -128,6 +132,7 @@ export class OrdersService {
           const order = await tx.order.create({
             data: {
               idempotencyKey,
+              userId,
               status: OrderStatus.PENDING, // COD: awaiting confirmation call (decision #3); online: awaiting payment
               paymentMethod: dto.paymentMethod,
               paymentStatus: PaymentStatus.PENDING,

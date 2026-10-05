@@ -2,17 +2,22 @@
 
 import { Button, Input } from '@nowoll/ui'
 import { bdPhoneSchema, emailSchema } from '@nowoll/validation'
+import Link from 'next/link'
 import { type FormEvent, useState } from 'react'
 import { useCheckoutStore } from '@/stores/checkout-store'
+import { useSessionStore } from '@/stores/session-store'
 
 export function ContactStep() {
   const saved = useCheckoutStore((s) => s.contact)
   const setContact = useCheckoutStore((s) => s.setContact)
   const complete = useCheckoutStore((s) => s.complete)
+  // Signed in (step 22): start from the account's details; still editable —
+  // e.g. ordering a gift with someone else's phone number.
+  const account = useSessionStore((s) => (s.status === 'signed-in' ? s.user : null))
   const [form, setForm] = useState({
-    fullName: saved?.fullName ?? '',
-    email: saved?.email ?? '',
-    phone: saved?.phone ?? '',
+    fullName: saved?.fullName ?? account?.fullName ?? '',
+    email: saved?.email ?? account?.email ?? '',
+    phone: saved?.phone ?? account?.phone ?? '',
   })
   const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({})
 
@@ -36,9 +41,22 @@ export function ContactStep() {
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        No account needed — we&apos;ll email your order confirmation and tracking link.
-      </p>
+      {account ? (
+        <p className="text-sm text-muted-foreground">
+          Signed in as {account.email} — this order will be saved to your account.
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          No account needed — we&apos;ll email your order confirmation and tracking link.{' '}
+          <Link
+            href="/login?next=/checkout"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            Sign in
+          </Link>{' '}
+          for faster checkout.
+        </p>
+      )}
       <Input
         label="Full name"
         autoComplete="name"

@@ -256,3 +256,11 @@ export interface OrderTrackingView extends OrderBasicsView {
   /** When the order first reached each status, oldest first. */
   timeline: { status: OrderPlacedView['status']; at: string }[]
 }
+
+/** The signed-in customer (GET /auth/me, and the answer to login/register/reset). */
+export interface AccountView {
+  id: string
+  email: string
+  fullName: string | null
+  phone: string | null
+}

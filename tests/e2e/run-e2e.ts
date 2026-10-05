@@ -37,6 +37,7 @@ const apiEnv = {
   NEXT_PUBLIC_SITE_URL: SHOP_URL,
   NEXT_PUBLIC_SUPABASE_URL: 'https://e2e-project.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: 'e2e-not-a-real-key',
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'e2e-not-a-real-anon-key',
   SSLCOMMERZ_STORE_ID: '',
   SSLCOMMERZ_STORE_PASSWORD: '',
 }

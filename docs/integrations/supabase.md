@@ -82,12 +82,60 @@ API tests never touch real Supabase: `test/utils/app.ts` swaps the storage adapt
 
 ---
 
-## Auth — Phase 4 (not implemented yet)
+## Auth — customer accounts (Phase 4 step 22)
 
-Decided so far:
-- Sign-in via Supabase Auth; `users.id` = the Supabase Auth user id.
-- Admin access requires `user_role ∈ {ADMIN, STAFF}` **and** `aal = 'aal2'` (2FA) in the access token.
-- `user_role` will be added to tokens by a Supabase **custom access token hook**. TODO(phase 4): confirm the hook's exact input/output format against Supabase's documentation before writing it — do not guess.
+**Code:** `apps/api/src/auth/` (adapter: `supabase-auth-provider.ts`). Storefront: `/login`, `/register`,
+`/forgot-password`, `/reset-password`, `/account`. **Checked against the official docs:** October 2026.
+
+### How it works
+- The shop never talks to Supabase Auth directly: it calls our API (`/api/v1/auth/*`), and the API keeps
+  the session in **HttpOnly, SameSite=Strict cookies** `nw_access` (≈1 h) and `nw_refresh` (30 days) —
+  JavaScript can't read them (CLAUDE.md §8/§11). Production: `COOKIE_DOMAIN=.nowoll.com` so `nowoll.com`
+  and `api.nowoll.com` share them; `Secure` in production.
+- Every signed-in request: `getClaims(accessToken)` verifies the token's **signature** (JWKS, cached).
+  Expired → `refreshSession({ refresh_token })` and new cookies on that response (refresh tokens rotate:
+  an old one stops working). Banned / deleted accounts (`users.status`, `deleted_at`) are refused.
+- `users.id` = the Supabase Auth user id. A missing `users` row is created on the next signed-in request.
+
+### Supabase calls used (official JS reference)
+| Our method | Supabase call | Client |
+|---|---|---|
+| createUser | `auth.admin.createUser({ email, password, email_confirm: true, user_metadata })` | service role |
+| signIn | `auth.signInWithPassword({ email, password })` — `invalid_credentials` doesn't say which part was wrong | anon |
+| refresh | `auth.refreshSession({ refresh_token })` | anon |
+| verifyAccessToken | `auth.getClaims(jwt)` — verifies via `/.well-known/jwks.json` (asymmetric keys) | anon |
+| signOut | `auth.admin.signOut(jwt, 'local')` — ends this session only | service role |
+| sendPasswordReset | `auth.resetPasswordForEmail(email, { redirectTo })` | anon |
+| verifyPasswordReset | `auth.verifyOtp({ type: 'recovery', token_hash })` | anon |
+| setPassword | `auth.admin.updateUserById(id, { password })` | service role |
+
+Both clients are stateless (`persistSession: false`). The service role key stays on the server.
+`admin.createUser` is used for sign-up so it works the same whatever "Confirm email" is set to.
+
+### Decisions (step 22)
+- **No email confirmation at launch** — Supabase's built-in email only reaches members of the Supabase
+  organization (2/hour). So "My orders" lists only orders placed **while signed in**, never guest orders
+  that merely share the email.
+- **Passwords:** 8–72 characters (`@nowoll/validation` — bcrypt ignores bytes after 72).
+- **Rate limits:** 5/min on register, login, forgot and reset password; `/me` 60/min, `/logout` 30/min.
+- **No account enumeration:** one answer for wrong email or wrong password; forgot-password always says "sent".
+
+### Dashboard setup (Rafi)
+1. **Authentication → URL Configuration → Redirect URLs:** add `http://localhost:3000/reset-password`
+   (and at launch `https://nowoll.com/reset-password`).
+2. **Authentication → Email Templates → Reset Password:** replace the link with
+   ```html
+   <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">Choose a new password</a>
+   ```
+   (`{{ .RedirectTo }}` = the `redirectTo` our API passes; `{{ .TokenHash }}` is meant for building your own link.)
+3. **Custom SMTP (Resend)** — step 26. Until then reset emails reach only your Supabase organization's members.
+
+Not yet: Google sign-in (later step), staff/admin sign-in with 2FA (Phase 5 — `user_role` claim via a
+custom access token hook, to be checked against Supabase's docs then).
+
+### Testing
+API tests use `apps/api/test/utils/fake-auth-provider.ts` (tokens expire, refresh tokens are single-use,
+reset links work once) — no test creates a real account.
 
 ---
 

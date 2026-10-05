@@ -16,8 +16,12 @@ type Items = { variantId: string; quantity: number }[]
 export type ApiCallResult<T> =
   { ok: true; data: T } | { ok: false; status: number; error?: string; message: string }
 
-/** One call to the API from the browser. Never throws: failures come back as { ok: false }. */
-async function call<T>(
+/**
+ * One call to the API from the browser. Never throws: failures come back as { ok: false }.
+ * credentials: 'include' sends the login cookies (HttpOnly — this code never sees them),
+ * so a signed-in customer is recognised, e.g. when placing an order.
+ */
+export async function call<T>(
   method: 'GET' | 'POST',
   path: string,
   body?: unknown,
@@ -26,6 +30,7 @@ async function call<T>(
   try {
     const res = await fetch(`${publicEnv.apiUrl}/api/v1${path}`, {
       method,
+      credentials: 'include',
       ...(method === 'POST' && {
         headers: { 'content-type': 'application/json', ...headers },
         body: JSON.stringify(body),

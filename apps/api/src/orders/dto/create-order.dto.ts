@@ -1,5 +1,5 @@
 import { PaymentMethod } from '@nowoll/database/enums'
-import { bdPhoneSchema, DISTRICTS, DIVISIONS } from '@nowoll/validation'
+import { DISTRICTS, DIVISIONS } from '@nowoll/validation'
 import { Transform, Type } from 'class-transformer'
 import {
   ArrayMaxSize,
@@ -14,16 +14,9 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator'
+import { NormalizePhone } from '../../common/validation/phone.js'
 import { Trim, TrimOrNull } from '../../common/validation/transforms.js'
 import { CartItemDto } from '../../discounts/dto/validate-discount.dto.js'
-
-/** "017 1234-5678" → "+8801712345678" using the shared rule; invalid input is left for @Matches to reject. */
-const NormalizePhone = () =>
-  Transform(({ value }: { value: unknown }) => {
-    if (typeof value !== 'string') return value
-    const parsed = bdPhoneSchema.safeParse(value)
-    return parsed.success ? parsed.data : value
-  })
 
 export class OrderContactDto {
   @Trim()
