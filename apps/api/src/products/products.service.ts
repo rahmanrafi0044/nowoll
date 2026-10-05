@@ -10,6 +10,7 @@ import type { Paginated } from '@nowoll/types'
 import { CategoriesService } from '../categories/categories.service.js'
 import { StockService } from '../inventory/stock.service.js'
 import { pickUniqueSlug, slugPrefixOf } from '../common/slugs.js'
+import { compareSizes } from './size-order.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import type { CreateProductDto } from './dto/create-product.dto.js'
 import type { CreateVariantDto } from './dto/create-variant.dto.js'
@@ -57,6 +58,12 @@ export interface ProductDetail extends Omit<ProductCard, 'image' | 'colors' | 's
   breadcrumb: { id: string; name: string; slug: string }[]
   images: PublicImage[]
   variants: PublicVariant[]
+}
+
+export interface ProductFacets {
+  sizes: string[]
+  colors: { color: string; colorHex: string | null }[]
+  price: { min: Prisma.Decimal; max: Prisma.Decimal } | null
 }
 
 // Shared "include" for loading what a card or detail page needs in ONE query.
@@ -159,6 +166,50 @@ export class ProductsService {
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize),
+    }
+  }
+
+  /**
+   * GET /products/facets — the filter options for a listing page: which sizes,
+   * colors and price range exist among the visible products of a category
+   * (and/or search). Deliberately IGNORES the size/color/price filters
+   * themselves, so choosing "M" doesn't make the other sizes disappear.
+   */
+  async facets(query: { category?: string; q?: string }): Promise<ProductFacets> {
+    const empty: ProductFacets = { sizes: [], colors: [], price: null }
+    const visibleCategoryIds = query.category
+      ? await this.categories.visibleSubtreeIds(query.category)
+      : [...(await this.categories.visibleCategoryIds())]
+    if (!visibleCategoryIds || visibleCategoryIds.length === 0) return empty
+    const ranks = query.q ? await this.searchRanks(query.q) : null
+    if (ranks && ranks.size === 0) return empty
+
+    const productWhere: Prisma.ProductWhereInput = {
+      status: ProductStatus.ACTIVE,
+      deletedAt: null,
+      categoryId: { in: visibleCategoryIds },
+      ...(ranks && { id: { in: [...ranks.keys()] } }),
+    }
+    const [variants, price] = await Promise.all([
+      this.prisma.productVariant.findMany({
+        where: { ...LIVE_VARIANT, product: productWhere },
+        select: { size: true, color: true, colorHex: true },
+        distinct: ['size', 'color'],
+      }),
+      this.prisma.product.aggregate({
+        where: productWhere,
+        _min: { basePrice: true },
+        _max: { basePrice: true },
+      }),
+    ])
+
+    return {
+      sizes: [...new Set(variants.map((v) => v.size))].sort(compareSizes),
+      colors: distinctColors(variants).sort((a, b) => a.color.localeCompare(b.color)),
+      price:
+        price._min.basePrice && price._max.basePrice
+          ? { min: price._min.basePrice, max: price._max.basePrice }
+          : null,
     }
   }
 

@@ -82,3 +82,10 @@ export interface ContentBlockView<T> {
   key: string
   data: T
 }
+
+/** Filter options for a listing page (GET /products/facets). */
+export interface ProductFacetsView {
+  sizes: string[]
+  colors: { color: string; colorHex: string | null }[]
+  price: { min: Money; max: Money } | null
+}

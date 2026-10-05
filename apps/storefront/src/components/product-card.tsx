@@ -2,6 +2,7 @@ import type { ProductCardView } from '@nowoll/types'
 import { Badge } from '@nowoll/ui'
 import Image from 'next/image'
 import Link from 'next/link'
+import { QuickView } from '@/components/product/quick-view'
 import { discountPercent, formatBdt } from '@/lib/format'
 
 const MAX_SWATCHES = 5
@@ -11,9 +12,12 @@ const MAX_SWATCHES = 5
 export function ProductCard({
   product,
   priority = false,
+  quickView = false,
 }: {
   product: ProductCardView
   priority?: boolean
+  /** Listing pages: show a "Quick view" button (size/color + add to bag in a pop-up). */
+  quickView?: boolean
 }) {
   const discount = discountPercent(product.basePrice, product.compareAtPrice)
   const extraColors = product.colors.length - MAX_SWATCHES
@@ -82,6 +86,11 @@ export function ProductCard({
           </ul>
         )}
       </div>
+      {quickView && (
+        <div className="mt-3">
+          <QuickView slug={product.slug} name={product.name} />
+        </div>
+      )}
     </article>
   )
 }

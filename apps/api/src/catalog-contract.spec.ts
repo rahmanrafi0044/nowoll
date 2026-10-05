@@ -7,13 +7,14 @@ import type {
   CategoryNode,
   ProductCardView,
   ProductDetailView,
+  ProductFacetsView,
   ProductVariantView,
   Serialized,
 } from '@nowoll/types'
 import { expectTypeOf } from 'vitest'
 import type { PublicCategoryDetail, PublicCategoryNode } from './categories/categories.service.js'
 import type { PublicVariant } from './products/product-view.js'
-import type { ProductCard, ProductDetail } from './products/products.service.js'
+import type { ProductCard, ProductDetail, ProductFacets } from './products/products.service.js'
 
 describe('API ↔ storefront contract', () => {
   it('categories', () => {
@@ -25,5 +26,6 @@ describe('API ↔ storefront contract', () => {
     expectTypeOf<Serialized<ProductCard>>().toEqualTypeOf<ProductCardView>()
     expectTypeOf<Serialized<ProductDetail>>().toEqualTypeOf<ProductDetailView>()
     expectTypeOf<Serialized<PublicVariant>>().toEqualTypeOf<ProductVariantView>()
+    expectTypeOf<Serialized<ProductFacets>>().toEqualTypeOf<ProductFacetsView>()
   })
 })
