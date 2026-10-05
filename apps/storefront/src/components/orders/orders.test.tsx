@@ -112,7 +112,9 @@ describe('confirmation page (CheckoutSuccess)', () => {
       'href',
       '/orders/track',
     )
-    expect(useCheckoutStore.getState().payment).toBeNull() // this checkout is finished
+    // The checkout is cleared in an effect that runs just AFTER the page appears —
+    // wait for it (checking immediately was flaky on a busy machine / in CI).
+    await waitFor(() => expect(useCheckoutStore.getState().payment).toBeNull()) // this checkout is finished
   })
 
   it('online payment: the live payment status on top of the receipt', async () => {
