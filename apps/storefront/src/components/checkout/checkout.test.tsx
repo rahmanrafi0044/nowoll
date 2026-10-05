@@ -117,7 +117,7 @@ beforeEach(async () => {
   initAnswer = null
   vi.stubGlobal('fetch', vi.fn(fakeApi))
   // jsdom can't navigate: record where the browser would have been sent.
-  vi.stubGlobal('location', { ...window.location, assign: vi.fn() })
+  vi.stubGlobal('location', { ...window.location, assign: vi.fn(), replace: vi.fn() })
   useCartStore.getState().clear()
   useCheckoutStore.getState().reset()
   await act(() => useCartStore.persist.rehydrate())
@@ -191,10 +191,14 @@ describe('checkout', () => {
     fireEvent.click(within(review).getByRole('button', { name: 'Place order' }))
 
     // The order request: a request key, the reviewed total, normalized details
-    expect(
-      await screen.findByRole('heading', { name: 'Thank you — your order is placed!' }),
-    ).toBeInTheDocument()
-    expect(screen.getByText('NW-10001')).toBeInTheDocument()
+    // Step 21: every non-pending-payment order goes to the confirmation page (replace: no "Back" into checkout)
+    await waitFor(() =>
+      expect(window.location.replace).toHaveBeenCalledWith('/checkout/success?order=o1'),
+    )
+    expect(screen.getByRole('link', { name: 'View your order' })).toHaveAttribute(
+      'href',
+      '/checkout/success?order=o1',
+    )
     expect(orderCalls).toHaveLength(1)
     expect(orderCalls[0]!.key).toMatch(/^[0-9a-f-]{36}$/)
     expect(orderCalls[0]!.body).toMatchObject({
@@ -323,7 +327,7 @@ describe('placing the order', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/safe to try again/)
     orderAnswer = null
     place()
-    await screen.findByText('NW-10001')
+    await waitFor(() => expect(window.location.replace).toHaveBeenCalled())
     expect(orderCalls).toHaveLength(2)
     expect(orderCalls[0]!.key).toBe(orderCalls[1]!.key)
   })

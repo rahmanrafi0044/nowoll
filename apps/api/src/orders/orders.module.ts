@@ -6,6 +6,7 @@ import { PaymentsModule } from '../payments/payments.module.js'
 import { SettingsModule } from '../settings/settings.module.js'
 import { LoggingOrderNotifier, ORDER_NOTIFIER } from './order-notifier.js'
 import { OrderExpiryService } from './order-expiry.service.js'
+import { OrderLookupService } from './order-lookup.service.js'
 import { OrdersController } from './orders.controller.js'
 import { OrdersService } from './orders.service.js'
 
@@ -15,6 +16,7 @@ import { OrdersService } from './orders.service.js'
   providers: [
     OrdersService,
     OrderExpiryService,
+    OrderLookupService,
     // Phase 4: swap for the BullMQ adapter (confirmation email via the order worker).
     { provide: ORDER_NOTIFIER, useClass: LoggingOrderNotifier },
   ],

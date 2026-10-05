@@ -199,3 +199,60 @@ export interface PaymentStatusView {
   /** True while "Try paying again" can still work (unpaid and within the payment window). */
   canRetry: boolean
 }
+
+/** One line of a placed order (names and prices as they were when ordered). */
+export interface OrderLineView {
+  productName: string
+  variantLabel: string
+  imageUrl: string | null
+  unitPrice: Money
+  quantity: number
+  lineTotal: Money
+}
+
+interface OrderBasicsView {
+  displayNumber: string // "NW-10001"
+  placedAt: string // ISO date
+  status: OrderPlacedView['status']
+  paymentMethod: OrderPlacedView['paymentMethod']
+  paymentStatus: OrderPlacedView['paymentStatus']
+  items: OrderLineView[]
+  total: Money
+  /** True while "Pay now" can still work (online, unpaid, within the payment window). */
+  canPay: boolean
+}
+
+/** GET /orders/:id/receipt — the confirmation page (the random order id is the key). */
+export interface OrderReceiptView extends OrderBasicsView {
+  orderId: string
+  customerName: string
+  deliveryAddress: {
+    addressLine1: string
+    addressLine2: string | null
+    area: string | null
+    district: string
+    division: string
+    postalCode: string | null
+  }
+  deliveryZone: string
+  totals: {
+    subtotal: Money
+    discount: Money
+    discountCode: string | null
+    shippingFee: Money
+    vatRate: Money
+    vatAmount: Money
+    total: Money
+  }
+}
+
+/** POST /orders/track — the public tracking page (no street address, by design). */
+export interface OrderTrackingView extends OrderBasicsView {
+  /** Only while "Pay now" can work. */
+  payOrderId: string | null
+  deliveryArea: { area: string | null; district: string; division: string }
+  courierName: string | null
+  trackingNumber: string | null
+  /** When the order first reached each status, oldest first. */
+  timeline: { status: OrderPlacedView['status']; at: string }[]
+}

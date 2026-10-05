@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import { PaymentConfirmation } from '@/components/checkout/payment-confirmation'
+import { CheckoutSuccess } from '@/components/checkout/checkout-success'
 
-// Where SSLCommerz sends the customer after paying (via the API's /success
-// redirect). Being sent here proves nothing — the page asks the API, which
-// only says "paid" after SSLCommerz's validation API confirmed it.
+// The order confirmation page (step 21): every order lands here — cash on
+// delivery straight after "Place order", online orders when SSLCommerz sends
+// the customer back. Being sent here proves nothing about payment — the page
+// asks the API, which only says "paid" after SSLCommerz's validation API confirmed it.
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: 'Payment', robots: { index: false, follow: false } }
+  return { title: 'Order confirmation', robots: { index: false, follow: false } }
 }
 
 export default async function PaymentSuccessPage({
@@ -15,8 +16,8 @@ export default async function PaymentSuccessPage({
 }) {
   const { order } = await searchParams
   return (
-    <div className="mx-auto max-w-lg px-4 py-12">
-      <PaymentConfirmation orderId={typeof order === 'string' ? order : null} />
+    <div className="mx-auto max-w-2xl px-4 py-12">
+      <CheckoutSuccess orderId={typeof order === 'string' ? order : null} />
     </div>
   )
 }

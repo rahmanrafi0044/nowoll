@@ -573,11 +573,7 @@ export class PaymentsService {
   async status(orderId: string, now = new Date()): Promise<PaymentStatusSummary> {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } })
     if (!order) throw new NotFoundException('Order not found')
-    const canRetry =
-      order.paymentMethod === PaymentMethod.SSLCOMMERZ &&
-      order.status === OrderStatus.PENDING &&
-      order.paymentStatus === PaymentStatus.PENDING &&
-      !(await this.pastPaymentWindow(order, now))
+    const canRetry = await this.canPayNow(order, now)
     return {
       orderId: order.id,
       displayNumber: displayNumber(order.orderNumber),
@@ -587,6 +583,24 @@ export class PaymentsService {
       total: order.total,
       canRetry,
     }
+  }
+
+  /** Can "Pay now" still work for this order? (Online, unpaid, within the payment window.) */
+  async canPayNow(
+    order: {
+      paymentMethod: PaymentMethod
+      status: OrderStatus
+      paymentStatus: PaymentStatus
+      createdAt: Date
+    },
+    now = new Date(),
+  ): Promise<boolean> {
+    return (
+      order.paymentMethod === PaymentMethod.SSLCOMMERZ &&
+      order.status === OrderStatus.PENDING &&
+      order.paymentStatus === PaymentStatus.PENDING &&
+      !(await this.pastPaymentWindow(order, now))
+    )
   }
 
   /** Online orders must be paid within `payment_timeout_minutes` of being placed (setting). */

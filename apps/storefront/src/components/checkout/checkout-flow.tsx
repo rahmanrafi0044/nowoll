@@ -15,6 +15,20 @@ import { ReviewStep } from './review-step'
 import { ShippingStep } from './shipping-step'
 import { StepSection } from './step-section'
 
+/** Sends the browser to the confirmation page. replace(): "Back" won't return to a finished checkout. */
+function OpeningConfirmation({ orderId }: { orderId: string }) {
+  const href = `/checkout/success?order=${encodeURIComponent(orderId)}`
+  useEffect(() => window.location.replace(href), [href])
+  return (
+    <p className="py-12 text-center text-muted-foreground">
+      Order placed — opening your confirmation…{' '}
+      <Link href={href} className="underline underline-offset-4">
+        View your order
+      </Link>
+    </p>
+  )
+}
+
 // The whole checkout: contact → address → delivery → payment → review,
 // with a live order summary beside it (spec: Phase 3 step 17).
 export function CheckoutFlow() {
@@ -35,7 +49,14 @@ export function CheckoutFlow() {
   if (!hydrated) return <p className="py-12 text-center text-muted-foreground">Loading checkout…</p>
 
   // Just placed an order (the bag is now empty) → show the confirmation.
-  if (placed && items.length === 0) return <OrderPlaced order={placed} notice={paymentNotice} />
+  // Just placed an order (the bag is now empty): an online order whose payment
+  // page didn't open offers "Pay now"; everything else goes to the confirmation page.
+  if (placed && items.length === 0)
+    return placed.nextAction === 'PAY' ? (
+      <OrderPlaced order={placed} notice={paymentNotice} />
+    ) : (
+      <OpeningConfirmation orderId={placed.orderId} />
+    )
 
   if (items.length === 0) {
     return (
