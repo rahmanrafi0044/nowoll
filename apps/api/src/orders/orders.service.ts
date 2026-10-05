@@ -18,8 +18,11 @@ import { isDistrictInDivision } from '@nowoll/validation'
 import { CheckoutService } from '../checkout/checkout.service.js'
 import { DiscountsService } from '../discounts/discounts.service.js'
 import { type StockChange, StockService } from '../inventory/stock.service.js'
+import { PaymentsService } from '../payments/payments.service.js'
+import { newTransactionId } from '../payments/transaction-id.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import type { CreateOrderDto } from './dto/create-order.dto.js'
+import { displayNumber } from './order-number.js'
 import { ORDER_NOTIFIER, type OrderNotifier } from './order-notifier.js'
 
 export interface PlacedOrder {
@@ -34,7 +37,7 @@ export interface PlacedOrder {
   nextAction: 'NONE' | 'PAY'
 }
 
-export const displayNumber = (orderNumber: number) => `NW-${orderNumber}`
+export { displayNumber }
 
 /**
  * DEADLOCK PREVENTION: every transaction that changes several variants' stock
@@ -62,6 +65,7 @@ export class OrdersService {
     private readonly checkout: CheckoutService,
     private readonly discounts: DiscountsService,
     private readonly stock: StockService,
+    private readonly payments: PaymentsService,
     @Inject(ORDER_NOTIFIER) private readonly notifier: OrderNotifier,
   ) {}
 
@@ -111,6 +115,13 @@ export class OrdersService {
               message: `Prices changed since you reviewed your order — the total is now ৳${totals.total.toString()}. Please review and try again.`,
               code: 'PRICE_CHANGED',
             })
+          }
+
+          // 2b. "Pay online" must actually be possible for this total (step 20) —
+          //     otherwise the order would hold stock for a payment that can't happen.
+          if (dto.paymentMethod === PaymentMethod.SSLCOMMERZ) {
+            const problem = this.payments.onlinePaymentProblem(totals.total.toString())
+            if (problem) throw new UnprocessableEntityException(problem)
           }
 
           // 3. The order, with COPIES of names, prices and address (they stay correct forever).
@@ -191,14 +202,15 @@ export class OrdersService {
             }
           }
 
-          // 6. The payment record. SSLCommerz uses its id as tran_id (docs/integrations/sslcommerz.md).
+          // 6. The first payment attempt. Its short transaction id is what
+          //    SSLCommerz receives as tran_id (≤ 30 characters — step 19).
           await tx.payment.create({
             data: {
               orderId: order.id,
               method: dto.paymentMethod,
               status: PaymentStatus.PENDING,
               amount: totals.total,
-              transactionId: order.id,
+              transactionId: newTransactionId(order.orderNumber),
             },
           })
 

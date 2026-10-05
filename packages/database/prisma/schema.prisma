@@ -558,6 +558,10 @@ model Payment {
   cardType          String?       @map("card_type") // e.g. "BKASH-BKash", "VISA-Dutch Bangla"
   rawResponse       Json?         @map("raw_response") // latest validation response — required for audit
   paidAt            DateTime?     @map("paid_at")
+  // When this attempt was sent to SSLCommerz. An attempt is sent at most once:
+  // "Try paying again" creates a NEW attempt (SSLCommerz requires a unique
+  // tran_id per transaction). Null = created with the order, not sent yet.
+  initiatedAt       DateTime?     @map("initiated_at")
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
 

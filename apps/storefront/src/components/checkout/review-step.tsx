@@ -4,6 +4,7 @@ import type { CheckoutQuoteView } from '@nowoll/types'
 import { Button } from '@nowoll/ui'
 import Link from 'next/link'
 import { useState } from 'react'
+import { startPayment } from '@/hooks/use-pay-now'
 import { placeOrder } from '@/lib/cart-api'
 import { formatBdt } from '@/lib/format'
 import { useCartStore } from '@/stores/cart-store'
@@ -11,7 +12,7 @@ import { useCheckoutStore } from '@/stores/checkout-store'
 import { paymentLabel } from './payment-step'
 import { deliveryEstimate } from './shipping-step'
 
-type Problem = { message: string; action?: 'BAG' | 'REMOVE_CODE' }
+type Problem = { message: string; action?: 'BAG' | 'REMOVE_CODE' | 'PAYMENT' }
 
 // The last look before paying: every detail in one place, each with a way back.
 export function ReviewStep({
@@ -27,13 +28,13 @@ export function ReviewStep({
   const discountCode = useCartStore((s) => s.discountCode)
   const setDiscountCode = useCartStore((s) => s.setDiscountCode)
   const clearCart = useCartStore((s) => s.clear)
-  const [sending, setSending] = useState(false)
+  const [sending, setSending] = useState<false | 'order' | 'payment'>(false)
   const [problem, setProblem] = useState<Problem | null>(null)
   if (!contact || !address || !payment) return null
 
   async function submit() {
     if (!quote || !contact || !address || !payment) return
-    setSending(true)
+    setSending('order')
     setProblem(null)
     const result = await placeOrder(
       {
@@ -54,13 +55,24 @@ export function ReviewStep({
       // The same key on every attempt of this checkout: a retry can't create a second order.
       ensureAttemptKey(),
     )
-    setSending(false)
 
     if (result.ok) {
+      // Online payment: go straight to SSLCommerz. The order is saved either
+      // way, so if the payment page can't be opened, the confirmation offers "Pay now".
+      if (result.data.nextAction === 'PAY') {
+        setSending('payment')
+        const payment = await startPayment(result.data.orderId)
+        clearCart()
+        setPlaced(result.data, payment.ok ? undefined : payment.message)
+        if (payment.ok) window.location.assign(payment.url)
+        return
+      }
+      setSending(false)
       clearCart()
       setPlaced(result.data)
       return
     }
+    setSending(false)
     switch (result.error) {
       case 'PRICE_CHANGED':
         refreshQuote()
@@ -68,6 +80,9 @@ export function ReviewStep({
       case 'OUT_OF_STOCK':
       case 'ITEMS_UNAVAILABLE':
         return setProblem({ message: result.message, action: 'BAG' })
+      case 'ONLINE_PAYMENT_UNAVAILABLE':
+      case 'ONLINE_PAYMENT_AMOUNT':
+        return setProblem({ message: result.message, action: 'PAYMENT' })
       default:
         if (result.error?.startsWith('DISCOUNT_'))
           return setProblem({ message: result.message, action: 'REMOVE_CODE' })
@@ -155,6 +170,18 @@ export function ReviewStep({
               Review your bag
             </Link>
           )}
+          {problem.action === 'PAYMENT' && (
+            <button
+              type="button"
+              className="self-start font-medium underline underline-offset-4"
+              onClick={() => {
+                setProblem(null)
+                goTo('payment')
+              }}
+            >
+              Choose another way to pay
+            </button>
+          )}
           {problem.action === 'REMOVE_CODE' && (
             <button
               type="button"
@@ -170,12 +197,14 @@ export function ReviewStep({
         </div>
       )}
 
-      <Button size="lg" fullWidth onClick={submit} disabled={sending || quoteLoading || !quote}>
-        {sending
-          ? 'Placing your order…'
-          : payment === 'COD'
-            ? 'Place order'
-            : 'Place order and pay'}
+      <Button size="lg" fullWidth onClick={submit} disabled={!!sending || quoteLoading || !quote}>
+        {sending === 'payment'
+          ? 'Opening the payment page…'
+          : sending
+            ? 'Placing your order…'
+            : payment === 'COD'
+              ? 'Place order'
+              : 'Place order and pay'}
       </Button>
       <p className="text-xs text-muted-foreground">
         By placing your order you agree to our{' '}

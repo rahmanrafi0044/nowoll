@@ -29,12 +29,13 @@ export function CheckoutFlow() {
   const address = useCheckoutStore((s) => s.address)
   const payment = useCheckoutStore((s) => s.payment)
   const placed = useCheckoutStore((s) => s.placed)
+  const paymentNotice = useCheckoutStore((s) => s.paymentNotice)
   const quoteState = useCheckoutQuote(address?.district, contact?.email)
 
   if (!hydrated) return <p className="py-12 text-center text-muted-foreground">Loading checkout…</p>
 
   // Just placed an order (the bag is now empty) → show the confirmation.
-  if (placed && items.length === 0) return <OrderPlaced order={placed} />
+  if (placed && items.length === 0) return <OrderPlaced order={placed} notice={paymentNotice} />
 
   if (items.length === 0) {
     return (
@@ -84,7 +85,7 @@ export function CheckoutFlow() {
           <ShippingStep quote={quoteState.quote} />
         </StepSection>
         <StepSection step="payment" title="Payment" summary={payment && paymentLabel(payment)}>
-          <PaymentStep />
+          <PaymentStep total={quoteState.quote?.totals.total ?? null} />
         </StepSection>
         <StepSection step="review" title="Review and place order">
           <ReviewStep quote={quoteState.quote} quoteLoading={quoteState.loading} />

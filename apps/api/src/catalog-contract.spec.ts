@@ -7,6 +7,8 @@ import type {
   CartQuoteView,
   CheckoutQuoteView,
   OrderPlacedView,
+  PaymentInitView,
+  PaymentStatusView,
   ShippingRateView,
   CategoryNode,
   DiscountPreviewView,
@@ -21,6 +23,7 @@ import type { PublicCategoryDetail, PublicCategoryNode } from './categories/cate
 import type { DiscountPreview } from './discounts/discounts.service.js'
 import type { CheckoutQuote } from './checkout/checkout.service.js'
 import type { PlacedOrder } from './orders/orders.service.js'
+import type { PaymentsService, PaymentStatusSummary } from './payments/payments.service.js'
 import type { CartQuote } from './pricing/cart-pricing.js'
 import type { ShippingRate } from './shipping/shipping.service.js'
 import type { PublicVariant } from './products/product-view.js'
@@ -54,5 +57,11 @@ describe('API ↔ storefront contract', () => {
 
   it('orders', () => {
     expectTypeOf<Serialized<PlacedOrder>>().toEqualTypeOf<OrderPlacedView>()
+  })
+
+  it('payments', () => {
+    type Init = Awaited<ReturnType<PaymentsService['init']>>
+    expectTypeOf<Serialized<Init>>().toEqualTypeOf<PaymentInitView>()
+    expectTypeOf<Serialized<PaymentStatusSummary>>().toEqualTypeOf<PaymentStatusView>()
   })
 })

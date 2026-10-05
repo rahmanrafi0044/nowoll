@@ -22,6 +22,13 @@ export default defineConfig({
       // so nothing is ever uploaded to the real Supabase project.
       NEXT_PUBLIC_SUPABASE_URL: 'https://test-project.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+      // Dummy credentials switch "Pay online" on; the gateway itself is always the
+      // fake (test/utils/fake-payment-gateway.ts) — no test ever calls SSLCommerz.
+      SSLCOMMERZ_STORE_ID: 'test-store',
+      SSLCOMMERZ_STORE_PASSWORD: 'test-store-password',
+      SSLCOMMERZ_IS_LIVE: 'false',
+      API_PUBLIC_URL: 'https://api.nowoll.test',
+      NEXT_PUBLIC_SITE_URL: 'https://nowoll.test',
     },
     // *.spec.ts = unit tests next to the code; test/*.e2e-spec.ts = HTTP-level integration tests
     include: ['src/**/*.spec.ts', 'test/**/*.e2e-spec.ts'],

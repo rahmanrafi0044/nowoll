@@ -35,10 +35,12 @@ interface CheckoutState {
   attemptKey: string | null
   /** The order just placed — shown as the confirmation (survives a refresh in this tab). */
   placed: OrderPlacedView | null
+  /** Why the payment page couldn't be opened right after placing the order (shown with "Pay now"). */
+  paymentNotice: string | null
   /** Bumped to make the summary re-ask the API (e.g. after "prices changed"). */
   quoteNonce: number
   ensureAttemptKey: () => string
-  setPlaced: (order: OrderPlacedView) => void
+  setPlaced: (order: OrderPlacedView, paymentNotice?: string) => void
   refreshQuote: () => void
   complete: (step: CheckoutStep) => void
   goTo: (step: CheckoutStep) => void
@@ -56,6 +58,7 @@ const initial = {
   payment: null,
   attemptKey: null,
   placed: null,
+  paymentNotice: null,
   quoteNonce: 0,
 }
 
@@ -74,7 +77,8 @@ export const useCheckoutStore = create<CheckoutState>()(
         return key
       },
       // A placed order starts a fresh checkout (new key) but keeps the confirmation.
-      setPlaced: (order) => set({ ...initial, placed: order }),
+      setPlaced: (order, paymentNotice) =>
+        set({ ...initial, placed: order, paymentNotice: paymentNotice ?? null }),
       refreshQuote: () => set((s) => ({ quoteNonce: s.quoteNonce + 1 })),
       // Marking a step done opens the next one.
       complete: (step) =>

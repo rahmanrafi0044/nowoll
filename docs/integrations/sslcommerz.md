@@ -54,31 +54,63 @@ TLS 1.2 or newer is required (Node's `fetch` uses it by default). Our requests t
 
 ## Flow
 
+**Code:** `apps/api/src/payments/` (step 20) — `payments.service.ts` holds every rule below.
+
 ```
 Customer clicks "Place order and pay"                       (storefront)
         ↓
 POST /api/v1/orders → order PENDING, stock reserved,        (step 18)
-                      payment record PENDING (its transactionId = the order id)
+                      first payment attempt PENDING, tran_id "NW10001-7F3A9C"
         ↓
-POST /api/v1/payment/sslcommerz/init → createPayment()       (step 20)
+POST /api/v1/payment/sslcommerz/init {orderId} → createPayment()   (5/min)
+  first "Pay" sends the attempt made with the order; every later "Pay"
+  ("Try paying again") creates a NEW attempt with a new tran_id
         ↓
-SSLCommerz returns GatewayPageURL → browser is sent there
+SSLCommerz returns GatewayPageURL → browser is sent there (storefront only
+follows https://*.sslcommerz.com links)
         ↓
 Customer pays on SSLCommerz's page
         ↓
-SSLCommerz POSTs the IPN to /api/v1/payment/sslcommerz/ipn   (server → server)
+SSLCommerz POSTs the IPN to /api/v1/payment/sslcommerz/ipn   (server → server, never rate-limited)
         ↓
-verifyPayment(val_id) — the Validation API decides, NEVER the IPN's own "status"
+payload stored (payment_events) → verifyPayment(val_id) — the Validation API decides,
+NEVER the IPN's own "status"
         ↓
-PAID → order CONFIRMED + PAID        REVIEW (risky) → payment UNDER_REVIEW
-NOT_PAID → order cancelled, stock + discount released (same transaction)
-UNREACHABLE → payment UNDER_REVIEW, admin alerted — never auto-cancelled
+PAID        → payment PAID; order CONFIRMED + PAID
+REVIEW      → payment + order UNDER_REVIEW (risky — a human checks before shipping)
+UNREACHABLE → payment + order UNDER_REVIEW, val_id kept empty → re-checked every 5 min
+NOT_PAID    → recorded only; then the transaction query (by tran_id) is asked:
+              FAILED → this attempt FAILED. The ORDER stays open for another try.
         ↓
-SSLCommerz also redirects the browser to success / fail / cancel URL
-(a redirect is NOT proof of payment — the IPN/validation is)
+SSLCommerz also POSTs the browser to success / fail / cancel → we answer 303 to
+  {site}/checkout/success?order=…          (success is ALSO validated — whichever of
+  {site}/checkout/payment-failed?order=…&reason=fail|cancel   IPN/redirect comes first wins;
+  {site}/checkout?payment=error            (unknown tran_id)   the other is a no-op)
 ```
 
-Unpaid online orders are cancelled automatically after `payment_timeout_minutes` (setting, default 30) — see `apps/api/src/orders/order-expiry.service.ts`.
+### Special cases (step 20 decisions)
+
+| Case | What happens |
+|---|---|
+| Paid twice (two tabs) | First confirms the order; the second payment → `UNDER_REVIEW` "duplicate — refund this one" (note on the order) |
+| Paid after the order was cancelled | Order stays `CANCELLED` (stock is not re-taken); payment and order payment status → `UNDER_REVIEW` "refund or restore" |
+| Risky (`risk_level = 1`) | `UNDER_REVIEW`; never auto-cancelled |
+| Validation API unreachable | `UNDER_REVIEW` with no `val_id`; `reconcile()` asks the transaction query every 5 min → PAID: validated and settled; FAILED/not found: attempt FAILED, order back to unpaid |
+| Failure / cancel reported | Believed only once the transaction query says FAILED; if it says paid, the payment is validated and settled instead |
+| Refunds | Not automated yet — Phase 4 (returns) |
+
+### Unpaid online orders expire
+
+After `payment_timeout_minutes` (setting, default 30), counted from the order **or its latest "Pay" press**,
+whichever is later (`apps/api/src/orders/order-expiry.service.ts`, every 5 min). Before cancelling, every
+attempt that was sent is looked up by `tran_id`: paid → confirmed instead; SSLCommerz not answering → skipped
+until the next round. "Pay" is refused (`ORDER_EXPIRED`) once the window has passed.
+
+### Environment
+
+`API_PUBLIC_URL` (e.g. `https://api.nowoll.com`) builds the four callback URLs; `NEXT_PUBLIC_SITE_URL`
+builds the redirects back to the shop. Both must be `https://` in production (the API refuses to start).
+In development SSLCommerz can't reach `localhost` — testing real IPNs needs a public tunnel (ask first).
 
 ---
 
@@ -89,7 +121,7 @@ Unpaid online orders are cancelled automatically after `payment_timeout_minutes`
 | `store_id`, `store_passwd` | credentials |
 | `total_amount` | order total, `decimal(10,2)` e.g. `1550.00` — must be **10.00–500,000.00** |
 | `currency` | `BDT` |
-| `tran_id` | the payment record's `transactionId` — the order id for the first attempt; a retry gets a new payment record and id (step 20). Must be unique per attempt. **Note:** SSLCommerz allows ≤ 30 chars and a UUID is 36 → step 20 must send a shortened, still-unique id. |
+| `tran_id` | the payment attempt's `transactionId`: `NW<order number>-<6 random hex>`, e.g. `NW10001-7F3A9C` (14 chars; SSLCommerz allows ≤ 30). Unique per attempt — a retry gets a new attempt and id. |
 | `success_url`, `fail_url`, `cancel_url`, `ipn_url` | `https://api.nowoll.com/api/v1/payment/sslcommerz/{success,fail,cancel,ipn}` |
 | `cus_name`, `cus_email`, `cus_add1`, `cus_city`, `cus_phone` | from the order (text fields ≤ 50 chars, phone ≤ 20) |
 | `cus_postcode` | customer's postcode, or `0000` if none — **TODO: confirm with SSLCommerz support that this is acceptable** |
@@ -153,12 +185,13 @@ Refund status query: `refund_ref_id`, `store_id`, `store_passwd` → `refunded` 
 
 - Session API `status !== SUCCESS` → don't redirect; show the reason; the order stays unpaid (expires after the timeout).
 - IPN for an unknown order → log + store the payload, answer 200.
-- Validation API unreachable → payment `UNDER_REVIEW` + admin alert. **Never auto-cancel** on an unreachable validator.
-- All IPN payloads and validation responses are stored for audit.
+- Validation API unreachable → payment `UNDER_REVIEW` + logged alert (admin email: Phase 4). **Never auto-cancel** on an unreachable validator.
+- All IPN/redirect payloads, validation responses and transaction-query answers are stored (`payment_events`) for audit.
 
 ## Testing
 
 - **Automated:** `packages/payments` tests use a fake SSLCommerz (official response shapes) — no network, no money.
+  The API's tests always replace SSLCommerz with `apps/api/test/utils/fake-payment-gateway.ts` (forged IPNs, duplicates, late and risky payments, outages).
 - **Sandbox connection check:** `pnpm payments:sandbox-check` creates one ৳10 **sandbox** session (refuses to run if `SSLCOMMERZ_IS_LIVE=true`; never pays it).
 - **Sandbox test card:** `4111111111111111`, any future expiry, any 3-digit CVV, OTP `123456` (from SSLCommerz's sandbox docs — re-check there if it stops working).
 

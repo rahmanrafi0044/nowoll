@@ -182,3 +182,20 @@ export interface OrderPlacedView {
   total: Money
   nextAction: 'NONE' | 'PAY'
 }
+
+/** POST /payment/sslcommerz/init — where to send the customer to pay. */
+export interface PaymentInitView {
+  redirectUrl: string
+}
+
+/** GET /payment/status/:orderId — what the thank-you / payment-failed pages show. */
+export interface PaymentStatusView {
+  orderId: string
+  displayNumber: string // "NW-10001"
+  status: OrderPlacedView['status']
+  paymentMethod: OrderPlacedView['paymentMethod']
+  paymentStatus: OrderPlacedView['paymentStatus']
+  total: Money
+  /** True while "Try paying again" can still work (unpaid and within the payment window). */
+  canRetry: boolean
+}
