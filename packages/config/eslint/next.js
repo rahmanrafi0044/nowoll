@@ -10,7 +10,8 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'coverage/**', 'next-env.d.ts']),
+  // .next-e2e: the browser tests' separate build (tests/e2e)
+  globalIgnores(['.next/**', '.next-e2e/**', 'out/**', 'build/**', 'coverage/**', 'next-env.d.ts']),
   {
     rules: {
       '@typescript-eslint/no-unused-vars': [

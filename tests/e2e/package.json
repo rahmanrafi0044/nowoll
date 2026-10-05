@@ -1,0 +1,23 @@
+{
+  "name": "@nowoll/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Browser tests (Playwright) of the real storefront + API against a throwaway database",
+  "type": "module",
+  "scripts": {
+    "test:e2e": "node --import tsx run-e2e.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "report": "playwright show-report playwright-report"
+  },
+  "devDependencies": {
+    "@nowoll/api": "workspace:*",
+    "@nowoll/config": "workspace:*",
+    "@nowoll/database": "workspace:*",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.39.0",
+    "tsx": "^4.23.0",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,6 +1,9 @@
 pnpm-lock.yaml
 **/dist
 **/.next
+**/.next-e2e
+tests/e2e/playwright-report
+tests/e2e/test-results
 **/generated
 **/migrations
 

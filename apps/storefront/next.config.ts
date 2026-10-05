@@ -28,6 +28,10 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
 const nextConfig: NextConfig = {
   poweredByHeader: false, // don't advertise "X-Powered-By: Next.js" to attackers
 
+  // The browser tests (tests/e2e) build into .next-e2e: that build points at
+  // the e2e API (its address is baked in), so it must never replace yours.
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
+
   images: {
     remotePatterns: supabaseHost
       ? [{ protocol: 'https', hostname: supabaseHost, pathname: '/storage/v1/object/public/**' }]
