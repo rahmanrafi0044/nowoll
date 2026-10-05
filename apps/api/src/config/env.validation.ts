@@ -1,5 +1,17 @@
 import { plainToInstance, Type } from 'class-transformer'
-import { IsEnum, IsInt, IsNotEmpty, IsString, IsUrl, Max, Min, validateSync } from 'class-validator'
+import { isSslCommerzConfigured } from '@nowoll/payments'
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  Min,
+  validateSync,
+} from 'class-validator'
 
 export enum NodeEnv {
   Development = 'development',
@@ -42,6 +54,21 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   SUPABASE_SERVICE_ROLE_KEY!: string
+
+  // SSLCommerz (docs/integrations/sslcommerz.md). Optional in development —
+  // "Pay online" then says it isn't set up — but REQUIRED in production.
+  @IsOptional()
+  @IsString()
+  SSLCOMMERZ_STORE_ID?: string
+
+  @IsOptional()
+  @IsString()
+  SSLCOMMERZ_STORE_PASSWORD?: string
+
+  // "true" ONLY on the real shop. Anything else uses the sandbox (fake money).
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  SSLCOMMERZ_IS_LIVE?: 'true' | 'false'
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {
@@ -59,6 +86,19 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
     )
   }
 
+  // Step 19 decision #7: a production server without payment credentials
+  // must not start (it would take orders it can't charge for).
+  if (
+    env.NODE_ENV === NodeEnv.Production &&
+    !isSslCommerzConfigured({
+      storeId: env.SSLCOMMERZ_STORE_ID,
+      storePassword: env.SSLCOMMERZ_STORE_PASSWORD,
+    })
+  ) {
+    throw new Error(
+      'Invalid environment variables:\n  - SSLCOMMERZ_STORE_ID and SSLCOMMERZ_STORE_PASSWORD must be set in production',
+    )
+  }
   return env
 }
 

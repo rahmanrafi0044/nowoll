@@ -5,185 +5,163 @@ SSLCommerz is Bangladesh's leading payment gateway. Nowoll uses it for card paym
 
 **Sandbox dashboard:** https://sandbox.sslcommerz.com/manage/
 **Live dashboard:** https://manage.sslcommerz.com/manage/
-**Official docs:** https://developer.sslcommerz.com/
+**Official docs (source of truth):** https://developer.sslcommerz.com/doc/v4/
+**Sandbox registration (free, instant credentials):** https://developer.sslcommerz.com/registration/
+
+**Code:** `packages/payments/src/sslcommerz.adapter.ts` (implements `PaymentProvider`, CLAUDE.md §9).
+**Last checked against the official v4 docs:** October 2026 (Phase 3 step 19).
+
+### What changed in the October 2026 check
+The first version of this file was written before the official docs were read. Corrections:
+
+| Topic | Old | Official v4 |
+|---|---|---|
+| Session request format | JSON object | `application/x-www-form-urlencoded` POST |
+| Required customer fields | name, email, phone, address, city | + **`cus_postcode`** |
+| Shipping | `shipping_method: 'Courier'` | `YES` / `NO` / `Courier` / `SSLCOMMERZ_LOGISTIC`; `ship_*` fields required when `YES` |
+| IPN `status` values | VALID / INVALID / CANCELLED | VALID, **FAILED**, CANCELLED, **EXPIRED**, **UNATTEMPTED** |
+| Validation "paid" status | only `VALID` | `VALID` **or `VALIDATED`** (already validated earlier — e.g. IPN and redirect both validate) |
+| Amount limits | — | **৳10.00 – ৳500,000.00** per payment |
+| Risk | — | `risk_level = 1` → verify before delivering |
+| Refunds | — | Refund API; requires our server IP to be **registered with SSLCommerz** |
+| Lookup by our id | — | Transaction query API (by `tran_id`) |
 
 ---
 
-## Credentials (stored in env vars — never hardcoded)
+## Credentials (root `.env` — never committed)
 
 ```env
-SSLCOMMERZ_STORE_ID=       # from SSLCommerz merchant dashboard
-SSLCOMMERZ_STORE_PASSWORD= # from SSLCommerz merchant dashboard
-SSLCOMMERZ_IS_LIVE=false   # set to true in production only
+SSLCOMMERZ_STORE_ID=       # from the SSLCommerz dashboard (sandbox or live)
+SSLCOMMERZ_STORE_PASSWORD= # from the SSLCommerz dashboard
+SSLCOMMERZ_IS_LIVE=false   # "true" ONLY on the real shop
 ```
 
-## API Endpoints
+- Development: may be left as placeholders — "Pay online" then reports "not set up".
+- **Production: the API refuses to start without real values** (`apps/api/src/config/env.validation.ts`).
+- The store password is sent only to SSLCommerz and **never** appears in logs, errors or stored responses.
 
-| Environment | Session URL |
-|---|---|
-| Sandbox | `https://sandbox.sslcommerz.com/gwprocess/v4/api.php` |
-| Live | `https://securepay.sslcommerz.com/gwprocess/v4/api.php` |
+## Endpoints
 
-| Environment | Validation URL |
-|---|---|
-| Sandbox | `https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php` |
-| Live | `https://securepay.sslcommerz.com/validator/api/validationserverAPI.php` |
+| Purpose | Method | Sandbox | Live |
+|---|---|---|---|
+| Create session | POST (form) | `https://sandbox.sslcommerz.com/gwprocess/v4/api.php` | `https://securepay.sslcommerz.com/gwprocess/v4/api.php` |
+| Validate a payment | GET | `https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php` | `https://securepay.sslcommerz.com/validator/api/validationserverAPI.php` |
+| Query by `tran_id` / refund | GET | `https://sandbox.sslcommerz.com/validator/api/merchantTransIDvalidationAPI.php` | `https://securepay.sslcommerz.com/validator/api/merchantTransIDvalidationAPI.php` |
+
+TLS 1.2 or newer is required (Node's `fetch` uses it by default). Our requests time out after 10 s.
 
 ---
 
 ## Flow
 
 ```
-Customer clicks "Pay"
+Customer clicks "Place order and pay"                       (storefront)
         ↓
-Frontend calls POST /api/v1/payment/sslcommerz/init
+POST /api/v1/orders → order PENDING, stock reserved,        (step 18)
+                      payment record PENDING (its transactionId = the order id)
         ↓
-NestJS creates order in DB (status: PENDING)
+POST /api/v1/payment/sslcommerz/init → createPayment()       (step 20)
         ↓
-NestJS calls SSLCommerz Session API
+SSLCommerz returns GatewayPageURL → browser is sent there
         ↓
-SSLCommerz returns GatewayPageURL
+Customer pays on SSLCommerz's page
         ↓
-NestJS returns { gateway_url } to frontend
+SSLCommerz POSTs the IPN to /api/v1/payment/sslcommerz/ipn   (server → server)
         ↓
-Frontend redirects browser to GatewayPageURL
+verifyPayment(val_id) — the Validation API decides, NEVER the IPN's own "status"
         ↓
-Customer pays on SSLCommerz page
+PAID → order CONFIRMED + PAID        REVIEW (risky) → payment UNDER_REVIEW
+NOT_PAID → order cancelled, stock + discount released (same transaction)
+UNREACHABLE → payment UNDER_REVIEW, admin alerted — never auto-cancelled
         ↓
-SSLCommerz POSTs IPN to /api/v1/payment/sslcommerz/ipn
-        ↓
-NestJS validates IPN with SSLCommerz Validation API
-        ↓
-If VALID → update order to PAID, send confirmation email
-If INVALID → cancel order, restore stock
-        ↓
-SSLCommerz redirects browser to success/fail/cancel URL
+SSLCommerz also redirects the browser to success / fail / cancel URL
+(a redirect is NOT proof of payment — the IPN/validation is)
 ```
 
----
-
-## Session Init Payload (POST to Session URL)
-
-```typescript
-{
-  store_id: string,               // SSLCOMMERZ_STORE_ID
-  store_passwd: string,           // SSLCOMMERZ_STORE_PASSWORD
-  total_amount: number,           // order total in BDT
-  currency: 'BDT',
-  tran_id: string,                // USE ORDER ID — must be unique per transaction
-  success_url: string,            // https://api.nowoll.com/api/v1/payment/sslcommerz/success
-  fail_url: string,               // https://api.nowoll.com/api/v1/payment/sslcommerz/fail
-  cancel_url: string,             // https://api.nowoll.com/api/v1/payment/sslcommerz/cancel
-  ipn_url: string,                // https://api.nowoll.com/api/v1/payment/sslcommerz/ipn
-  cus_name: string,               // customer full name
-  cus_email: string,              // customer email
-  cus_phone: string,              // customer phone (e.g. +8801700000000)
-  cus_add1: string,               // address line 1
-  cus_city: string,               // district
-  cus_country: 'Bangladesh',
-  shipping_method: 'Courier',
-  product_name: 'Clothing',
-  product_category: 'Clothing',
-  product_profile: 'general',
-}
-```
-
-Response: `{ status: 'SUCCESS', GatewayPageURL: 'https://...' }`
+Unpaid online orders are cancelled automatically after `payment_timeout_minutes` (setting, default 30) — see `apps/api/src/orders/order-expiry.service.ts`.
 
 ---
 
-## IPN Payload (SSLCommerz POSTs to your ipn_url)
+## Create session (POST, form-encoded)
 
-Key fields:
-```
-tran_id       — matches your order ID
-val_id        — use this to validate with SSLCommerz validation API
-status        — 'VALID' | 'INVALID' | 'CANCELLED' (DO NOT trust this alone)
-amount        — verify this matches your order total
-currency      — should be 'BDT'
-```
+| Field | Value we send |
+|---|---|
+| `store_id`, `store_passwd` | credentials |
+| `total_amount` | order total, `decimal(10,2)` e.g. `1550.00` — must be **10.00–500,000.00** |
+| `currency` | `BDT` |
+| `tran_id` | the payment record's `transactionId` — the order id for the first attempt; a retry gets a new payment record and id (step 20). Must be unique per attempt. **Note:** SSLCommerz allows ≤ 30 chars and a UUID is 36 → step 20 must send a shortened, still-unique id. |
+| `success_url`, `fail_url`, `cancel_url`, `ipn_url` | `https://api.nowoll.com/api/v1/payment/sslcommerz/{success,fail,cancel,ipn}` |
+| `cus_name`, `cus_email`, `cus_add1`, `cus_city`, `cus_phone` | from the order (text fields ≤ 50 chars, phone ≤ 20) |
+| `cus_postcode` | customer's postcode, or `0000` if none — **TODO: confirm with SSLCommerz support that this is acceptable** |
+| `cus_country` | `Bangladesh` |
+| `shipping_method` | `YES` |
+| `num_of_item` | number of items |
+| `ship_name`, `ship_add1`, `ship_city`, `ship_postcode`, `ship_country` | the delivery address (postcode as above) |
+| `product_name` | product names, comma-separated (≤ 255) |
+| `product_category` | `clothing` |
+| `product_profile` | `physical-goods` |
 
-**CRITICAL:** Always validate the IPN with the SSLCommerz Validation API using `val_id`. Never mark an order as paid based on the IPN payload's `status` field alone — it can be spoofed.
-
----
-
-## IPN Validation (GET to Validation URL)
-
-```
-GET https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php
-  ?val_id={val_id from IPN}
-  &store_id={SSLCOMMERZ_STORE_ID}
-  &store_passwd={SSLCOMMERZ_STORE_PASSWORD}
-  &format=json
-```
-
-Response: `{ status: 'VALID' | 'INVALID', amount: number, ... }`
-
-Only proceed if `status === 'VALID'` AND `amount === order.total_amount`.
+**Response:** `status` (`SUCCESS`/`FAILED`), `failedreason`, `sessionkey`, `GatewayPageURL` (+ banners/gateway lists we don't use).
+`status !== SUCCESS` → don't redirect; show `failedreason`.
 
 ---
 
-## Redirect Handlers
+## IPN (SSLCommerz → our `ipn_url`, POST)
 
-SSLCommerz redirects the browser (GET or POST) to:
-- `success_url` — payment completed (still must verify via IPN — do not use this as payment proof)
-- `fail_url` — payment failed
-- `cancel_url` — customer cancelled
+Fields we use: `tran_id`, `val_id`, `amount`, `currency`, `status` (VALID / FAILED / CANCELLED / EXPIRED / UNATTEMPTED).
+Also present: `store_amount`, `bank_tran_id`, `card_type`, `card_no` (masked), `card_brand`, `risk_level`, `risk_title`, `verify_sign`, `verify_key`, `value_a`–`value_d`.
 
-These handlers should redirect the user to the appropriate frontend page:
-- Success → `https://nowoll.com/checkout/success?orderId={tran_id}`
-- Fail/Cancel → `https://nowoll.com/checkout?error=payment_failed`
+**CRITICAL:** the IPN's `status` is never trusted — anyone can POST a fake IPN. Only the Validation API (below) decides.
+**Every IPN payload is stored** (`payment_events`) for audit, including IPNs for unknown `tran_id`s (log, answer 200 so SSLCommerz stops retrying).
 
----
-
-## Adapter Interface
-
-```typescript
-// packages/payments/src/sslcommerz.adapter.ts
-export interface SSLCommerzInitParams {
-  orderId: string;
-  totalAmount: number;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  customerAddress: string;
-  customerCity: string;
-}
-
-export interface SSLCommerzInitResult {
-  success: boolean;
-  gatewayUrl?: string;
-  error?: string;
-}
-
-export interface SSLCommerzValidateResult {
-  valid: boolean;
-  amount?: number;
-  valId?: string;
-}
-```
+`verify_sign` / `verify_key` (an HMAC-style signature): **not used** — the official page doesn't document the exact recipe and we don't guess (Rule 2). The Validation API is the authoritative check.
 
 ---
 
-## Error Handling
+## Validation API (GET) — the security check
 
-- If SSLCommerz Session API returns `status !== 'SUCCESS'` → throw error, do not redirect customer
-- If IPN arrives for unknown order ID → log and return 200 (do not error — SSLCommerz will retry)
-- If validation API is unreachable → mark payment as `UNDER_REVIEW` and alert admin — do not auto-cancel
-- All IPN payloads must be stored in `payments.raw_response` for audit
+Query: `val_id`, `store_id`, `store_passwd`, `format=json`, `v=1`.
 
----
+A payment counts as **PAID** only if **all** of these hold (`verifyPayment()`):
+1. `status` is `VALID` **or** `VALIDATED`
+2. `tran_id` equals our transaction id
+3. `amount` equals our amount **to the poisha** (compared as integers)
+4. currency (`currency_type`, else `currency`) is `BDT`
 
-## Testing (Sandbox)
-
-Sandbox test card:
-- Card number: `4111111111111111`
-- Expiry: any future date
-- CVV: any 3 digits
-- OTP: `123456`
-
-Sandbox credentials available at: https://developer.sslcommerz.com/registration/
+Then: `risk_level = 1` → **REVIEW** (payment `UNDER_REVIEW`; a human checks before shipping). Otherwise **PAID**.
+`INVALID_TRANSACTION` or any mismatch → **NOT_PAID**. API unreachable → **UNREACHABLE** (never guessed).
 
 ---
 
-*Claude Code: never implement SSLCommerz calls without reading this file. Never invent field names. If you find a discrepancy between this doc and the official SSLCommerz docs, update this file and notify Rafi.*
+## Transaction query by `tran_id` (GET)
+
+Query: `tran_id`, `store_id`, `store_passwd`, `format=json`.
+Response: `no_of_trans_found`, `element[]` with `status` VALID / VALIDATED / PENDING / FAILED.
+Used to reconcile when an IPN never arrived (`getStatus()`).
+
+## Refund API (GET)
+
+Query: `bank_tran_id`, `refund_trans_id` (our unique id, ≤ 30), `refund_amount` (decimal(10,2)), `refund_remarks`, `store_id`, `store_passwd`, optional `refe_id`, `format=json`.
+Response: `APIConnect` (INVALID_REQUEST / FAILED / INACTIVE / DONE), `bank_tran_id`, `trans_id`, `refund_ref_id`, `status` (success / failed / processing), `errorReason`.
+Refund status query: `refund_ref_id`, `store_id`, `store_passwd` → `refunded` / `processing` / `cancelled`.
+
+**Requires the server's public IP to be registered with SSLCommerz** → launch checklist. Refunds are triggered by returns (Phase 4).
+
+---
+
+## Error handling
+
+- Session API `status !== SUCCESS` → don't redirect; show the reason; the order stays unpaid (expires after the timeout).
+- IPN for an unknown order → log + store the payload, answer 200.
+- Validation API unreachable → payment `UNDER_REVIEW` + admin alert. **Never auto-cancel** on an unreachable validator.
+- All IPN payloads and validation responses are stored for audit.
+
+## Testing
+
+- **Automated:** `packages/payments` tests use a fake SSLCommerz (official response shapes) — no network, no money.
+- **Sandbox connection check:** `pnpm payments:sandbox-check` creates one ৳10 **sandbox** session (refuses to run if `SSLCOMMERZ_IS_LIVE=true`; never pays it).
+- **Sandbox test card:** `4111111111111111`, any future expiry, any 3-digit CVV, OTP `123456` (from SSLCommerz's sandbox docs — re-check there if it stops working).
+
+---
+
+*Claude Code: never implement SSLCommerz calls without reading this file. Never invent field names. If this file and the official docs disagree, update this file (with a row in "What changed") and tell Rafi.*
