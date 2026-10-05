@@ -1,16 +1,18 @@
 'use client'
 
-import Link from 'next/link'
 import { selectItemCount, useCartStore } from '@/stores/cart-store'
+import { useUiStore } from '@/stores/ui-store'
 
-// Bag icon with the number of items. The cart page itself arrives in
-// Phase 3 (step 16). The count starts at 0 and updates once the saved cart
-// has been loaded from the browser (see CartHydrator).
+// Bag icon with the number of items; opens the bag drawer. The count starts
+// at 0 and updates once the saved bag has been loaded (see CartHydrator).
 export function CartButton() {
   const count = useCartStore(selectItemCount)
+  const openCart = useUiStore((s) => s.openCart)
   return (
-    <Link
-      href="/cart"
+    <button
+      type="button"
+      onClick={openCart}
+      aria-haspopup="dialog"
       className="relative inline-flex size-11 items-center justify-center rounded-control hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-brand"
     >
       <span className="sr-only">
@@ -35,6 +37,6 @@ export function CartButton() {
           {count > 99 ? '99+' : count}
         </span>
       )}
-    </Link>
+    </button>
   )
 }

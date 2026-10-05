@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { productDetail } from '@/test-utils/fixtures'
 import { useCartStore } from '@/stores/cart-store'
+import { useUiStore } from '@/stores/ui-store'
 import { ProductPurchase } from './product-purchase'
 
 function Harness(props: { product?: ReturnType<typeof productDetail>; sticky?: boolean }) {
@@ -46,6 +47,7 @@ describe('<ProductPurchase />', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Added 2 × Oxford Shirt (M / White) to your bag.',
     )
+    expect(useUiStore.getState().cartOpen).toBe(true) // decision #4: the bag drawer opens
   })
 
   it("shows the selected variant's own price", () => {

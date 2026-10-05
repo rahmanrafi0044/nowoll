@@ -84,4 +84,19 @@ describe('cart store', () => {
     await useCartStore.persist.rehydrate()
     expect(state().items).toEqual([{ ...shirtL, quantity: 5 }])
   })
+
+  it('remembers a discount code, clears it with the bag, and saves only items + code', () => {
+    state().addItem(shirtM)
+    state().setDiscountCode('SAVE10')
+    const saved = JSON.parse(localStorage.getItem('nowoll-cart') ?? '{}')
+    expect(Object.keys(saved.state).sort()).toEqual(['discountCode', 'items'])
+    state().clear()
+    expect(state().discountCode).toBeNull()
+  })
+
+  it("updates a line with today's details", () => {
+    state().addItem(shirtM)
+    state().syncLine(shirtM.variantId, { unitPrice: 1290 })
+    expect(state().items[0]).toMatchObject({ unitPrice: 1290, quantity: 1, sku: shirtM.sku })
+  })
 })

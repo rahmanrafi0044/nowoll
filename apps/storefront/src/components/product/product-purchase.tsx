@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { discountPercent, formatBdt } from '@/lib/format'
 import { colorOptions, findVariant, sizeOptions } from '@/lib/variants'
 import { useCartStore } from '@/stores/cart-store'
+import { useUiStore } from '@/stores/ui-store'
 
 // A UI limit to catch typos ("100" instead of "1"), not a business rule —
 // the real stock check happens at checkout (Phase 3).
@@ -34,6 +35,7 @@ export function ProductPurchase({
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
   const addItem = useCartStore((s) => s.addItem)
+  const openCart = useUiStore((s) => s.openCart)
 
   const colors = colorOptions(product.variants)
   const sizes = color ? sizeOptions(product.variants, color) : []
@@ -89,6 +91,7 @@ export function ProductPurchase({
       quantity,
     )
     setAdded(true)
+    openCart() // decision #4: show the bag with a Checkout button right away
   }
 
   const addButton = (

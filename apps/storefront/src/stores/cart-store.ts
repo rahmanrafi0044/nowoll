@@ -19,10 +19,15 @@ export interface CartItem {
 
 interface CartState {
   items: CartItem[]
+  /** The discount code the customer applied (checked again whenever the bag changes). */
+  discountCode: string | null
   addItem: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void
   updateQuantity: (variantId: string, quantity: number) => void
   removeItem: (variantId: string) => void
   clear: () => void
+  setDiscountCode: (code: string | null) => void
+  /** Updates a line with today's details from the API (price, name, photo). */
+  syncLine: (variantId: string, latest: Partial<Omit<CartItem, 'variantId' | 'quantity'>>) => void
 }
 
 // ZUSTAND STORE: a small global state container any component can read with
@@ -35,6 +40,7 @@ export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
       items: [],
+      discountCode: null,
 
       addItem: (item, quantity = 1) =>
         set((state) => {
@@ -62,12 +68,21 @@ export const useCartStore = create<CartState>()(
       removeItem: (variantId) =>
         set((state) => ({ items: state.items.filter((i) => i.variantId !== variantId) })),
 
-      clear: () => set({ items: [] }),
+      clear: () => set({ items: [], discountCode: null }),
+
+      setDiscountCode: (code) => set({ discountCode: code }),
+
+      syncLine: (variantId, latest) =>
+        set((state) => ({
+          items: state.items.map((i) => (i.variantId === variantId ? { ...i, ...latest } : i)),
+        })),
     }),
     {
       name: 'nowoll-cart',
       version: 1, // bump if CartItem's shape changes, and add a `migrate` function
       storage: createJSONStorage(() => localStorage),
+      // Only the bag and the code are saved — never derived or temporary state.
+      partialize: (state) => ({ items: state.items, discountCode: state.discountCode }),
       // Don't read localStorage during server rendering — the server has no
       // localStorage, and mixing the two causes React "hydration mismatch"
       // errors. <CartHydrator /> loads the saved cart once the page is in the browser.
