@@ -20,6 +20,7 @@ import { CsvExportService } from './csv/csv-export.service.js'
 import { MAX_IMPORT_BYTES } from './csv/csv-format.js'
 import { CsvImportService } from './csv/csv-import.service.js'
 import { CreateProductDto } from './dto/create-product.dto.js'
+import { FacetsQuery } from './dto/facets.query.js'
 import { ImportProductsQuery } from './dto/import-products.query.js'
 import { ListProductsQuery } from './dto/list-products.query.js'
 import { UpdateImageDto } from './dto/update-image.dto.js'
@@ -40,6 +41,12 @@ export class ProductsController {
   @Get()
   list(@Query() query: ListProductsQuery) {
     return this.products.list(query)
+  }
+
+  /** Filter options (sizes, colors, price range) for a listing page. Declared before ':slug'. */
+  @Get('facets')
+  facets(@Query() query: FacetsQuery) {
+    return this.products.facets(query)
   }
 
   // ── CSV (declared BEFORE ':slug' — NestJS matches routes in order, and

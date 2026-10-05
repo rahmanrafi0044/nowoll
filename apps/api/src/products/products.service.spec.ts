@@ -308,3 +308,69 @@ describe('ProductsService slugs', () => {
     await expect(service.update(a.id, { slug: 'polo' })).rejects.toBeInstanceOf(ConflictException)
   })
 })
+
+describe('ProductsService.facets', () => {
+  it('lists sizes (shopper order), colors and price range of visible products in a category', async () => {
+    const men = await makeCategory({ name: 'Men' })
+    const shirts = await makeCategory({ name: 'Shirts', parentId: men.id })
+    const women = await makeCategory({ name: 'Women' })
+    await makeProduct({
+      categoryId: shirts.id,
+      basePrice: '1490',
+      variants: [
+        { size: 'XL', color: 'Blue', colorHex: '#0000FF' },
+        { size: 'S', color: 'Blue', colorHex: '#0000FF' },
+        { size: 'M', color: 'White' },
+      ],
+    })
+    await makeProduct({
+      categoryId: men.id,
+      basePrice: '3490',
+      variants: [
+        { size: 'XXS', color: 'Maroon', isActive: false },
+        { size: '40', color: 'Maroon' },
+      ],
+    })
+    await makeProduct({
+      categoryId: men.id,
+      basePrice: '9999',
+      status: 'DRAFT',
+      variants: [{ size: 'XXXL', color: 'Gold' }],
+    })
+    await makeProduct({
+      categoryId: women.id,
+      basePrice: '100',
+      variants: [{ size: 'L', color: 'Pink' }],
+    })
+
+    const f = await service.facets({ category: men.slug })
+    expect(f.sizes).toEqual(['S', 'M', 'XL', '40']) // no XXS (inactive), no XXXL (draft), no L (other category)
+    expect(f.colors).toEqual([
+      { color: 'Blue', colorHex: '#0000FF' },
+      { color: 'Maroon', colorHex: null },
+      { color: 'White', colorHex: null },
+    ])
+    expect([f.price?.min.toString(), f.price?.max.toString()]).toEqual(['1490', '3490'])
+  })
+
+  it('respects search, and returns empty facets for unknown categories or no matches', async () => {
+    const c = await makeCategory()
+    await makeProduct({
+      categoryId: c.id,
+      name: 'Oxford Shirt',
+      variants: [{ size: 'M', color: 'Blue' }],
+    })
+    await makeProduct({
+      categoryId: c.id,
+      name: 'Denim Jeans',
+      variants: [{ size: '32', color: 'Indigo' }],
+    })
+    expect((await service.facets({ q: 'shirt' })).sizes).toEqual(['M'])
+    expect(await service.facets({ category: 'nope' })).toEqual({
+      sizes: [],
+      colors: [],
+      price: null,
+    })
+    expect(await service.facets({ q: 'tuxedo' })).toEqual({ sizes: [], colors: [], price: null })
+  })
+})

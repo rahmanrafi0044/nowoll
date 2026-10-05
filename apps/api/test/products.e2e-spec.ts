@@ -195,3 +195,33 @@ describe('products API — without admin access', () => {
     await req.send({}).expect(401)
   })
 })
+
+describe('GET /products/facets', () => {
+  let app: NestExpressApplication
+  beforeAll(async () => {
+    app = await createTestApp({ asAdmin: false })
+  })
+  afterAll(() => app.close())
+  beforeEach(() => resetDatabase())
+
+  it('is public, routes before /:slug, and serializes prices as strings', async () => {
+    const c = await makeCategory()
+    await makeProduct({
+      categoryId: c.id,
+      basePrice: '1499.5',
+      variants: [{ size: 'M', color: 'Blue' }],
+    })
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/products/facets?category=${c.slug}`)
+      .expect(200)
+    expect(res.body.data).toEqual({
+      sizes: ['M'],
+      colors: [{ color: 'Blue', colorHex: null }],
+      price: { min: '1499.5', max: '1499.5' },
+    })
+  })
+
+  it('rejects unknown query parameters', async () => {
+    await request(app.getHttpServer()).get('/api/v1/products/facets?size=M').expect(400)
+  })
+})
