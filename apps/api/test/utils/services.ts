@@ -1,8 +1,10 @@
 // Builds real services wired to the test database, for service-level tests.
 import { StockService } from '../../src/inventory/stock.service.js'
 import type { LowStockAlert, LowStockAlerter } from '../../src/inventory/low-stock-alerter.js'
+import { PaymentsService } from '../../src/payments/payments.service.js'
 import type { PrismaService } from '../../src/prisma/prisma.service.js'
 import { SettingsService } from '../../src/settings/settings.service.js'
+import { FakePaymentGateway } from './fake-payment-gateway.js'
 
 /** Test double: remembers every low-stock alert instead of logging/emailing it. */
 export class RecordingLowStockAlerter implements LowStockAlerter {
@@ -14,4 +16,14 @@ export class RecordingLowStockAlerter implements LowStockAlerter {
 
 export function makeStockService(prisma: PrismaService, alerter = new RecordingLowStockAlerter()) {
   return { stock: new StockService(new SettingsService(prisma), alerter), alerter }
+}
+
+/** The real PaymentsService, talking to the fake SSLCommerz. */
+export function makePaymentsService(prisma: PrismaService, gateway = new FakePaymentGateway()) {
+  const payments = new PaymentsService(prisma, new SettingsService(prisma), gateway, {
+    apiPublicUrl: 'https://api.nowoll.test',
+    siteUrl: 'https://nowoll.test',
+    onlineEnabled: true,
+  })
+  return { payments, gateway }
 }

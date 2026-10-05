@@ -4,21 +4,30 @@ import type {
   CheckoutQuoteView,
   DiscountPreviewView,
   OrderPlacedView,
+  PaymentInitView,
+  PaymentStatusView,
 } from '@nowoll/types'
 import { publicEnv } from '@/lib/env'
 
 type Items = { variantId: string; quantity: number }[]
 
-async function post<T>(
+export type ApiCallResult<T> =
+  { ok: true; data: T } | { ok: false; status: number; error?: string; message: string }
+
+/** One call to the API from the browser. Never throws: failures come back as { ok: false }. */
+async function call<T>(
+  method: 'GET' | 'POST',
   path: string,
-  body: unknown,
+  body?: unknown,
   headers: Record<string, string> = {},
-): Promise<{ ok: true; data: T } | { ok: false; status: number; error?: string; message: string }> {
+): Promise<ApiCallResult<T>> {
   try {
     const res = await fetch(`${publicEnv.apiUrl}/api/v1${path}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', ...headers },
-      body: JSON.stringify(body),
+      method,
+      ...(method === 'POST' && {
+        headers: { 'content-type': 'application/json', ...headers },
+        body: JSON.stringify(body),
+      }),
     })
     const json = (await res.json()) as ApiResult<T>
     if (json.success) return { ok: true, data: json.data }
@@ -31,6 +40,9 @@ async function post<T>(
     }
   }
 }
+
+const post = <T>(path: string, body: unknown, headers: Record<string, string> = {}) =>
+  call<T>('POST', path, body, headers)
 
 /** Today's price and availability for each line (see apps/api cart module). */
 export const fetchCartQuote = (items: Items) => post<CartQuoteView>('/cart/price', { items })
@@ -66,3 +78,27 @@ export interface PlaceOrderBody {
 /** Places the order. The key makes retries safe: the same key never creates a second order. */
 export const placeOrder = (body: PlaceOrderBody, idempotencyKey: string) =>
   post<OrderPlacedView>('/orders', body, { 'idempotency-key': idempotencyKey })
+
+/** Asks for an SSLCommerz payment page for this order (step 20). */
+export const initPayment = (orderId: string) =>
+  post<PaymentInitView>('/payment/sslcommerz/init', { orderId })
+
+/** Is the order paid yet? The thank-you and payment-failed pages ask this. */
+export const fetchPaymentStatus = (orderId: string) =>
+  call<PaymentStatusView>('GET', `/payment/status/${encodeURIComponent(orderId)}`)
+
+/**
+ * OPEN-REDIRECT GUARD: we only ever send customers to SSLCommerz's own
+ * secure pages, even if a broken or tampered response says otherwise.
+ */
+export function isGatewayUrl(url: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(url)
+    return (
+      protocol === 'https:' &&
+      (hostname === 'sslcommerz.com' || hostname.endsWith('.sslcommerz.com'))
+    )
+  } catch {
+    return false
+  }
+}

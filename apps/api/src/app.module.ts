@@ -17,6 +17,7 @@ import { CartModule } from './cart/cart.module.js'
 import { CheckoutModule } from './checkout/checkout.module.js'
 import { ShippingModule } from './shipping/shipping.module.js'
 import { OrdersModule } from './orders/orders.module.js'
+import { PaymentsModule } from './payments/payments.module.js'
 import { PrismaModule } from './prisma/prisma.module.js'
 
 // The root module: wires together config, database, rate limiting and every
@@ -46,6 +47,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     ShippingModule,
     CheckoutModule,
     OrdersModule,
+    PaymentsModule,
   ],
   providers: [
     // Registering the guard globally applies the 100 req/min limit to every route.

@@ -15,6 +15,7 @@
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {
+    "@nowoll/payments": "workspace:*",
     "@nowoll/types": "workspace:*",
     "@nowoll/ui": "workspace:*",
     "@nowoll/validation": "workspace:*",

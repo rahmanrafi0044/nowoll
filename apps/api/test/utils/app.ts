@@ -4,7 +4,9 @@ import { AppModule } from '../../src/app.module.js'
 import { configureApp } from '../../src/app.setup.js'
 import { AdminGuard } from '../../src/common/guards/admin.guard.js'
 import { LOW_STOCK_ALERTER } from '../../src/inventory/low-stock-alerter.js'
+import { PAYMENT_GATEWAY } from '../../src/payments/payment-gateway.js'
 import { IMAGE_STORAGE } from '../../src/storage/image-storage.js'
+import { FakePaymentGateway } from './fake-payment-gateway.js'
 import { MemoryImageStorage } from './memory-image-storage.js'
 import { RecordingLowStockAlerter } from './services.js'
 
@@ -15,6 +17,7 @@ import { RecordingLowStockAlerter } from './services.js'
  * Image storage is ALWAYS the in-memory fake — tests never touch real Supabase.
  * Get it with app.get(IMAGE_STORAGE).
  * Low-stock alerts are recorded, not logged: app.get(LOW_STOCK_ALERTER).alerts
+ * SSLCommerz is ALWAYS the fake — tests never move money: app.get(PAYMENT_GATEWAY)
  */
 export async function createTestApp(options: {
   asAdmin: boolean
@@ -24,6 +27,8 @@ export async function createTestApp(options: {
     .useValue(new MemoryImageStorage())
     .overrideProvider(LOW_STOCK_ALERTER)
     .useValue(new RecordingLowStockAlerter())
+    .overrideProvider(PAYMENT_GATEWAY)
+    .useValue(new FakePaymentGateway())
   if (options.asAdmin)
     builder = builder.overrideGuard(AdminGuard).useValue({ canActivate: () => true })
   const app = (await builder.compile()).createNestApplication<NestExpressApplication>({

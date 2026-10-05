@@ -4,10 +4,19 @@ import type { OrderPlacedView } from '@nowoll/types'
 import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 import { formatBdt } from '@/lib/format'
+import { PayNow } from './pay-now'
 
 // Shown right after a successful order. (The full confirmation page with the
 // order details and tracking link arrives in step 21.)
-export function OrderPlaced({ order }: { order: OrderPlacedView }) {
+export function OrderPlaced({
+  order,
+  notice = null,
+}: {
+  order: OrderPlacedView
+  /** Why the payment page didn't open straight after placing the order. */
+  notice?: string | null
+}) {
+  const awaitingPayment = order.nextAction === 'PAY'
   const headingRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => headingRef.current?.focus(), []) // announce it to screen readers
 
@@ -22,7 +31,7 @@ export function OrderPlaced({ order }: { order: OrderPlacedView }) {
         tabIndex={-1}
         className="text-2xl font-semibold outline-none"
       >
-        Thank you — your order is placed!
+        {awaitingPayment ? 'Your order is reserved' : 'Thank you — your order is placed!'}
       </h2>
       <p className="text-lg">
         Order number <strong>{order.displayNumber}</strong>
@@ -32,6 +41,13 @@ export function OrderPlaced({ order }: { order: OrderPlacedView }) {
           We&apos;ll call you shortly to confirm. Please pay{' '}
           <strong>{formatBdt(order.total)}</strong> in cash when your parcel arrives.
         </p>
+      ) : awaitingPayment ? (
+        <>
+          <p className="text-muted-foreground">
+            Complete your payment to confirm it. Your items are held for a short while.
+          </p>
+          <PayNow orderId={order.orderId} total={order.total} notice={notice} />
+        </>
       ) : (
         <p className="text-muted-foreground">Total {formatBdt(order.total)}.</p>
       )}

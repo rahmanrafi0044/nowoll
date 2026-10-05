@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { useCartStore } from '@/stores/cart-store'
 import { useCheckoutStore } from '@/stores/checkout-store'
 import { CheckoutFlow } from './checkout-flow'
+import { PaymentStep } from './payment-step'
 
 // Fake POST /checkout/quote: Dhaka → ৳60, elsewhere ৳120; VAT from `vatRate`.
 let vatRate = 0
@@ -10,9 +11,21 @@ const quoteBodies: { district?: string; email?: string; discountCode?: string }[
 type OrderCall = { body: Record<string, unknown>; key: string }
 const orderCalls: OrderCall[] = []
 let orderAnswer: (() => Promise<Response>) | null = null
+const initCalls: string[] = []
+let initAnswer: (() => Promise<Response>) | null = null
+const json = (status: number, body: object) =>
+  Promise.resolve(new Response(JSON.stringify(body), { status }))
 
 function fakeApi(url: string, init: RequestInit) {
   const body = JSON.parse(String(init.body))
+  if (url.endsWith('/payment/sslcommerz/init')) {
+    initCalls.push(body.orderId)
+    if (initAnswer) return initAnswer()
+    return json(200, {
+      success: true,
+      data: { redirectUrl: 'https://sandbox.sslcommerz.com/EasyCheckOut/abc' },
+    })
+  }
   if (url.endsWith('/orders')) {
     orderCalls.push({ body, key: (init.headers as Record<string, string>)['idempotency-key']! })
     if (orderAnswer) return orderAnswer()
@@ -25,10 +38,10 @@ function fakeApi(url: string, init: RequestInit) {
             orderNumber: 10001,
             displayNumber: 'NW-10001',
             status: 'PENDING',
-            paymentMethod: 'COD',
+            paymentMethod: body.paymentMethod,
             paymentStatus: 'PENDING',
             total: body.expectedTotal,
-            nextAction: 'NONE',
+            nextAction: body.paymentMethod === 'SSLCOMMERZ' ? 'PAY' : 'NONE',
           },
         }),
         { status: 201 },
@@ -100,7 +113,11 @@ beforeEach(async () => {
   quoteBodies.length = 0
   orderCalls.length = 0
   orderAnswer = null
+  initCalls.length = 0
+  initAnswer = null
   vi.stubGlobal('fetch', vi.fn(fakeApi))
+  // jsdom can't navigate: record where the browser would have been sent.
+  vi.stubGlobal('location', { ...window.location, assign: vi.fn() })
   useCartStore.getState().clear()
   useCheckoutStore.getState().reset()
   await act(() => useCartStore.persist.rehydrate())
@@ -343,12 +360,80 @@ describe('placing the order', () => {
     expect(useCartStore.getState().discountCode).toBeNull()
   })
 
-  it('online payment cannot be chosen yet (decision #6)', async () => {
+  async function toOnlineReview() {
     render(<CheckoutFlow />)
     await screen.findByRole('button', { name: 'Continue to address' })
     await fillContact()
     await fillAddress()
     fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }))
+    fireEvent.click(screen.getByRole('radio', { name: /Pay online/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
+    await within(step(/Review and place order/)).findByText('৳1,550')
+    return () => fireEvent.click(screen.getByRole('button', { name: 'Place order and pay' }))
+  }
+
+  it('online payment: places the order, then sends the customer to SSLCommerz', async () => {
+    const place = await toOnlineReview()
+    place()
+    await waitFor(() =>
+      expect(window.location.assign).toHaveBeenCalledWith(
+        'https://sandbox.sslcommerz.com/EasyCheckOut/abc',
+      ),
+    )
+    expect(orderCalls[0]!.body.paymentMethod).toBe('SSLCOMMERZ')
+    expect(initCalls).toEqual(['o1'])
+    expect(useCartStore.getState().items).toEqual([]) // the order exists — the bag is done
+  })
+
+  it('if the payment page cannot open, the order is kept and "Pay now" tries again', async () => {
+    const place = await toOnlineReview()
+    initAnswer = () =>
+      json(503, {
+        success: false,
+        error: 'PAYMENT_UNREACHABLE',
+        message: 'The payment service is not responding. Please try again in a minute.',
+      })
+    place()
+    expect(await screen.findByRole('heading', { name: 'Your order is reserved' })).toBeVisible()
+    expect(screen.getByRole('alert')).toHaveTextContent('not responding')
+    expect(window.location.assign).not.toHaveBeenCalled()
+
+    initAnswer = null
+    fireEvent.click(screen.getByRole('button', { name: /Pay now — ৳1,550/ }))
+    await waitFor(() => expect(window.location.assign).toHaveBeenCalled())
+    expect(initCalls).toEqual(['o1', 'o1'])
+  })
+
+  it('never follows a payment link that is not SSLCommerz (open-redirect guard)', async () => {
+    const place = await toOnlineReview()
+    initAnswer = () =>
+      json(200, { success: true, data: { redirectUrl: 'https://evil.example/sslcommerz.com' } })
+    place()
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be opened')
+    expect(window.location.assign).not.toHaveBeenCalled()
+  })
+
+  it('when online payment is unavailable, offers to choose another way to pay', async () => {
+    const place = await toOnlineReview()
+    orderAnswer = fail(
+      422,
+      'ONLINE_PAYMENT_UNAVAILABLE',
+      "Online payment isn't available right now. Please choose cash on delivery.",
+    )
+    place()
+    fireEvent.click(await screen.findByRole('button', { name: 'Choose another way to pay' }))
+    expect(await screen.findByRole('radio', { name: /Cash on delivery/ })).toBeVisible()
+  })
+})
+
+describe('PaymentStep — SSLCommerz amount limits', () => {
+  it('offers online payment only for totals from ৳10 to ৳5,00,000', () => {
+    const { rerender } = render(<PaymentStep total="1550" />)
+    expect(screen.getByRole('radio', { name: /Pay online/ })).toBeEnabled()
+    rerender(<PaymentStep total="500000.01" />)
     expect(screen.getByRole('radio', { name: /Pay online/ })).toBeDisabled()
+    expect(screen.getByText('Available for orders from ৳10 to ৳5,00,000')).toBeVisible()
+    rerender(<PaymentStep total={null} />) // still loading: don't take the option away
+    expect(screen.getByRole('radio', { name: /Pay online/ })).toBeEnabled()
   })
 })

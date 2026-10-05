@@ -8,7 +8,7 @@ import {
   makeProduct,
   seedShippingZones,
 } from '../../test/utils/factories.js'
-import { makeStockService } from '../../test/utils/services.js'
+import { makePaymentsService, makeStockService } from '../../test/utils/services.js'
 import { resetDatabase, testPrisma } from '../../test/utils/test-db.js'
 import { CheckoutService } from '../checkout/checkout.service.js'
 import { DiscountsService } from '../discounts/discounts.service.js'
@@ -26,8 +26,9 @@ const checkout = new CheckoutService(prisma, discounts, new ShippingService(pris
 const placedEvents: unknown[] = []
 const notifier = { orderPlaced: async (e: unknown) => void placedEvents.push(e) }
 const { stock } = makeStockService(prisma)
-const orders = new OrdersService(prisma, checkout, discounts, stock, notifier)
-const expiry = new OrderExpiryService(prisma, orders, settings)
+const { payments } = makePaymentsService(prisma)
+const orders = new OrdersService(prisma, checkout, discounts, stock, payments, notifier)
+const expiry = new OrderExpiryService(prisma, orders, settings, payments)
 
 beforeEach(async () => {
   await resetDatabase()
@@ -98,7 +99,12 @@ describe('OrdersService.create — the happy path', () => {
     expect(order.items[0]).toMatchObject({ variantLabel: 'M / Blue', quantity: 1 })
     expect(order.items[0]!.unitPrice.toString()).toBe('1490')
     expect(order.payments).toEqual([
-      expect.objectContaining({ method: 'COD', status: 'PENDING', transactionId: order.id }),
+      expect.objectContaining({
+        method: 'COD',
+        status: 'PENDING',
+        transactionId: expect.stringMatching(/^NW10001-[0-9A-F]{6}$/), // short id (≤ 30 chars for SSLCommerz)
+        initiatedAt: null,
+      }),
     ])
     expect(order.statusHistory).toEqual([
       expect.objectContaining({ toStatus: 'PENDING', note: 'Order placed' }),

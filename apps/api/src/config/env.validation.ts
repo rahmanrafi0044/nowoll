@@ -69,6 +69,16 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsIn(['true', 'false'])
   SSLCOMMERZ_IS_LIVE?: 'true' | 'false'
+
+  // The API's own public address. SSLCommerz sends payment notifications and
+  // the customer's browser back to it, so in production it must be the real
+  // https address (e.g. https://api.nowoll.com) — never localhost.
+  @IsUrl({ require_tld: false, require_protocol: true, protocols: ['http', 'https'] })
+  API_PUBLIC_URL: string = 'http://localhost:3001'
+
+  // The storefront's address: after paying, customers are sent back here.
+  @IsUrl({ require_tld: false, require_protocol: true, protocols: ['http', 'https'] })
+  NEXT_PUBLIC_SITE_URL: string = 'http://localhost:3000'
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {
@@ -98,6 +108,17 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
     throw new Error(
       'Invalid environment variables:\n  - SSLCOMMERZ_STORE_ID and SSLCOMMERZ_STORE_PASSWORD must be set in production',
     )
+  }
+  // Payment notifications must reach the real, encrypted address in production.
+  if (env.NODE_ENV === NodeEnv.Production) {
+    const insecure = (['API_PUBLIC_URL', 'NEXT_PUBLIC_SITE_URL'] as const).filter(
+      (key) => !env[key].startsWith('https://'),
+    )
+    if (insecure.length > 0) {
+      throw new Error(
+        `Invalid environment variables:\n  - ${insecure.join(' and ')} must start with https:// in production`,
+      )
+    }
   }
   return env
 }

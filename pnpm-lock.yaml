@@ -196,6 +196,9 @@ importers:
 
   apps/storefront:
     dependencies:
+      '@nowoll/payments':
+        specifier: workspace:*
+        version: link:../../packages/payments
       '@nowoll/types':
         specifier: workspace:*
         version: link:../../packages/types
