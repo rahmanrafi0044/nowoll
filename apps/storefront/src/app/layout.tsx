@@ -1,7 +1,12 @@
 import type { Metadata, Viewport } from 'next'
-import Link from 'next/link'
 import type { ReactNode } from 'react'
+import type { CategoryNode } from '@nowoll/types'
+import type { AnnouncementBar as AnnouncementBarData } from '@nowoll/validation'
 import { CartHydrator } from '@/components/cart-hydrator'
+import { AnnouncementBar } from '@/components/home/announcement-bar'
+import { SiteFooter } from '@/components/site-footer'
+import { SiteHeader } from '@/components/site-header'
+import { apiGet } from '@/lib/api'
 import { publicEnv } from '@/lib/env'
 import './globals.css'
 
@@ -22,24 +27,22 @@ export const viewport: Viewport = {
   themeColor: '#ffffff',
 }
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+// The header, announcement bar and footer appear on every page, so their data
+// is loaded here. Both requests run in parallel and are cached for 60 seconds.
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const [categories, announcement] = await Promise.all([
+    apiGet<CategoryNode[]>('/categories'),
+    apiGet<{ data: AnnouncementBarData }>('/content-blocks/announcement_bar'),
+  ])
+
   return (
     <html lang="en">
       <body className="flex min-h-screen flex-col">
         <CartHydrator />
-        <header className="border-b border-border">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-            <Link href="/" className="text-xl font-semibold tracking-tight">
-              Nowoll
-            </Link>
-          </div>
-        </header>
+        {announcement && <AnnouncementBar data={announcement.data} />}
+        <SiteHeader categories={categories ?? []} />
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-border">
-          <div className="mx-auto max-w-7xl px-4 py-6 text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Nowoll — always new
-          </div>
-        </footer>
+        <SiteFooter />
       </body>
     </html>
   )

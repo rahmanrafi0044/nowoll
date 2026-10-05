@@ -15,7 +15,9 @@
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {
+    "@nowoll/types": "workspace:*",
     "@nowoll/ui": "workspace:*",
+    "@nowoll/validation": "workspace:*",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "next": "16.3.8",
