@@ -193,6 +193,19 @@ Refund status query: `refund_ref_id`, `store_id`, `store_passwd` → `refunded` 
 - **Automated:** `packages/payments` tests use a fake SSLCommerz (official response shapes) — no network, no money.
   The API's tests always replace SSLCommerz with `apps/api/test/utils/fake-payment-gateway.ts` (forged IPNs, duplicates, late and risky payments, outages).
 - **Sandbox connection check:** `pnpm payments:sandbox-check` creates one ৳10 **sandbox** session (refuses to run if `SSLCOMMERZ_IS_LIVE=true`; never pays it).
+- **Sandbox run (5 Oct 2026, real sandbox, real browser, our real API + storefront):**
+  | Case | Result |
+  |---|---|
+  | Pay with test card → OTP "Success" | order CONFIRMED + PAID — only after our own validation API call (stored `val_id`, bank id, card type) |
+  | OTP "Success with risk" | payment + order `UNDER_REVIEW`, admin note "Flagged risky by SSLCommerz: Not Safe" |
+  | OTP "Failed" | attempt FAILED (confirmed by the transaction query); order stays open; "Try paying again" |
+  | "Try paying again" → Success | new `tran_id` accepted by the gateway; order PAID |
+  | **IPN only** (browser blocked from coming back; API reachable through a temporary Cloudflare quick tunnel) | order PAID from the IPN alone |
+  | Forged IPN from the internet (`status=VALID`, made-up `val_id`) | answered 200, validation said `INVALID_TRANSACTION`, order unchanged |
+
+  The sandbox's OTP page has three buttons — **Success**, **Success with risk**, **Failed** — to choose the outcome.
+  Without a tunnel everything except the IPN can be tested locally: SSLCommerz sends the *browser* back to
+  `API_PUBLIC_URL`, and a browser on the same computer can reach `localhost`.
 - **Sandbox test card:** `4111111111111111`, any future expiry, any 3-digit CVV, OTP `123456` (from SSLCommerz's sandbox docs — re-check there if it stops working).
 
 ---
