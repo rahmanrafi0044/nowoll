@@ -8,6 +8,7 @@ import { useCartStore } from '@/stores/cart-store'
 import { useCheckoutStore } from '@/stores/checkout-store'
 import { AddressStep } from './address-step'
 import { ContactStep } from './contact-step'
+import { OrderPlaced } from './order-placed'
 import { OrderSummary } from './order-summary'
 import { PaymentStep, paymentLabel } from './payment-step'
 import { ReviewStep } from './review-step'
@@ -27,9 +28,13 @@ export function CheckoutFlow() {
   const contact = useCheckoutStore((s) => s.contact)
   const address = useCheckoutStore((s) => s.address)
   const payment = useCheckoutStore((s) => s.payment)
+  const placed = useCheckoutStore((s) => s.placed)
   const quoteState = useCheckoutQuote(address?.district, contact?.email)
 
   if (!hydrated) return <p className="py-12 text-center text-muted-foreground">Loading checkout…</p>
+
+  // Just placed an order (the bag is now empty) → show the confirmation.
+  if (placed && items.length === 0) return <OrderPlaced order={placed} />
 
   if (items.length === 0) {
     return (
@@ -82,7 +87,7 @@ export function CheckoutFlow() {
           <PaymentStep />
         </StepSection>
         <StepSection step="review" title="Review and place order">
-          <ReviewStep quote={quoteState.quote} />
+          <ReviewStep quote={quoteState.quote} quoteLoading={quoteState.loading} />
         </StepSection>
       </div>
       <div className="order-1 mb-6 md:sticky md:top-6 md:order-2 md:mb-0">

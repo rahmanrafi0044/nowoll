@@ -2,15 +2,84 @@
 
 import type { CheckoutQuoteView } from '@nowoll/types'
 import { Button } from '@nowoll/ui'
+import Link from 'next/link'
+import { useState } from 'react'
+import { placeOrder } from '@/lib/cart-api'
 import { formatBdt } from '@/lib/format'
+import { useCartStore } from '@/stores/cart-store'
 import { useCheckoutStore } from '@/stores/checkout-store'
 import { paymentLabel } from './payment-step'
 import { deliveryEstimate } from './shipping-step'
 
+type Problem = { message: string; action?: 'BAG' | 'REMOVE_CODE' }
+
 // The last look before paying: every detail in one place, each with a way back.
-export function ReviewStep({ quote }: { quote: CheckoutQuoteView | null }) {
-  const { contact, address, payment, goTo } = useCheckoutStore()
+export function ReviewStep({
+  quote,
+  quoteLoading,
+}: {
+  quote: CheckoutQuoteView | null
+  quoteLoading: boolean
+}) {
+  const { contact, address, payment, goTo, ensureAttemptKey, setPlaced, refreshQuote } =
+    useCheckoutStore()
+  const items = useCartStore((s) => s.items)
+  const discountCode = useCartStore((s) => s.discountCode)
+  const setDiscountCode = useCartStore((s) => s.setDiscountCode)
+  const clearCart = useCartStore((s) => s.clear)
+  const [sending, setSending] = useState(false)
+  const [problem, setProblem] = useState<Problem | null>(null)
   if (!contact || !address || !payment) return null
+
+  async function submit() {
+    if (!quote || !contact || !address || !payment) return
+    setSending(true)
+    setProblem(null)
+    const result = await placeOrder(
+      {
+        items: items.map(({ variantId, quantity }) => ({ variantId, quantity })),
+        contact,
+        address: {
+          division: address.division,
+          district: address.district,
+          addressLine1: address.addressLine1,
+          ...(address.area && { area: address.area }),
+          ...(address.addressLine2 && { addressLine2: address.addressLine2 }),
+          ...(address.postalCode && { postalCode: address.postalCode }),
+        },
+        paymentMethod: payment,
+        ...(discountCode && { discountCode }),
+        expectedTotal: quote.totals.total, // the API refuses if the real total differs (PRICE_CHANGED)
+      },
+      // The same key on every attempt of this checkout: a retry can't create a second order.
+      ensureAttemptKey(),
+    )
+    setSending(false)
+
+    if (result.ok) {
+      clearCart()
+      setPlaced(result.data)
+      return
+    }
+    switch (result.error) {
+      case 'PRICE_CHANGED':
+        refreshQuote()
+        return setProblem({ message: result.message })
+      case 'OUT_OF_STOCK':
+      case 'ITEMS_UNAVAILABLE':
+        return setProblem({ message: result.message, action: 'BAG' })
+      default:
+        if (result.error?.startsWith('DISCOUNT_'))
+          return setProblem({ message: result.message, action: 'REMOVE_CODE' })
+        if (result.status === 429)
+          return setProblem({ message: 'Too many attempts — please wait a minute and try again.' })
+        if (result.status === 0)
+          return setProblem({
+            message: `${result.message} Your order wasn't placed twice — it's safe to try again.`,
+          })
+        return setProblem({ message: result.message || 'Something went wrong. Please try again.' })
+    }
+  }
   const estimate = quote?.shipping ? deliveryEstimate(quote.shipping) : null
 
   const rows: {
@@ -75,12 +144,49 @@ export function ReviewStep({ quote }: { quote: CheckoutQuoteView | null }) {
         </p>
       )}
 
-      {/* Placing the order is Phase 3 step 18 (stock + order + payment record in one transaction). */}
-      <Button size="lg" fullWidth disabled aria-describedby="place-order-note">
-        Place order
+      {problem && (
+        <div
+          role="alert"
+          className="flex flex-col gap-2 rounded-control bg-danger-soft p-3 text-sm text-danger"
+        >
+          <p>{problem.message}</p>
+          {problem.action === 'BAG' && (
+            <Link href="/cart" className="font-medium underline underline-offset-4">
+              Review your bag
+            </Link>
+          )}
+          {problem.action === 'REMOVE_CODE' && (
+            <button
+              type="button"
+              className="self-start font-medium underline underline-offset-4"
+              onClick={() => {
+                setDiscountCode(null)
+                setProblem(null)
+              }}
+            >
+              Remove the code and continue
+            </button>
+          )}
+        </div>
+      )}
+
+      <Button size="lg" fullWidth onClick={submit} disabled={sending || quoteLoading || !quote}>
+        {sending
+          ? 'Placing your order…'
+          : payment === 'COD'
+            ? 'Place order'
+            : 'Place order and pay'}
       </Button>
-      <p id="place-order-note" className="text-sm text-muted-foreground">
-        Ordering opens in the next update. Nothing has been charged.
+      <p className="text-xs text-muted-foreground">
+        By placing your order you agree to our{' '}
+        <Link href="/terms" className="underline">
+          terms
+        </Link>{' '}
+        and{' '}
+        <Link href="/returns" className="underline">
+          return policy
+        </Link>
+        .
       </p>
     </div>
   )

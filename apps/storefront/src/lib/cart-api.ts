@@ -3,6 +3,7 @@ import type {
   CartQuoteView,
   CheckoutQuoteView,
   DiscountPreviewView,
+  OrderPlacedView,
 } from '@nowoll/types'
 import { publicEnv } from '@/lib/env'
 
@@ -11,11 +12,12 @@ type Items = { variantId: string; quantity: number }[]
 async function post<T>(
   path: string,
   body: unknown,
+  headers: Record<string, string> = {},
 ): Promise<{ ok: true; data: T } | { ok: false; status: number; error?: string; message: string }> {
   try {
     const res = await fetch(`${publicEnv.apiUrl}/api/v1${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...headers },
       body: JSON.stringify(body),
     })
     const json = (await res.json()) as ApiResult<T>
@@ -44,3 +46,23 @@ export const fetchCheckoutQuote = (body: {
   discountCode?: string
   email?: string
 }) => post<CheckoutQuoteView>('/checkout/quote', body)
+
+export interface PlaceOrderBody {
+  items: Items
+  contact: { fullName: string; email: string; phone: string }
+  address: {
+    division: string
+    district: string
+    area?: string
+    addressLine1: string
+    addressLine2?: string
+    postalCode?: string
+  }
+  paymentMethod: 'COD' | 'SSLCOMMERZ'
+  discountCode?: string
+  expectedTotal: string
+}
+
+/** Places the order. The key makes retries safe: the same key never creates a second order. */
+export const placeOrder = (body: PlaceOrderBody, idempotencyKey: string) =>
+  post<OrderPlacedView>('/orders', body, { 'idempotency-key': idempotencyKey })

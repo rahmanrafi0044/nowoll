@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useCartStore } from '@/stores/cart-store'
 import { useCheckoutStore } from '@/stores/checkout-store'
 import { CheckoutFlow } from './checkout-flow'
@@ -7,9 +7,34 @@ import { CheckoutFlow } from './checkout-flow'
 let vatRate = 0
 let failWith: { status: number; error: string; message: string } | null = null
 const quoteBodies: { district?: string; email?: string; discountCode?: string }[] = []
+type OrderCall = { body: Record<string, unknown>; key: string }
+const orderCalls: OrderCall[] = []
+let orderAnswer: (() => Promise<Response>) | null = null
 
-function fakeApi(_url: string, init: RequestInit) {
+function fakeApi(url: string, init: RequestInit) {
   const body = JSON.parse(String(init.body))
+  if (url.endsWith('/orders')) {
+    orderCalls.push({ body, key: (init.headers as Record<string, string>)['idempotency-key']! })
+    if (orderAnswer) return orderAnswer()
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            orderId: 'o1',
+            orderNumber: 10001,
+            displayNumber: 'NW-10001',
+            status: 'PENDING',
+            paymentMethod: 'COD',
+            paymentStatus: 'PENDING',
+            total: body.expectedTotal,
+            nextAction: 'NONE',
+          },
+        }),
+        { status: 201 },
+      ),
+    )
+  }
   quoteBodies.push(body)
   if (failWith)
     return Promise.resolve(
@@ -73,6 +98,8 @@ beforeEach(async () => {
   vatRate = 0
   failWith = null
   quoteBodies.length = 0
+  orderCalls.length = 0
+  orderAnswer = null
   vi.stubGlobal('fetch', vi.fn(fakeApi))
   useCartStore.getState().clear()
   useCheckoutStore.getState().reset()
@@ -144,7 +171,23 @@ describe('checkout', () => {
     ).toBeInTheDocument()
     expect(within(review).getByText('Pay on delivery')).toBeInTheDocument()
     expect(within(review).getByText('৳1,550')).toBeInTheDocument()
-    expect(within(review).getByRole('button', { name: 'Place order' })).toBeDisabled()
+    fireEvent.click(within(review).getByRole('button', { name: 'Place order' }))
+
+    // The order request: a request key, the reviewed total, normalized details
+    expect(
+      await screen.findByRole('heading', { name: 'Thank you — your order is placed!' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('NW-10001')).toBeInTheDocument()
+    expect(orderCalls).toHaveLength(1)
+    expect(orderCalls[0]!.key).toMatch(/^[0-9a-f-]{36}$/)
+    expect(orderCalls[0]!.body).toMatchObject({
+      paymentMethod: 'COD',
+      expectedTotal: '1550',
+      contact: { email: 'rafi@example.com', phone: '+8801712345678' },
+      address: { district: 'Dhaka', area: 'Dhanmondi' },
+      items: [{ variantId: 'v1', quantity: 1 }],
+    })
+    expect(useCartStore.getState().items).toEqual([]) // the bag is emptied
   })
 
   it('validates contact details with the shared rules', async () => {
@@ -238,5 +281,74 @@ describe('checkout', () => {
     act(() => useCartStore.getState().clear())
     render(<CheckoutFlow />)
     expect(await screen.findByText('Your bag is empty')).toBeInTheDocument()
+  })
+})
+
+describe('placing the order', () => {
+  async function toReview() {
+    render(<CheckoutFlow />)
+    await screen.findByRole('button', { name: 'Continue to address' })
+    await fillContact()
+    await fillAddress()
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }))
+    fireEvent.click(screen.getByRole('radio', { name: /Cash on delivery/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
+    await within(step(/Review and place order/)).findByText('৳1,550')
+    return () => fireEvent.click(screen.getByRole('button', { name: 'Place order' }))
+  }
+  const fail = (status: number, error: string, message: string) => () =>
+    Promise.resolve(new Response(JSON.stringify({ success: false, error, message }), { status }))
+
+  it('a retry after a network error sends the SAME key (no double order possible)', async () => {
+    const place = await toReview()
+    orderAnswer = () => Promise.reject(new Error('offline'))
+    place()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/safe to try again/)
+    orderAnswer = null
+    place()
+    await screen.findByText('NW-10001')
+    expect(orderCalls).toHaveLength(2)
+    expect(orderCalls[0]!.key).toBe(orderCalls[1]!.key)
+  })
+
+  it('PRICE_CHANGED shows the message and fetches the new total', async () => {
+    const place = await toReview()
+    const before = quoteBodies.length
+    orderAnswer = fail(
+      409,
+      'PRICE_CHANGED',
+      'Prices changed since you reviewed your order — the total is now ৳1600.',
+    )
+    place()
+    expect(await screen.findByRole('alert')).toHaveTextContent('the total is now ৳1600')
+    await waitFor(() => expect(quoteBodies.length).toBeGreaterThan(before))
+  })
+
+  it('OUT_OF_STOCK sends the customer back to the bag', async () => {
+    const place = await toReview()
+    orderAnswer = fail(409, 'OUT_OF_STOCK', 'Sorry — Oxford Shirt (M / Blue) just sold out.')
+    place()
+    expect(await screen.findByRole('link', { name: 'Review your bag' })).toHaveAttribute(
+      'href',
+      '/cart',
+    )
+  })
+
+  it('a discount problem offers to remove the code', async () => {
+    act(() => useCartStore.getState().setDiscountCode('OLD'))
+    const place = await toReview()
+    orderAnswer = fail(422, 'DISCOUNT_EXPIRED', 'This code has expired.')
+    place()
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove the code and continue' }))
+    expect(useCartStore.getState().discountCode).toBeNull()
+  })
+
+  it('online payment cannot be chosen yet (decision #6)', async () => {
+    render(<CheckoutFlow />)
+    await screen.findByRole('button', { name: 'Continue to address' })
+    await fillContact()
+    await fillAddress()
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }))
+    expect(screen.getByRole('radio', { name: /Pay online/ })).toBeDisabled()
   })
 })

@@ -49,4 +49,21 @@ export class SettingsService {
     )
     return 0
   }
+
+  /**
+   * Minutes an online (SSLCommerz) order may stay unpaid before it's cancelled
+   * and its stock released. Missing/invalid (outside 5–1440) → 30 with a warning.
+   */
+  async paymentTimeoutMinutes(
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<number> {
+    const row = await db.setting.findUnique({ where: { key: 'payment_timeout_minutes' } })
+    const value = row?.value
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 5 && value <= 1440)
+      return value
+    this.logger.warn(
+      `Setting payment_timeout_minutes is ${row ? `invalid (${JSON.stringify(value)})` : 'missing'} — using 30. Fix it in Admin → Settings.`,
+    )
+    return 30
+  }
 }

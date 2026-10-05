@@ -141,6 +141,7 @@ export interface CheckoutQuoteView {
     productName: string
     variantLabel: string
     sku: string
+    imageUrl: string | null
     unitPrice: Money
     quantity: number
     lineTotal: Money
@@ -167,3 +168,17 @@ export type DiscountProblemView =
   | { code: 'DISCOUNT_USED_UP'; message: string }
   | { code: 'DISCOUNT_MIN_ORDER'; message: string; shortBy: Money }
   | { code: 'DISCOUNT_CUSTOMER_LIMIT'; message: string }
+
+/** POST /orders — the result of placing an order. */
+export interface OrderPlacedView {
+  orderId: string
+  orderNumber: number
+  displayNumber: string // "NW-10001"
+  status:
+    'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'RETURNED'
+  paymentMethod: 'SSLCOMMERZ' | 'COD'
+  paymentStatus:
+    'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED' | 'UNDER_REVIEW' | 'REFUNDED' | 'PARTIALLY_REFUNDED'
+  total: Money
+  nextAction: 'NONE' | 'PAY'
+}
