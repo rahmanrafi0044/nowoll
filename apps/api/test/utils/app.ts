@@ -5,13 +5,18 @@ import { configureApp } from '../../src/app.setup.js'
 import { AUTH_PROVIDER } from '../../src/auth/auth-provider.js'
 import { AdminGuard } from '../../src/common/guards/admin.guard.js'
 import { LOW_STOCK_ALERTER } from '../../src/inventory/low-stock-alerter.js'
+import { CUSTOMER_NOTIFIER } from '../../src/notifications/customer-notifier.js'
 import { ORDER_NOTIFIER } from '../../src/orders/order-notifier.js'
 import { PAYMENT_GATEWAY } from '../../src/payments/payment-gateway.js'
 import { IMAGE_STORAGE } from '../../src/storage/image-storage.js'
 import { FakeAuthProvider } from './fake-auth-provider.js'
 import { FakePaymentGateway } from './fake-payment-gateway.js'
 import { MemoryImageStorage } from './memory-image-storage.js'
-import { RecordingLowStockAlerter, RecordingOrderNotifier } from './services.js'
+import {
+  RecordingCustomerNotifier,
+  RecordingLowStockAlerter,
+  RecordingOrderNotifier,
+} from './services.js'
 
 /**
  * Boots the real API (real middleware, real nowoll_test database).
@@ -33,6 +38,8 @@ export async function createTestApp(options: {
     .useValue(new RecordingLowStockAlerter())
     .overrideProvider(ORDER_NOTIFIER) // never Redis in tests: app.get(ORDER_NOTIFIER).placed / .paid
     .useValue(new RecordingOrderNotifier())
+    .overrideProvider(CUSTOMER_NOTIFIER) // app.get(CUSTOMER_NOTIFIER).events
+    .useValue(new RecordingCustomerNotifier())
     .overrideProvider(PAYMENT_GATEWAY)
     .useValue(new FakePaymentGateway())
     .overrideProvider(AUTH_PROVIDER)

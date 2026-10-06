@@ -1,28 +1,38 @@
 import { Inject, Injectable, Logger, type OnApplicationShutdown } from '@nestjs/common'
-import type { JobsOptions, OrderJobName, OrderJobs, OrdersQueue } from '@nowoll/queues'
+import type {
+  JobsOptions,
+  NotificationJobName,
+  NotificationJobs,
+  NotificationsQueue,
+  OrderJobName,
+  OrderJobs,
+  OrdersQueue,
+} from '@nowoll/queues'
 
 export const ORDERS_QUEUE = Symbol('ORDERS_QUEUE')
+export const NOTIFICATIONS_QUEUE = Symbol('NOTIFICATIONS_QUEUE')
+
+type AnyQueue = OrdersQueue | NotificationsQueue
 
 /**
- * Adds jobs to the orders queue. Never throws: by the time a job is added the
- * order is already saved, so a Redis problem must not turn a successful order
- * into an error for the customer. Instead it tries 3 times, then logs a loud
- * ALERT (the email for that order is then not sent — see docs/workers.md).
+ * Adds jobs to a queue. Never throws: by the time a job is added, the thing it
+ * reports (an order, a sign-up, a refund) is already saved — a Redis problem
+ * must not turn that success into an error. It tries 3 times, then logs a loud
+ * ALERT (that email is then not sent — see docs/workers.md).
  */
-@Injectable()
-export class OrdersQueueService implements OnApplicationShutdown {
-  private readonly logger = new Logger('OrdersQueue')
+abstract class SafeQueue<Jobs, Name extends keyof Jobs & string> implements OnApplicationShutdown {
+  protected abstract readonly logger: Logger
 
-  constructor(@Inject(ORDERS_QUEUE) private readonly queue: OrdersQueue) {}
+  constructor(private readonly queue: AnyQueue) {}
 
-  async add<N extends OrderJobName>(
-    name: N,
-    data: OrderJobs[N],
-    opts: JobsOptions = {},
-  ): Promise<boolean> {
+  async add<N extends Name>(name: N, data: Jobs[N], opts: JobsOptions = {}): Promise<boolean> {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        await this.queue.add(name, data, opts)
+        await (
+          this.queue as unknown as {
+            add: (n: string, d: unknown, o: JobsOptions) => Promise<unknown>
+          }
+        ).add(name, data, opts)
         return true
       } catch (error) {
         if (attempt === 3) {
@@ -40,5 +50,21 @@ export class OrdersQueueService implements OnApplicationShutdown {
   async onApplicationShutdown(): Promise<void> {
     await this.queue.close().catch(() => {})
     await (this.queue.opts.connection as { quit?: () => Promise<unknown> }).quit?.().catch(() => {})
+  }
+}
+
+@Injectable()
+export class OrdersQueueService extends SafeQueue<OrderJobs, OrderJobName> {
+  protected readonly logger = new Logger('OrdersQueue')
+  constructor(@Inject(ORDERS_QUEUE) queue: OrdersQueue) {
+    super(queue)
+  }
+}
+
+@Injectable()
+export class NotificationsQueueService extends SafeQueue<NotificationJobs, NotificationJobName> {
+  protected readonly logger = new Logger('NotificationsQueue')
+  constructor(@Inject(NOTIFICATIONS_QUEUE) queue: NotificationsQueue) {
+    super(queue)
   }
 }

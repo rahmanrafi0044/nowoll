@@ -2,9 +2,13 @@
 // Real Redis (docker compose up -d redis; CI runs it), a unique queue prefix
 // per run so a running dev worker never picks these test jobs up.
 import { randomUUID } from 'node:crypto'
-import { createOrdersQueue, producerConnection } from '@nowoll/queues'
-import { OrdersQueueService } from './orders-queue.js'
-import { QueuedLowStockAlerter, QueuedOrderNotifier } from './queued-notifiers.js'
+import { createNotificationsQueue, createOrdersQueue, producerConnection } from '@nowoll/queues'
+import { NotificationsQueueService, OrdersQueueService } from './orders-queue.js'
+import {
+  QueuedCustomerNotifier,
+  QueuedLowStockAlerter,
+  QueuedOrderNotifier,
+} from './queued-notifiers.js'
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379'
 const connection = producerConnection(REDIS_URL)
@@ -86,5 +90,43 @@ describe('Redis down', () => {
     ).resolves.toBeUndefined()
     expect(Date.now() - started).toBeLessThan(10_000)
     await broken.onApplicationShutdown()
+  })
+})
+
+describe('customer events → notification jobs (step 28)', () => {
+  const nConnection = producerConnection(REDIS_URL)
+  const nQueue = createNotificationsQueue(nConnection, `test-${randomUUID()}`)
+  const customer = new QueuedCustomerNotifier(new NotificationsQueueService(nQueue))
+  const nJobs = async () =>
+    (await nQueue.getJobs(['waiting'])).map((j) => ({ name: j.name, id: j.id, data: j.data }))
+
+  afterEach(() => nQueue.obliterate({ force: true }))
+  afterAll(async () => {
+    await nQueue.close()
+    await nConnection.quit()
+  })
+
+  it('each event once, with a fixed id', async () => {
+    await customer.welcome('u1')
+    await customer.welcome('u1')
+    await customer.returnApproved('r1')
+    await customer.refundProcessed('f1')
+    await customer.orderShipped('o1')
+    expect((await nJobs()).sort((a, b) => a.id!.localeCompare(b.id!))).toEqual([
+      { name: 'order-shipped', id: 'order-shipped_o1', data: { orderId: 'o1' } },
+      { name: 'refund-processed', id: 'refund-processed_f1', data: { refundId: 'f1' } },
+      { name: 'return-approved', id: 'return-approved_r1', data: { returnId: 'r1' } },
+      { name: 'welcome', id: 'welcome_u1', data: { userId: 'u1' } },
+    ])
+  })
+
+  it('newsletter: the same token is one job; a new token (signed up again) is a new one', async () => {
+    await customer.newsletterSignup('s1', 'a'.repeat(64))
+    await customer.newsletterSignup('s1', 'a'.repeat(64))
+    await customer.newsletterSignup('s1', 'b'.repeat(64))
+    expect((await nJobs()).map((j) => j.id).sort()).toEqual([
+      `newsletter-confirm_s1_${'a'.repeat(12)}`,
+      `newsletter-confirm_s1_${'b'.repeat(12)}`,
+    ])
   })
 })

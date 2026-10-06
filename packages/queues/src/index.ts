@@ -83,3 +83,43 @@ export function createOrdersQueue(connection: Redis, prefix?: string): OrdersQue
   })
 }
 export type { JobsOptions } from 'bullmq'
+
+// ---- Notifications queue (step 28) -------------------------------------------
+// Everything that isn't part of placing/paying an order: account, newsletter,
+// returns, refunds, shipping updates. Run by workers/notification-worker.
+
+export const NOTIFICATIONS_QUEUE = 'notifications'
+
+export interface NotificationJobs {
+  welcome: { userId: string }
+  'newsletter-confirm': { subscriberId: string }
+  'return-approved': { returnId: string }
+  'return-rejected': { returnId: string }
+  'refund-processed': { refundId: string }
+  /** Triggered by the admin order screen (Phase 5, step 31). */
+  'order-shipped': { orderId: string }
+  'order-delivered': { orderId: string }
+}
+export type NotificationJobName = keyof NotificationJobs
+
+/**
+ * Fixed job ids — the same event twice is ONE email (no ":" allowed).
+ * `key` is whatever identifies the event: a user, return, refund or order id —
+ * or, for the newsletter, subscriber id + token (signing up again after
+ * unsubscribing makes a new token, so a new confirmation is allowed).
+ */
+export const notificationJobId = (name: NotificationJobName, key: string) => `${name}_${key}`
+
+export type NotificationsQueue = Queue<
+  NotificationJobs[NotificationJobName],
+  unknown,
+  NotificationJobName
+>
+
+export function createNotificationsQueue(connection: Redis, prefix?: string): NotificationsQueue {
+  return new Queue(NOTIFICATIONS_QUEUE, {
+    connection,
+    defaultJobOptions: DEFAULT_JOB_OPTIONS,
+    ...(prefix && { prefix }),
+  })
+}

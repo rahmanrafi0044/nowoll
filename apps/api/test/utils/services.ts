@@ -1,4 +1,5 @@
 // Builds real services wired to the test database, for service-level tests.
+import type { CustomerNotifier } from '../../src/notifications/customer-notifier.js'
 import { StockService } from '../../src/inventory/stock.service.js'
 import type { LowStockAlert, LowStockAlerter } from '../../src/inventory/low-stock-alerter.js'
 import type {
@@ -53,4 +54,20 @@ export function makePaymentsService(
     notifier,
   )
   return { payments, gateway, notifier }
+}
+
+/** Test double: remembers every customer notification (step 28) instead of queueing a job. */
+export class RecordingCustomerNotifier implements CustomerNotifier {
+  readonly events: { type: string; id: string; token?: string }[] = []
+  private record = (type: string, id: string, token?: string) => {
+    this.events.push({ type, id, ...(token && { token }) })
+    return Promise.resolve()
+  }
+  welcome = (id: string) => this.record('welcome', id)
+  newsletterSignup = (id: string, token: string) => this.record('newsletter-confirm', id, token)
+  returnApproved = (id: string) => this.record('return-approved', id)
+  returnRejected = (id: string) => this.record('return-rejected', id)
+  refundProcessed = (id: string) => this.record('refund-processed', id)
+  orderShipped = (id: string) => this.record('order-shipped', id)
+  orderDelivered = (id: string) => this.record('order-delivered', id)
 }
