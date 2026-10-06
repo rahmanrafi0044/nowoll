@@ -141,7 +141,7 @@ function EnrolInstructions({ qrCode, secret }: { qrCode: string; secret: string 
       </p>
       {/* The QR code is an SVG made by Supabase, given as a data: URL — nothing to optimise. */}
       <Image
-        src={qrCode}
+        src={svgDataUrl(qrCode)}
         alt="QR code for your authenticator app"
         width={192}
         height={192}
@@ -193,6 +193,19 @@ function CodeForm(props: {
       </Button>
     </form>
   )
+}
+
+/**
+ * Supabase sends the QR code as RAW SVG text after "data:image/svg+xml;utf-8,",
+ * ending with a line break — next/image refuses that address (found in the
+ * live check: the page crashed). Re-wrapping it percent-encoded makes a
+ * well-formed data: URL any browser — and next/image — accepts.
+ */
+export function svgDataUrl(qrCode: string): string {
+  const comma = qrCode.indexOf(',')
+  const svg = comma === -1 ? qrCode : qrCode.slice(comma + 1)
+  if (qrCode.slice(0, comma).endsWith(';base64')) return qrCode.trim() // already safe
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.trim())}`
 }
 
 /** A friendly message for any failed call (429 and offline included). */
