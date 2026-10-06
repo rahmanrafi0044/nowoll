@@ -6,6 +6,7 @@ import { TrackOrder } from './track-order'
 
 const ORDER = '7d3c1a52-8f0e-4a51-9b7e-2f1f5c0f9a10'
 const line = {
+  productId: 'p1',
   productName: 'Oxford Shirt',
   variantLabel: 'M / Blue',
   imageUrl: null,
