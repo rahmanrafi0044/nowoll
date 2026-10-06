@@ -29,6 +29,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@nowoll/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@nowoll/ui':
         specifier: workspace:*
         version: link:../../packages/ui

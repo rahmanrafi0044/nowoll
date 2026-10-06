@@ -1,4 +1,5 @@
 export * from './api.js'
+export * from './analytics.js'
 export * from './catalog.js'
 export * from './serialized.js'
 

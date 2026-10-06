@@ -8,3 +8,10 @@
     background-color: var(--color-surface-muted);
   }
 }
+
+/* Chart colours (dashboard). One series → one hue: slot 1 of the dataviz
+   reference palette, validated on the white card (contrast ≥ 3:1). */
+@theme {
+  --color-chart-1: #2a78d6;
+  --color-chart-grid: #e5e5e5;
+}
