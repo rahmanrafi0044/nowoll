@@ -4,7 +4,11 @@
 import { randomUUID } from 'node:crypto'
 import { makeCategory, makeProduct, seedShippingZones } from '../../test/utils/factories.js'
 import { FakePaymentGateway } from '../../test/utils/fake-payment-gateway.js'
-import { makePaymentsService, makeStockService } from '../../test/utils/services.js'
+import {
+  makePaymentsService,
+  makeStockService,
+  RecordingOrderNotifier,
+} from '../../test/utils/services.js'
 import { resetDatabase, testPrisma } from '../../test/utils/test-db.js'
 import { CheckoutService } from '../checkout/checkout.service.js'
 import { DiscountsService } from '../discounts/discounts.service.js'
@@ -20,10 +24,10 @@ const prisma = testPrisma() as unknown as PrismaService
 const discounts = new DiscountsService(prisma)
 const settings = new SettingsService(prisma)
 const checkout = new CheckoutService(prisma, discounts, new ShippingService(prisma), settings)
-const notifier = { orderPlaced: async () => {} }
 const { stock } = makeStockService(prisma)
 
 let gateway: FakePaymentGateway
+let notifier: RecordingOrderNotifier
 let payments: PaymentsService
 let orders: OrdersService
 let expiry: OrderExpiryService
@@ -31,7 +35,7 @@ let expiry: OrderExpiryService
 beforeEach(async () => {
   await resetDatabase()
   await seedShippingZones()
-  ;({ payments, gateway } = makePaymentsService(prisma))
+  ;({ payments, gateway, notifier } = makePaymentsService(prisma))
   orders = new OrdersService(prisma, checkout, discounts, stock, payments, notifier)
   expiry = new OrderExpiryService(prisma, orders, settings, payments)
 })
@@ -203,11 +207,17 @@ describe('init — "Pay now"', () => {
 
 describe('placing an online order', () => {
   it('is refused when online payment is not set up (the order would hold stock for nothing)', async () => {
-    const offline = new PaymentsService(prisma, settings, gateway, {
-      apiPublicUrl: 'https://api.nowoll.test',
-      siteUrl: 'https://nowoll.test',
-      onlineEnabled: false,
-    })
+    const offline = new PaymentsService(
+      prisma,
+      settings,
+      gateway,
+      {
+        apiPublicUrl: 'https://api.nowoll.test',
+        siteUrl: 'https://nowoll.test',
+        onlineEnabled: false,
+      },
+      new RecordingOrderNotifier(),
+    )
     const strictOrders = new OrdersService(prisma, checkout, discounts, stock, offline, notifier)
     const v = await shirt(5)
     await expect(strictOrders.create(dto(v.id), randomUUID())).rejects.toMatchObject({
@@ -244,6 +254,22 @@ describe('IPN — SSLCommerz says a payment happened', () => {
     const events = await prisma.paymentEvent.findMany({ orderBy: { createdAt: 'asc' } })
     expect(events.map((e) => e.type)).toEqual(['IPN', 'VALIDATION'])
     expect(events[0]!.payload).toMatchObject({ tran_id: tranId, status: 'VALID' })
+  })
+
+  it('a confirmed payment announces "payment confirmed" ONCE (→ the email job); risky ones don\'t', async () => {
+    const { tranId } = await startedPayment()
+    const ipn = { tran_id: tranId, val_id: gateway.pay(tranId, '1550') }
+    await payments.handleIpn(ipn)
+    await payments.handleIpn(ipn) // retried IPN
+    await payments.handleRedirect('success', ipn)
+    expect(notifier.paid).toEqual([{ orderId: expect.any(String), orderNumber: 10001 }])
+
+    const risky = await startedPayment()
+    await payments.handleIpn({
+      tran_id: risky.tranId,
+      val_id: gateway.pay(risky.tranId, '1550', { risky: true }),
+    })
+    expect(notifier.paid).toHaveLength(1) // under review: no "payment received" email
   })
 
   it('the same payment reported twice (IPN + redirect, or a retried IPN) is applied once', async () => {

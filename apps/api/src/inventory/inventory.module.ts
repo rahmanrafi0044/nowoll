@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common'
 import { SettingsModule } from '../settings/settings.module.js'
 import { InventoryController } from './inventory.controller.js'
 import { InventoryService } from './inventory.service.js'
-import { LOW_STOCK_ALERTER, LoggingLowStockAlerter } from './low-stock-alerter.js'
 import { StockService } from './stock.service.js'
 
 @Module({
@@ -10,9 +9,7 @@ import { StockService } from './stock.service.js'
   controllers: [InventoryController],
   providers: [
     InventoryService,
-    StockService,
-    // Phase 4: swap for a BullMQ-backed alerter (emails via the notification worker).
-    { provide: LOW_STOCK_ALERTER, useClass: LoggingLowStockAlerter },
+    StockService, // its LOW_STOCK_ALERTER comes from the global NotificationsModule
   ],
   exports: [StockService], // products (and later orders) change stock through it
 })

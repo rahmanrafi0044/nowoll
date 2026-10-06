@@ -38,6 +38,9 @@ const apiEnv = {
   NEXT_PUBLIC_SUPABASE_URL: 'https://e2e-project.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: 'e2e-not-a-real-key',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'e2e-not-a-real-anon-key',
+  // Redis database 15: the browser tests' order jobs never reach a worker
+  // you're running for development (which uses database 0).
+  REDIS_URL: 'redis://localhost:6379/15',
   SSLCOMMERZ_STORE_ID: '',
   SSLCOMMERZ_STORE_PASSWORD: '',
 }

@@ -20,6 +20,7 @@ const { stock } = makeStockService(prisma)
 const { payments } = makePaymentsService(prisma)
 const orders = new OrdersService(prisma, checkout, discounts, stock, payments, {
   orderPlaced: async () => {},
+  paymentConfirmed: async () => {},
 })
 const lookup = new OrderLookupService(prisma, payments)
 

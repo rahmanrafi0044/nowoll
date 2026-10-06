@@ -45,9 +45,27 @@ export const EXAMPLES: Record<string, EmailContent> = {
     link,
   }),
   paymentConfirmed: paymentConfirmedEmail({
-    name: 'Rafi',
-    orderNumber: 'NW-10001',
-    amount: '3550',
+    name: 'Rafi Rahman',
+    orderNumber: 'NW-10007',
+    placedAt: '2026-10-06T04:00:00.000Z',
+    lines: [
+      {
+        productName: 'Eid Silk Panjabi',
+        variantLabel: '40 / Maroon',
+        quantity: 1,
+        lineTotal: '3490',
+      },
+    ],
+    totals: {
+      subtotal: '3490',
+      discount: '0',
+      discountCode: null,
+      shippingFee: '60',
+      vatRate: '0',
+      vatAmount: '0',
+      total: '3550',
+    },
+    address: 'House 12, Road 5, Dhanmondi, Dhaka',
     link,
   }),
   shipped: orderShippedEmail({
