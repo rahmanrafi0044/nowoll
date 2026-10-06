@@ -8,6 +8,7 @@ import type {
   PaymentResult,
   RefundParams,
   RefundResult,
+  RefundStatusResult,
   VerifyParams,
   VerifyResult,
 } from './types.js'
@@ -214,6 +215,7 @@ export class SslCommerzAdapter implements PaymentProvider {
       refund_remarks: p.remarks.slice(0, 255),
       store_id: this.config.storeId,
       store_passwd: this.config.storePassword,
+      ...(p.reference && { refe_id: p.reference.slice(0, 50) }),
       format: 'json',
     })
     const raw = await this.request('GET', `${this.host}${PATHS.transactionQuery}?${query}`)
@@ -235,6 +237,37 @@ export class SslCommerzAdapter implements PaymentProvider {
       reason: `Refund ${status ?? 'failed'}: ${str(raw.errorReason) ?? 'no reason given'}`,
       raw,
     }
+  }
+
+  /**
+   * Official "Query Refund Status" API: same endpoint, refund_ref_id →
+   * status refunded / processing / cancelled.
+   * TODO: confirm in the sandbox at launch that format=json is accepted here
+   * too (the docs list it for the refund request, not for this query). If it
+   * isn't, the answer can't be read and this reports UNREACHABLE — the refund
+   * is simply asked about again later; nothing is guessed.
+   */
+  async getRefundStatus(refundRefId: string): Promise<RefundStatusResult> {
+    if (!isSslCommerzConfigured(this.config))
+      return { state: 'UNREACHABLE', reason: 'SSLCommerz is not configured' }
+    const query = new URLSearchParams({
+      refund_ref_id: refundRefId,
+      store_id: this.config.storeId,
+      store_passwd: this.config.storePassword,
+      format: 'json',
+    })
+    const raw = await this.request('GET', `${this.host}${PATHS.transactionQuery}?${query}`)
+    if (!raw) return { state: 'UNREACHABLE', reason: 'Refund status query did not respond' }
+    if (raw.APIConnect !== 'DONE')
+      return {
+        state: 'UNREACHABLE',
+        reason: `Refund status query: ${str(raw.APIConnect) ?? 'no answer'}`,
+      }
+    const status = str(raw.status)
+    if (status === 'refunded') return { state: 'REFUNDED', raw }
+    if (status === 'cancelled') return { state: 'CANCELLED', raw }
+    if (status === 'processing') return { state: 'PROCESSING', raw }
+    return { state: 'UNREACHABLE', reason: `Unknown refund status: ${status ?? 'missing'}` }
   }
 
   /** Looks a payment up by OUR transaction id — for when a notification never arrived. */

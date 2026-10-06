@@ -4,6 +4,9 @@
 // long before a customer sees a broken page.
 import type {
   AccountOrderDetailView,
+  AdminReturnView,
+  MyReturnView,
+  ReturnEligibilityView,
   AdminReviewView,
   MyReviewView,
   ProductReviewsView,
@@ -43,6 +46,7 @@ import type {
 import type { PlacedOrder } from './orders/orders.service.js'
 import type { PaymentsService, PaymentStatusSummary } from './payments/payments.service.js'
 import type { CartQuote } from './pricing/cart-pricing.js'
+import type { AdminReturn, MyReturn, ReturnEligibility } from './returns/returns.service.js'
 import type { AdminReview, MyReview, ProductReviews } from './reviews/reviews.service.js'
 import type { ShippingRate } from './shipping/shipping.service.js'
 import type { WishlistEntry } from './wishlist/wishlist.service.js'
@@ -93,6 +97,12 @@ describe('API ↔ storefront contract', () => {
     expectTypeOf<Serialized<ProductReviews>>().toEqualTypeOf<ProductReviewsView>()
     expectTypeOf<Serialized<MyReview>>().toEqualTypeOf<MyReviewView>()
     expectTypeOf<Serialized<AdminReview>>().toEqualTypeOf<AdminReviewView>()
+  })
+
+  it('returns', () => {
+    expectTypeOf<Serialized<MyReturn>>().toEqualTypeOf<MyReturnView>()
+    expectTypeOf<Serialized<ReturnEligibility>>().toEqualTypeOf<ReturnEligibilityView>()
+    expectTypeOf<Serialized<AdminReturn>>().toEqualTypeOf<AdminReturnView>()
   })
 
   it('payments', () => {

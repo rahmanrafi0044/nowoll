@@ -66,4 +66,21 @@ export class SettingsService {
     )
     return 30
   }
+
+  /**
+   * Days after delivery a customer may ask for a return (step 25).
+   * Missing/invalid (outside 0–90) → 7 with a warning. 0 = returns switched off.
+   */
+  async returnWindowDays(
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<number> {
+    const row = await db.setting.findUnique({ where: { key: 'return_window_days' } })
+    const value = row?.value
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 90)
+      return value
+    this.logger.warn(
+      `Setting return_window_days is ${row ? `invalid (${JSON.stringify(value)})` : 'missing'} — using 7. Fix it in Admin → Settings.`,
+    )
+    return 7
+  }
 }

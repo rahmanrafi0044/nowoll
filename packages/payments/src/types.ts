@@ -57,11 +57,18 @@ export interface RefundParams {
   refundTransactionId: string // our unique id for this refund (max 30 chars)
   amount: Amount
   remarks: string
+  /** Our own reference (e.g. the refund record's id) for matching SSLCommerz reports — refe_id, max 50. */
+  reference?: string
 }
 
 export type RefundResult =
   | { ok: true; status: 'refunded' | 'processing'; refundRefId: string | null; raw: unknown }
   | { ok: false; reason: string; raw: unknown }
+
+/** Where a refund that SSLCommerz is still "processing" has got to. */
+export type RefundStatusResult =
+  | { state: 'REFUNDED' | 'PROCESSING' | 'CANCELLED'; raw: unknown }
+  | { state: 'UNREACHABLE'; reason: string }
 
 export type GatewayStatus =
   | { state: 'PAID' | 'PENDING' | 'FAILED' | 'NOT_FOUND'; raw: unknown }
@@ -73,4 +80,6 @@ export interface PaymentProvider {
   verifyPayment(params: VerifyParams): Promise<VerifyResult>
   refundPayment(params: RefundParams): Promise<RefundResult>
   getStatus(transactionId: string): Promise<GatewayStatus>
+  /** Asks again about a refund that was "processing" (by SSLCommerz's refund_ref_id). */
+  getRefundStatus(refundRefId: string): Promise<RefundStatusResult>
 }

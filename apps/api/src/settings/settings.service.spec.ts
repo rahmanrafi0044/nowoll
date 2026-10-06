@@ -42,3 +42,23 @@ describe('SettingsService.vatRate', () => {
     expect(await service.vatRate()).toBe(0)
   })
 })
+
+describe('SettingsService.returnWindowDays', () => {
+  it('reads the value; 0 switches returns off', async () => {
+    await prisma.setting.create({ data: { key: 'return_window_days', value: 14 } })
+    expect(await service.returnWindowDays()).toBe(14)
+    await prisma.setting.update({ where: { key: 'return_window_days' }, data: { value: 0 } })
+    expect(await service.returnWindowDays()).toBe(0)
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['text', '7'],
+    ['negative', -1],
+    ['too long', 365],
+  ])('falls back to 7 when the setting is %s', async (_label, value) => {
+    if (value !== undefined)
+      await prisma.setting.create({ data: { key: 'return_window_days', value } })
+    expect(await service.returnWindowDays()).toBe(7)
+  })
+})

@@ -284,6 +284,48 @@ describe('refundPayment', () => {
   })
 })
 
+describe('refund reference (refe_id)', () => {
+  it('is sent when given, cut to the official 50 characters', async () => {
+    reply = () => ({ body: { APIConnect: 'DONE', status: 'success', refund_ref_id: 'REF9' } })
+    await adapter().refundPayment({
+      bankTransactionId: 'BANK1',
+      refundTransactionId: 'RF-1',
+      amount: '500',
+      remarks: 'x',
+      reference: 'r'.repeat(60),
+    })
+    expect(calls[0]!.url.searchParams.get('refe_id')).toBe('r'.repeat(50))
+  })
+})
+
+describe('getRefundStatus (official "Query Refund Status")', () => {
+  it('sends refund_ref_id with the store credentials', async () => {
+    reply = () => ({ body: { APIConnect: 'DONE', status: 'refunded', refund_ref_id: 'REF9' } })
+    expect((await adapter().getRefundStatus('REF9')).state).toBe('REFUNDED')
+    expect(Object.fromEntries(calls[0]!.url.searchParams)).toMatchObject({
+      refund_ref_id: 'REF9',
+      store_id: config.storeId,
+    })
+  })
+
+  it.each([
+    [{ APIConnect: 'DONE', status: 'processing' }, 'PROCESSING'],
+    [{ APIConnect: 'DONE', status: 'cancelled' }, 'CANCELLED'],
+    [{ APIConnect: 'DONE', status: 'something new' }, 'UNREACHABLE'], // never guessed
+    [{ APIConnect: 'FAILED' }, 'UNREACHABLE'],
+  ])('maps %j → %s', async (body, state) => {
+    reply = () => ({ body })
+    expect((await adapter().getRefundStatus('REF9')).state).toBe(state)
+  })
+
+  it('unreachable → UNREACHABLE, and the password never appears in the result', async () => {
+    reply = () => ({ status: 503, body: {} })
+    const result = await adapter().getRefundStatus('REF9')
+    expect(result.state).toBe('UNREACHABLE')
+    expect(JSON.stringify(result)).not.toContain(SECRET)
+  })
+})
+
 describe('getStatus', () => {
   it.each([
     [{ no_of_trans_found: 1, element: [{ status: 'VALID' }] }, 'PAID'],

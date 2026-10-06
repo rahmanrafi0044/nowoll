@@ -21,6 +21,7 @@ import { PaymentsService } from './payments.service.js'
     { provide: PAYMENT_GATEWAY, inject: [ConfigService], useFactory: sslCommerzFromConfig },
     { provide: PAYMENTS_CONFIG, inject: [ConfigService], useFactory: paymentsConfigFrom },
   ],
-  exports: [PaymentsService],
+  // PAYMENT_GATEWAY too: refunds for returns (step 25) go through the same SSLCommerz adapter.
+  exports: [PaymentsService, PAYMENT_GATEWAY],
 })
 export class PaymentsModule {}
