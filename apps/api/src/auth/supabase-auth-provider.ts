@@ -11,6 +11,9 @@ import type {
   AuthSession,
   CreateUserResult,
   SignInResult,
+  TotpEnrolment,
+  TotpVerifyResult,
+  UserTokens,
 } from './auth-provider.js'
 
 // The real adapter, written against Supabase's official JavaScript reference
@@ -19,7 +22,10 @@ import type {
 // Two clients, both STATELESS (persistSession: false): the server never keeps
 // anyone's session in memory — each call gets exactly the tokens it needs.
 //   anon  — the public key: sign in, refresh, verify, reset emails
-//   admin — the service role key (SERVER ONLY): create accounts, set passwords
+//   admin — the service role key (SERVER ONLY): create accounts, set passwords,
+//           list/remove 2FA factors
+// plus, for the 2FA calls Supabase only accepts FROM the user (enrol, verify),
+// a throw-away client per call that holds just that user's tokens (asUser).
 const STATELESS = {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 }
@@ -29,7 +35,11 @@ export class SupabaseAuthProvider implements AuthProvider {
   private readonly anon: SupabaseClient
   private readonly admin: SupabaseClient
 
-  constructor(url: string, anonKey: string, serviceRoleKey: string) {
+  constructor(
+    private readonly url: string,
+    private readonly anonKey: string,
+    serviceRoleKey: string,
+  ) {
     this.anon = createClient(url, anonKey, STATELESS)
     this.admin = createClient(url, serviceRoleKey, STATELESS)
   }
@@ -91,6 +101,7 @@ export class SupabaseAuthProvider implements AuthProvider {
       userId: claims.sub,
       email: typeof claims.email === 'string' ? claims.email : '',
       fullName: metadataName(claims.user_metadata),
+      ...(typeof claims.aal === 'string' && { aal: claims.aal }),
     }
   }
 
@@ -119,6 +130,110 @@ export class SupabaseAuthProvider implements AuthProvider {
     const { error } = await this.admin.auth.admin.updateUserById(userId, { password })
     if (error) this.logger.error(`updateUserById failed: ${describe(error)}`)
     return !error
+  }
+
+  // --- Two-factor authentication (Supabase "MFA", TOTP) ----------------------
+  // Official reference: auth.mfa.enroll / challengeAndVerify and
+  // auth.admin.mfa.listFactors / deleteFactor — summarised in
+  // docs/integrations/supabase.md → "Admin sign-in and 2FA".
+
+  async hasVerifiedTotp(userId: string): Promise<boolean | null> {
+    const factors = await this.totpFactors(userId)
+    return factors && factors.some((f) => f.status === 'verified')
+  }
+
+  async enrollTotp(tokens: UserTokens): Promise<TotpEnrolment | null> {
+    const user = await this.asUser(tokens)
+    if (!user) return null
+    // A set-up abandoned halfway (QR shown, no code typed) leaves an
+    // "unverified" factor behind — remove it so the new QR code is the only one.
+    for (const f of (await this.totpFactors(user.id)) ?? [])
+      if (f.status === 'unverified') await this.deleteFactor(user.id, f.id)
+
+    const { data, error } = await user.client.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: 'Nowoll admin',
+      issuer: 'Nowoll', // the name shown in the authenticator app
+    })
+    if (error || !data) {
+      this.logger.error(`mfa.enroll failed: ${describe(error)}`)
+      return null
+    }
+    // (The library already turned qr_code into a data: URL. Never log the secret.)
+    return { qrCode: data.totp.qr_code, secret: data.totp.secret }
+  }
+
+  async verifyTotp(tokens: UserTokens, code: string): Promise<TotpVerifyResult> {
+    const user = await this.asUser(tokens)
+    if (!user) return { ok: false, reason: 'UNAVAILABLE' }
+    const factors = await this.totpFactors(user.id)
+    if (!factors) return { ok: false, reason: 'UNAVAILABLE' }
+    // The working app if there is one; otherwise the newest one being set up.
+    const factor =
+      factors.find((f) => f.status === 'verified') ??
+      factors
+        .filter((f) => f.status === 'unverified')
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+    if (!factor) return { ok: false, reason: 'NO_FACTOR' }
+
+    const { data, error } = await user.client.auth.mfa.challengeAndVerify({
+      factorId: factor.id,
+      code,
+    })
+    if (data) {
+      return {
+        ok: true,
+        session: {
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          expiresIn: data.expires_in,
+          userId: data.user.id,
+          email: data.user.email ?? '',
+          fullName: metadataName(data.user.user_metadata),
+        },
+      }
+    }
+    // 4xx = Supabase refused the code (wrong or expired); 5xx/none = it's down.
+    if (error && (error.status ?? 500) < 500) return { ok: false, reason: 'WRONG_CODE' }
+    this.logger.error(`mfa.challengeAndVerify failed: ${describe(error)}`)
+    return { ok: false, reason: 'UNAVAILABLE' }
+  }
+
+  async removeTotp(userId: string): Promise<boolean> {
+    const factors = await this.totpFactors(userId)
+    if (!factors) return false
+    let ok = true
+    for (const f of factors) ok = (await this.deleteFactor(userId, f.id)) && ok
+    return ok
+  }
+
+  private async totpFactors(userId: string) {
+    const { data, error } = await this.admin.auth.admin.mfa.listFactors({ userId })
+    if (error || !data) {
+      this.logger.error(`admin.mfa.listFactors failed: ${describe(error)}`)
+      return null
+    }
+    return data.factors.filter((f) => f.factor_type === 'totp')
+  }
+
+  private async deleteFactor(userId: string, id: string): Promise<boolean> {
+    const { error } = await this.admin.auth.admin.mfa.deleteFactor({ id, userId })
+    if (error) this.logger.error(`admin.mfa.deleteFactor failed: ${describe(error)}`)
+    return !error
+  }
+
+  /** A client signed in as this user, for this one call only (nothing shared between users). */
+  private async asUser(tokens: UserTokens) {
+    const client = createClient(this.url, this.anonKey, STATELESS)
+    const { data, error } = await client.auth.setSession({
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+    })
+    if (error || !data.user) {
+      this.logger.warn(`setSession for 2FA failed: ${describe(error)}`)
+      return null
+    }
+    return { client, id: data.user.id }
   }
 }
 

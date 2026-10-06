@@ -110,7 +110,7 @@ describe('categories API — without admin access', () => {
     ['POST', '/api/v1/categories'],
     ['PATCH', '/api/v1/categories/00000000-0000-0000-0000-000000000000'],
     ['DELETE', '/api/v1/categories/00000000-0000-0000-0000-000000000000'],
-  ])('refuses %s %s with 401 until admin sign-in exists', async (method, url) => {
+  ])('refuses %s %s with 401 without an admin sign-in', async (method, url) => {
     const req =
       method === 'POST'
         ? http().post(url)
@@ -118,7 +118,7 @@ describe('categories API — without admin access', () => {
           ? http().patch(url)
           : http().delete(url)
     const res = await req.send({ name: 'Hacked' }).expect(401)
-    expect(res.body).toMatchObject({ success: false, error: 'UNAUTHORIZED' })
+    expect(res.body).toMatchObject({ success: false, error: 'NOT_SIGNED_IN' })
     expect(await testPrisma().category.count()).toBe(0)
   })
 })

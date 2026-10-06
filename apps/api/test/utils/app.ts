@@ -20,8 +20,9 @@ import {
 
 /**
  * Boots the real API (real middleware, real nowoll_test database).
- * asAdmin: true swaps the deny-all AdminGuard for one that allows everything —
- * real admin sign-in arrives in Phase 4.
+ * asAdmin: true swaps AdminGuard for one that allows everything, so feature
+ * tests needn't sign in. The REAL guard (staff + 2FA) is tested in
+ * admin-auth.e2e-spec.ts, which signs in for real with test/utils/admin.ts.
  * Image storage is ALWAYS the in-memory fake — tests never touch real Supabase.
  * Get it with app.get(IMAGE_STORAGE).
  * Low-stock alerts and order events are recorded, never queued: app.get(LOW_STOCK_ALERTER).alerts

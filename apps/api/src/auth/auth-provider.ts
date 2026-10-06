@@ -23,7 +23,30 @@ export interface AccessClaims {
   userId: string // "sub" — the same id as our users table
   email: string
   fullName: string | null // user_metadata.full_name — lets a missing users row be rebuilt with the name
+  /**
+   * Authenticator Assurance Level (the token's "aal" claim): 'aal1' = password
+   * only, 'aal2' = password + a 2FA code. Admin routes require 'aal2'.
+   */
+  aal?: string
 }
+
+/** The user's tokens, for the 2FA calls that must be made AS that user. */
+export interface UserTokens {
+  accessToken: string
+  refreshToken: string
+}
+
+/** A new authenticator-app (TOTP) factor waiting for its first code. */
+export interface TotpEnrolment {
+  /** An SVG image of the QR code, as a data: URL — show it with <img>. */
+  qrCode: string
+  /** The same secret as text, for typing in when the camera can't scan. */
+  secret: string
+}
+
+export type TotpVerifyResult =
+  | { ok: true; session: AuthSession }
+  | { ok: false; reason: 'WRONG_CODE' | 'NO_FACTOR' | 'UNAVAILABLE' }
 
 export type CreateUserResult =
   | { ok: true; userId: string }
@@ -51,4 +74,20 @@ export interface AuthProvider {
   /** Checks the token_hash from a reset link; returns whose account it is, or null. */
   verifyPasswordReset(tokenHash: string): Promise<{ userId: string; email: string } | null>
   setPassword(userId: string, password: string): Promise<boolean>
+
+  // --- Two-factor authentication (admin sign-in, step 29a) ------------------
+  /** Has this user finished setting up an authenticator app? null = Supabase unreachable. */
+  hasVerifiedTotp(userId: string): Promise<boolean | null>
+  /**
+   * Starts setting up an authenticator app (replacing any half-finished set-up).
+   * null = the tokens are no longer valid, or Supabase is unreachable.
+   */
+  enrollTotp(tokens: UserTokens): Promise<TotpEnrolment | null>
+  /**
+   * Checks a 6-digit code from the app. Right → a NEW session at 'aal2'.
+   * Uses the verified factor, or else the one being set up.
+   */
+  verifyTotp(tokens: UserTokens, code: string): Promise<TotpVerifyResult>
+  /** Removes every authenticator app (lost phone — see docs/integrations/supabase.md). */
+  removeTotp(userId: string): Promise<boolean>
 }

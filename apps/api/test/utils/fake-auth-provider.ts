@@ -1,7 +1,8 @@
 // A pretend Supabase Auth for tests: accounts and sessions in memory, no
 // network. Behaves like the real one where it matters for security:
 // tokens expire, refresh tokens work ONCE (rotation), signing out kills the
-// session, reset links work once.
+// session, reset links work once. 2FA: each authenticator app's "current
+// code" is fixed (codeFor) — tests type it like a person reading their phone.
 import { randomUUID } from 'node:crypto'
 import type {
   AccessClaims,
@@ -9,6 +10,9 @@ import type {
   AuthSession,
   CreateUserResult,
   SignInResult,
+  TotpEnrolment,
+  TotpVerifyResult,
+  UserTokens,
 } from '../../src/auth/auth-provider.js'
 
 interface Account {
@@ -27,6 +31,8 @@ export class FakeAuthProvider implements AuthProvider {
   private readonly access = new Map<string, { claims: AccessClaims; expiresAt: number }>()
   private readonly refreshTokens = new Map<string, AccessClaims & { accessToken: string }>()
   private readonly resetTokens = new Map<string, Account>()
+  /** Authenticator apps, by user id. */
+  readonly factors = new Map<string, { secret: string; status: 'verified' | 'unverified' }[]>()
 
   async createUser(p: {
     email: string
@@ -57,7 +63,11 @@ export class FakeAuthProvider implements AuthProvider {
     const r = this.refreshTokens.get(refreshToken)
     if (!r || this.down) return null
     this.refreshTokens.delete(refreshToken) // single use
-    return this.issue({ id: r.userId, email: r.email, password: '', fullName: r.fullName })
+    // A renewed session keeps its level (aal2 stays aal2), like Supabase's.
+    return this.issue(
+      { id: r.userId, email: r.email, password: '', fullName: r.fullName },
+      r.aal ?? 'aal1',
+    )
   }
 
   async verifyAccessToken(accessToken: string): Promise<AccessClaims | null> {
@@ -91,6 +101,55 @@ export class FakeAuthProvider implements AuthProvider {
     return true
   }
 
+  async hasVerifiedTotp(userId: string): Promise<boolean | null> {
+    if (this.down) return null
+    return (this.factors.get(userId) ?? []).some((f) => f.status === 'verified')
+  }
+
+  async enrollTotp(tokens: UserTokens): Promise<TotpEnrolment | null> {
+    const who = await this.verifyAccessToken(tokens.accessToken)
+    if (!who || this.down) return null
+    const kept = (this.factors.get(who.userId) ?? []).filter((f) => f.status === 'verified')
+    const secret = `FAKESECRET${randomUUID().replace(/\D/g, '').slice(0, 6).padEnd(6, '7')}`
+    this.factors.set(who.userId, [...kept, { secret, status: 'unverified' }])
+    return { qrCode: `data:image/svg+xml;utf-8,<svg data-secret="${secret}"/>`, secret }
+  }
+
+  async verifyTotp(tokens: UserTokens, code: string): Promise<TotpVerifyResult> {
+    const who = await this.verifyAccessToken(tokens.accessToken)
+    if (!who || this.down) return { ok: false, reason: 'UNAVAILABLE' }
+    const factors = this.factors.get(who.userId) ?? []
+    const factor = factors.find((f) => f.status === 'verified') ?? factors.at(-1)
+    if (!factor) return { ok: false, reason: 'NO_FACTOR' }
+    if (code !== FakeAuthProvider.codeFor(factor.secret)) return { ok: false, reason: 'WRONG_CODE' }
+    // Supabase: "Upon verifying a factor, all other sessions are logged out".
+    if (factor.status === 'unverified') this.endAllSessions(who.userId)
+    factor.status = 'verified'
+    const a = [...this.accounts.values()].find((x) => x.id === who.userId)!
+    return { ok: true, session: this.issue(a, 'aal2') }
+  }
+
+  async removeTotp(userId: string): Promise<boolean> {
+    if (this.down) return false
+    if ((this.factors.get(userId) ?? []).some((f) => f.status === 'verified'))
+      this.endAllSessions(userId) // like admin.mfa.deleteFactor on a verified factor
+    this.factors.delete(userId)
+    return true
+  }
+
+  /** The 6-digit code the authenticator app would show for this secret. */
+  static codeFor(secret: string): string {
+    return secret.slice(-6)
+  }
+
+  /** The code on this user's phone right now (their working app, else the one being set up). */
+  codeOnPhone(userId: string): string {
+    const factors = this.factors.get(userId) ?? []
+    const f = factors.find((x) => x.status === 'verified') ?? factors.at(-1)
+    if (!f) throw new Error('no authenticator app')
+    return FakeAuthProvider.codeFor(f.secret)
+  }
+
   /** Makes every access token issued so far expire now (to test renewal). */
   expireAccessTokens(): void {
     for (const t of this.access.values()) t.expiresAt = 0
@@ -103,8 +162,13 @@ export class FakeAuthProvider implements AuthProvider {
     return a
   }
 
-  private issue(a: Account): AuthSession {
-    const claims = { userId: a.id, email: a.email, fullName: a.fullName }
+  private endAllSessions(userId: string): void {
+    for (const [t, v] of this.access) if (v.claims.userId === userId) this.access.delete(t)
+    for (const [t, r] of this.refreshTokens) if (r.userId === userId) this.refreshTokens.delete(t)
+  }
+
+  private issue(a: Account, aal = 'aal1'): AuthSession {
+    const claims = { userId: a.id, email: a.email, fullName: a.fullName, aal }
     const accessToken = `access-${randomUUID()}`
     const refreshToken = `refresh-${randomUUID()}`
     this.access.set(accessToken, { claims, expiresAt: Date.now() + 3600_000 })

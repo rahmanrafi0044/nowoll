@@ -11,7 +11,7 @@ export function buildCsp({
 }: {
   nonce: string
   isDev: boolean
-  connectSrc: string[] // our API + Supabase, which the browser talks to directly
+  connectSrc: string[] // our API — the only server the browser talks to
 }): string {
   const directives = [
     `default-src 'self'`,
