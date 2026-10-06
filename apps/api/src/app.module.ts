@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import { AddressesModule } from './addresses/addresses.module.js'
 import { AdminAuthModule } from './admin-auth/admin-auth.module.js'
+import { AnalyticsModule } from './analytics/analytics.module.js'
 import { AuthModule } from './auth/auth.module.js'
 import { CategoriesModule } from './categories/categories.module.js'
 import { validateEnv } from './config/env.validation.js'
@@ -58,6 +59,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     PaymentsModule,
     AuthModule,
     AdminAuthModule,
+    AnalyticsModule,
     AddressesModule,
     WishlistModule,
     ReviewsModule,
