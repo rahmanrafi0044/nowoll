@@ -9,7 +9,7 @@
 import { randomUUID } from 'node:crypto'
 import { Prisma } from '@nowoll/database'
 import { FakePaymentGateway } from '../../test/utils/fake-payment-gateway.js'
-import { makeStockService } from '../../test/utils/services.js'
+import { makeStockService, RecordingCustomerNotifier } from '../../test/utils/services.js'
 import { resetDatabase, testPrisma } from '../../test/utils/test-db.js'
 import type { PrismaService } from '../prisma/prisma.service.js'
 import { SettingsService } from '../settings/settings.service.js'
@@ -18,9 +18,14 @@ import { ReturnsService, suggestedRefund } from './returns.service.js'
 
 const prisma = testPrisma() as unknown as PrismaService
 const { stock } = makeStockService(prisma)
-const returns = new ReturnsService(prisma, new SettingsService(prisma), stock)
+const returns = new ReturnsService(
+  prisma,
+  new SettingsService(prisma),
+  stock,
+  new RecordingCustomerNotifier(),
+)
 const gateway = new FakePaymentGateway()
-const refunds = new RefundsService(prisma, returns, gateway)
+const refunds = new RefundsService(prisma, returns, gateway, new RecordingCustomerNotifier())
 
 beforeEach(() => resetDatabase())
 afterAll(() => prisma.$disconnect())

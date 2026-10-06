@@ -18,6 +18,7 @@ import {
   ReturnStatus,
 } from '@nowoll/database/enums'
 import type { PaymentProvider } from '@nowoll/payments'
+import { CUSTOMER_NOTIFIER, type CustomerNotifier } from '../notifications/customer-notifier.js'
 import { displayNumber } from '../orders/order-number.js'
 import { PAYMENT_GATEWAY } from '../payments/payment-gateway.js'
 import { PrismaService } from '../prisma/prisma.service.js'
@@ -53,6 +54,7 @@ export class RefundsService {
     private readonly prisma: PrismaService,
     private readonly returns: ReturnsService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentProvider,
+    @Inject(CUSTOMER_NOTIFIER) private readonly notifier: CustomerNotifier,
   ) {}
 
   /** PATCH /returns/:id/refund */
@@ -116,7 +118,10 @@ export class RefundsService {
       if (method === 'MANUAL') await this.finish(tx, refund.id)
       return { refund, payment, orderNumber: order.orderNumber }
     })
-    if (dto.method === 'MANUAL') return this.returns.adminView(returnId)
+    if (dto.method === 'MANUAL') {
+      await this.refunded(reserved.refund.id)
+      return this.returns.adminView(returnId)
+    }
 
     // 2. Ask SSLCommerz — outside the transaction (it can take seconds).
     const result = await this.gateway.refundPayment({
@@ -128,7 +133,7 @@ export class RefundsService {
     })
 
     // 3. Record what happened.
-    await this.prisma.$transaction(async (tx) => {
+    const done = await this.prisma.$transaction(async (tx) => {
       const raw = (result.raw ?? null) as Prisma.InputJsonValue
       if (result.ok && result.status === 'refunded') {
         await tx.refund.update({
@@ -141,6 +146,7 @@ export class RefundsService {
           },
         })
         await this.finish(tx, reserved.refund.id)
+        return true
       } else if (result.ok) {
         // "processing": reconcile() asks again later.
         await tx.refund.update({
@@ -166,7 +172,9 @@ export class RefundsService {
           },
         })
       }
+      return false
     })
+    if (done) await this.refunded(reserved.refund.id)
     if (!result.ok && result.raw !== null)
       throw new BadGatewayException({
         message: `SSLCommerz refused the refund: ${result.reason}`,
@@ -206,6 +214,7 @@ export class RefundsService {
         })
       }
     })
+    if (dto.outcome === 'REFUNDED') await this.refunded(refundId)
     return this.returns.adminView(returnId)
   }
 
@@ -225,7 +234,7 @@ export class RefundsService {
     for (const refund of waiting) {
       const status = await this.gateway.getRefundStatus(refund.gatewayRefId!)
       if (status.state === 'REFUNDED') {
-        await this.prisma.$transaction(async (tx) => {
+        const done = await this.prisma.$transaction(async (tx) => {
           const updated = await tx.refund.updateMany({
             where: { id: refund.id, status: RefundStatus.PENDING },
             data: {
@@ -235,7 +244,9 @@ export class RefundsService {
             },
           })
           if (updated.count === 1) await this.finish(tx, refund.id)
+          return updated.count === 1
         })
+        if (done) await this.refunded(refund.id)
         settled++
       } else if (status.state === 'CANCELLED') {
         await this.prisma.refund.updateMany({
@@ -247,6 +258,13 @@ export class RefundsService {
       }
     }
     return settled
+  }
+
+  /** "Refund processed" email (step 28) — only after the refund is saved as done. Best effort. */
+  private async refunded(refundId: string) {
+    await this.notifier
+      .refundProcessed(refundId)
+      .catch((e: unknown) => this.logger.error(`Refund notification failed: ${String(e)}`))
   }
 
   /**

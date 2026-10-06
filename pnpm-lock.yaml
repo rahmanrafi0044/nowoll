@@ -548,6 +548,46 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  workers/notification-worker:
+    dependencies:
+      '@nowoll/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@nowoll/email':
+        specifier: workspace:*
+        version: link:../../packages/email
+      '@nowoll/queues':
+        specifier: workspace:*
+        version: link:../../packages/queues
+      '@nowoll/validation':
+        specifier: workspace:*
+        version: link:../../packages/validation
+      bullmq:
+        specifier: ^6.3.11
+        version: 6.3.11(ioredis@6.0.0)(pg@8.23.1)
+      ioredis:
+        specifier: ^6.0.0
+        version: 6.0.0
+    devDependencies:
+      '@nowoll/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.19.1
+      eslint:
+        specifier: ^9.39.0
+        version: 9.39.5(jiti@2.7.0)
+      tsx:
+        specifier: ^4.23.0
+        version: 4.23.15
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@types/node@24.19.1)(jsdom@30.1.2(@noble/hashes@1.8.0))(vite@8.3.2(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
   workers/order-worker:
     dependencies:
       '@nowoll/database':

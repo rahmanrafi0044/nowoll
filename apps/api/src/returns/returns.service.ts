@@ -1,8 +1,9 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { Prisma } from '@nowoll/database'
 import { InventoryChangeReason, OrderStatus, ReturnStatus } from '@nowoll/database/enums'
 import type { Paginated } from '@nowoll/types'
 import { type StockChange, StockService } from '../inventory/stock.service.js'
+import { CUSTOMER_NOTIFIER, type CustomerNotifier } from '../notifications/customer-notifier.js'
 import { displayNumber } from '../orders/order-number.js'
 import { parseOrderNumber } from '../orders/order-lookup.service.js'
 import { stockLockOrder } from '../orders/orders.service.js'
@@ -94,6 +95,7 @@ export class ReturnsService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly stock: StockService,
+    @Inject(CUSTOMER_NOTIFIER) private readonly notifier: CustomerNotifier,
   ) {}
 
   /** GET /returns/eligibility/:orderNumber */
@@ -230,20 +232,31 @@ export class ReturnsService {
     }
   }
 
-  approve(id: string, note: string): Promise<AdminReturn> {
-    return this.step(id, ReturnStatus.REQUESTED, {
+  async approve(id: string, note: string): Promise<AdminReturn> {
+    const view = await this.step(id, ReturnStatus.REQUESTED, {
       status: ReturnStatus.APPROVED,
       approvedAt: new Date(),
       adminNote: note,
     })
+    await this.tell(() => this.notifier.returnApproved(id)) // "Return approved" + instructions (step 28)
+    return view
   }
 
-  reject(id: string, reason: string): Promise<AdminReturn> {
-    return this.step(id, ReturnStatus.REQUESTED, {
+  async reject(id: string, reason: string): Promise<AdminReturn> {
+    const view = await this.step(id, ReturnStatus.REQUESTED, {
       status: ReturnStatus.REJECTED,
       rejectedAt: new Date(),
       rejectionReason: reason,
     })
+    await this.tell(() => this.notifier.returnRejected(id))
+    return view
+  }
+
+  /** Emails are best effort: the step is already saved. */
+  private tell(notify: () => Promise<void>) {
+    return notify().catch((e: unknown) =>
+      this.logger.error(`Return notification failed: ${String(e)}`),
+    )
   }
 
   /**

@@ -6,8 +6,9 @@ Slow work never runs during a customer's request: the API adds a **job** to a qu
 | Piece | Where |
 |---|---|
 | Job contract (queue names, job data, retry rules) | `packages/queues` |
-| Adding jobs (API) | `apps/api/src/notifications` — `QueuedOrderNotifier`, `QueuedLowStockAlerter` |
+| Adding jobs (API) | `apps/api/src/notifications` — `QueuedOrderNotifier`, `QueuedLowStockAlerter`, `QueuedCustomerNotifier` |
 | Order worker | `workers/order-worker` |
+| Notification worker | `workers/notification-worker` |
 
 ## Orders queue (step 27)
 
@@ -39,9 +40,27 @@ Jobs carry ids, not copies: the worker reads the order **fresh from the database
 - Production: its own Docker container (step 44).
 
 ## Tests
-`workers/order-worker` uses its own database (`nowoll_worker_test`) and a unique Redis prefix per run, with a
+`workers/order-worker` and `workers/notification-worker` use their own databases (`nowoll_worker_test`, `nowoll_notify_test`) and a unique Redis prefix per run, with a
 real BullMQ worker. The API's tests replace the queued adapters with recording fakes (no Redis needed),
 except `src/notifications/queued-notifiers.spec.ts`, which checks the jobs in a real Redis.
 
-## Next (step 28 — notification worker)
-shipped / delivered, return approved / rejected, refund processed, welcome, newsletter confirmation.
+## Notifications queue (step 28)
+
+| Job | Added when | Email (only if still true when the job runs) |
+|---|---|---|
+| `welcome` | sign-up succeeded (`AuthService.register`) | welcome — skipped for banned accounts |
+| `newsletter-confirm` | newsletter sign-up (new, or again after unsubscribing) | confirm + unsubscribe links — only while PENDING |
+| `return-approved` / `return-rejected` | admin approves / rejects a return | instructions / reason — only while that is the status |
+| `refund-processed` | a refund is really done (manual, SSLCommerz success, reconcile, admin resolve) | amount; wording by how the money went back |
+| `order-shipped` / `order-delivered` | **the admin order screen (step 31)** — nothing calls these yet | courier + tracking / the return window |
+
+Every job is added only **after** the change is saved; the same event twice is one job (fixed ids).
+
+**Newsletter links** open `/newsletter/confirm` and `/newsletter/unsubscribe`, pages with a **button** — the
+action never happens on just opening the link (email scanners open links). One secret token per
+subscriber serves both links and stays valid, so future newsletters can carry the unsubscribe link.
+Signing up again while PENDING sends nothing new (no inbox flooding through the form).
+
+## Not yet
+- Sending newsletters (campaigns), one-click unsubscribe headers for bulk mail.
+- An email when a review is approved (not in the spec).

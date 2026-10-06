@@ -12,6 +12,7 @@ import {
 import { Prisma } from '@nowoll/database'
 import { UserStatus } from '@nowoll/database/enums'
 import { PrismaService } from '../prisma/prisma.service.js'
+import { CUSTOMER_NOTIFIER, type CustomerNotifier } from '../notifications/customer-notifier.js'
 import { AUTH_CONFIG, type AuthConfig } from './auth-config.js'
 import { AUTH_PROVIDER, type AuthProvider, type AuthSession } from './auth-provider.js'
 import type {
@@ -57,6 +58,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     @Inject(AUTH_PROVIDER) private readonly provider: AuthProvider,
     @Inject(AUTH_CONFIG) private readonly config: AuthConfig,
+    @Inject(CUSTOMER_NOTIFIER) private readonly notifier: CustomerNotifier,
   ) {}
 
   /** POST /auth/register — creates the account, then signs straight in. */
@@ -80,6 +82,10 @@ export class AuthService {
       fullName: dto.fullName,
       phone: dto.phone ?? null,
     })
+    // The account exists now → welcome email (step 28), even if signing in below fails.
+    await this.notifier
+      .welcome(created.userId)
+      .catch((e: unknown) => this.logger.error(`Welcome notification failed: ${String(e)}`))
 
     const signedIn = await this.provider.signIn(dto.email, dto.password)
     if (!signedIn.ok)
