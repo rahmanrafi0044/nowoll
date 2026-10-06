@@ -5,6 +5,7 @@ import { Button } from '@nowoll/ui'
 import Link from 'next/link'
 import { useState } from 'react'
 import { startPayment } from '@/hooks/use-pay-now'
+import { createAddress } from '@/lib/account-api'
 import { placeOrder } from '@/lib/cart-api'
 import { formatBdt } from '@/lib/format'
 import { useCartStore } from '@/stores/cart-store'
@@ -22,8 +23,16 @@ export function ReviewStep({
   quote: CheckoutQuoteView | null
   quoteLoading: boolean
 }) {
-  const { contact, address, payment, goTo, ensureAttemptKey, setPlaced, refreshQuote } =
-    useCheckoutStore()
+  const {
+    contact,
+    address,
+    payment,
+    saveAddress,
+    goTo,
+    ensureAttemptKey,
+    setPlaced,
+    refreshQuote,
+  } = useCheckoutStore()
   const items = useCartStore((s) => s.items)
   const discountCode = useCartStore((s) => s.discountCode)
   const setDiscountCode = useCartStore((s) => s.setDiscountCode)
@@ -57,6 +66,19 @@ export function ReviewStep({
     )
 
     if (result.ok) {
+      // Signed in and ticked "Save to my addresses" (step 23). Best effort: the
+      // order is placed either way — a failed save (e.g. the 10-address limit) is not worth an error.
+      if (saveAddress)
+        await createAddress({
+          fullName: contact.fullName,
+          phone: contact.phone,
+          division: address.division,
+          district: address.district,
+          addressLine1: address.addressLine1,
+          area: address.area || null,
+          addressLine2: address.addressLine2 || null,
+          postalCode: address.postalCode || null,
+        })
       // Online payment: go straight to SSLCommerz. The order is saved either
       // way, so if the payment page can't be opened, the confirmation offers "Pay now".
       if (result.data.nextAction === 'PAY') {

@@ -7,7 +7,8 @@ import { PayNow } from '@/components/checkout/pay-now'
 import { trackOrder } from '@/lib/cart-api'
 import { formatBdt } from '@/lib/format'
 import { OrderLines } from './order-lines'
-import { formatDate, JOURNEY, paymentText, STATUS_LABEL } from './order-status'
+import { OrderProgress } from './order-progress'
+import { formatDate, paymentText } from './order-status'
 
 /** The "Track your order" form, then the result. */
 export function TrackOrder() {
@@ -83,9 +84,6 @@ export function TrackOrder() {
 function TrackingResult({ order, onAnother }: { order: OrderTrackingView; onAnother: () => void }) {
   const headingRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => headingRef.current?.focus(), []) // announce the result to screen readers
-  const reachedAt = new Map(order.timeline.map((t) => [t.status, t.at]))
-  const ended = order.status === 'CANCELLED' || order.status === 'RETURNED'
-  const current = JOURNEY.indexOf(order.status)
   const area = [order.deliveryArea.area, order.deliveryArea.district, order.deliveryArea.division]
     .filter(Boolean)
     .join(', ')
@@ -99,43 +97,7 @@ function TrackingResult({ order, onAnother }: { order: OrderTrackingView; onAnot
         <p className="text-sm text-muted-foreground">Placed {formatDate(order.placedAt)}</p>
       </header>
 
-      {ended ? (
-        <p role="status" className="rounded-control bg-surface-muted p-4">
-          <strong>{STATUS_LABEL[order.status]}</strong>
-          {reachedAt.get(order.status) && ` on ${formatDate(reachedAt.get(order.status)!)}`}.
-          {order.status === 'CANCELLED' &&
-            ' If you paid and money was taken, it will be refunded — contact us with your order number.'}
-        </p>
-      ) : (
-        <ol aria-label="Order progress" className="flex flex-col gap-3">
-          {JOURNEY.map((status, i) => {
-            const done = i <= current
-            return (
-              <li
-                key={status}
-                aria-current={i === current ? 'step' : undefined}
-                className="flex items-center gap-3"
-              >
-                <span
-                  aria-hidden
-                  className={`flex size-6 items-center justify-center rounded-full text-xs ${done ? 'bg-brand text-brand-foreground' : 'border border-border-strong'}`}
-                >
-                  {done ? '✓' : ''}
-                </span>
-                <span className={done ? 'font-medium' : 'text-muted-foreground'}>
-                  {STATUS_LABEL[status]}
-                  <span className="sr-only">{done ? ' (done)' : ' (not yet)'}</span>
-                </span>
-                {reachedAt.get(status) && (
-                  <span className="ml-auto text-sm text-muted-foreground">
-                    {formatDate(reachedAt.get(status)!)}
-                  </span>
-                )}
-              </li>
-            )
-          })}
-        </ol>
-      )}
+      <OrderProgress status={order.status} timeline={order.timeline} />
 
       {order.trackingNumber && (
         <p className="rounded-control border border-border p-4 text-sm">

@@ -4,8 +4,9 @@ import { Button } from '@nowoll/ui'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useSessionStore } from '@/stores/session-store'
+import { MyOrders } from './my-orders'
 
-/** /account — the basics for now; orders, addresses and wishlist arrive in step 23. */
+/** /account — your details and recent orders (the other sections are in the side menu). */
 export function AccountOverview() {
   const status = useSessionStore((s) => s.status)
   const user = useSessionStore((s) => s.user)
@@ -37,17 +38,17 @@ export function AccountOverview() {
           <dd className="text-muted-foreground">{user.phone ?? '—'}</dd>
         </div>
       </dl>
-      <p className="text-sm text-muted-foreground">
-        Orders you place while signed in are saved to your account. Order history, saved addresses
-        and your wishlist are coming soon — meanwhile you can{' '}
-        <Link
-          href="/orders/track"
-          className="font-medium text-foreground underline underline-offset-4"
-        >
-          track an order
-        </Link>
-        .
-      </p>
+      <section aria-labelledby="recent-orders" className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between">
+          <h2 id="recent-orders" className="text-xl font-semibold">
+            Recent orders
+          </h2>
+          <Link href="/account/orders" className="text-sm underline underline-offset-4">
+            All orders
+          </Link>
+        </div>
+        <MyOrders limit={3} />
+      </section>
       <Button
         variant="secondary"
         disabled={leaving}

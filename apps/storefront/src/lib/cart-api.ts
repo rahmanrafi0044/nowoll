@@ -22,7 +22,7 @@ export type ApiCallResult<T> =
  * so a signed-in customer is recognised, e.g. when placing an order.
  */
 export async function call<T>(
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
   headers: Record<string, string> = {},
@@ -31,7 +31,7 @@ export async function call<T>(
     const res = await fetch(`${publicEnv.apiUrl}/api/v1${path}`, {
       method,
       credentials: 'include',
-      ...(method === 'POST' && {
+      ...((method === 'POST' || method === 'PATCH') && {
         headers: { 'content-type': 'application/json', ...headers },
         body: JSON.stringify(body),
       }),

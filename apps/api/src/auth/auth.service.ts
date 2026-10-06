@@ -14,7 +14,14 @@ import { UserStatus } from '@nowoll/database/enums'
 import { PrismaService } from '../prisma/prisma.service.js'
 import { AUTH_CONFIG, type AuthConfig } from './auth-config.js'
 import { AUTH_PROVIDER, type AuthProvider, type AuthSession } from './auth-provider.js'
-import type { ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto } from './dto/auth.dto.js'
+import type {
+  ChangePasswordDto,
+  ForgotPasswordDto,
+  LoginDto,
+  RegisterDto,
+  ResetPasswordDto,
+  UpdateProfileDto,
+} from './dto/auth.dto.js'
 
 /** What the shop gets to know about the signed-in customer. */
 export interface AccountProfile {
@@ -146,6 +153,42 @@ export class AuthService {
         code: 'SIGN_IN_AFTER_RESET_FAILED',
       })
     return { session: signedIn.session, user: await this.ensureUser(signedIn.session) }
+  }
+
+  /** PATCH /auth/me — name and mobile (step 23). */
+  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<AccountProfile> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(dto.fullName !== undefined && { fullName: dto.fullName }),
+        ...(dto.phone !== undefined && { phone: dto.phone }),
+      },
+    })
+    return this.profile(userId)
+  }
+
+  /**
+   * POST /auth/change-password — the CURRENT password is checked first (with
+   * Supabase), so someone at an unlocked, signed-in computer can't take the
+   * account over by changing the password.
+   */
+  async changePassword(account: AccountProfile, dto: ChangePasswordDto): Promise<void> {
+    const check = await this.provider.signIn(account.email, dto.currentPassword)
+    if (!check.ok) {
+      if (check.reason === 'UNAVAILABLE')
+        throw new ServiceUnavailableException('Please try again in a moment.')
+      // 400, not 401: the customer IS signed in — only the typed password is wrong.
+      throw new BadRequestException({
+        message: 'Your current password is not correct.',
+        code: 'WRONG_PASSWORD',
+      })
+    }
+    // That check created a session we don't need — end it.
+    await this.provider.signOut(check.session.accessToken).catch(() => {})
+    if (!(await this.provider.setPassword(account.id, dto.newPassword)))
+      throw new ServiceUnavailableException(
+        'Your password could not be changed right now. Please try again.',
+      )
   }
 
   async profile(userId: string): Promise<AccountProfile> {

@@ -199,15 +199,18 @@ describe('header and account page', () => {
   })
 
   it('account page: shows the details; "Sign out" ends the session and goes home', async () => {
-    answer = (url) => (url.endsWith('/auth/me') ? ok({ user: RAFI }) : ok({ signedOut: true }))
+    answer = (url) =>
+      url.endsWith('/auth/me')
+        ? ok({ user: RAFI })
+        : url.includes('/orders/my')
+          ? ok({ items: [], total: 0, page: 1, pageSize: 10, totalPages: 0 })
+          : ok({ signedOut: true })
     render(<AccountOverview />)
     expect(await screen.findByText('rafi@example.com')).toBeVisible()
+    expect(await screen.findByText('No orders yet.')).toBeVisible() // recent orders (step 23)
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     await waitFor(() => expect(window.location.replace).toHaveBeenCalledWith('/'))
-    expect(calls.at(-1)).toMatchObject({
-      url: expect.stringMatching(/\/auth\/logout$/),
-      method: 'POST',
-    })
+    expect(calls.find((c) => c.url.endsWith('/auth/logout'))).toMatchObject({ method: 'POST' })
     expect(useSessionStore.getState().status).toBe('signed-out')
   })
 

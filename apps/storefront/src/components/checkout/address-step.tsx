@@ -1,126 +1,130 @@
 'use client'
 
-import { Button, Input } from '@nowoll/ui'
-import { addressSchema, DIVISION_DISTRICTS, DIVISIONS } from '@nowoll/validation'
-import { type FormEvent, useState } from 'react'
+import type { SavedAddressView } from '@nowoll/types'
+import { Button } from '@nowoll/ui'
+import { type FormEvent, useEffect, useState } from 'react'
+import {
+  AddressFields,
+  type AddressFieldErrors,
+  type AddressFieldValues,
+  checkAddressFields,
+  emptyAddressFields,
+} from '@/components/address/address-fields'
+import { fetchAddresses } from '@/lib/account-api'
 import { useCheckoutStore } from '@/stores/checkout-store'
+import { useSessionStore } from '@/stores/session-store'
 
-type Field = 'division' | 'district' | 'area' | 'addressLine1' | 'addressLine2' | 'postalCode'
+const NEW = 'new'
 
-const selectClass = 'h-11 rounded-control border border-border-strong bg-surface px-3 text-base'
+/** One line per saved address in the picker. */
+export const addressSummary = (a: Pick<SavedAddressView, 'addressLine1' | 'area' | 'district'>) =>
+  [a.addressLine1, a.area, a.district].filter(Boolean).join(', ')
 
 export function AddressStep() {
   const contact = useCheckoutStore((s) => s.contact)
   const saved = useCheckoutStore((s) => s.address)
+  const savedSave = useCheckoutStore((s) => s.saveAddress)
   const setAddress = useCheckoutStore((s) => s.setAddress)
   const complete = useCheckoutStore((s) => s.complete)
-  const [form, setForm] = useState<Record<Field, string>>({
-    division: saved?.division ?? '',
-    district: saved?.district ?? '',
-    area: saved?.area ?? '',
-    addressLine1: saved?.addressLine1 ?? '',
-    addressLine2: saved?.addressLine2 ?? '',
-    postalCode: saved?.postalCode ?? '',
-  })
-  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
-  const districts = form.division
-    ? DIVISION_DISTRICTS[form.division as keyof typeof DIVISION_DISTRICTS]
-    : []
+  const signedIn = useSessionStore((s) => s.status === 'signed-in')
+  const [form, setForm] = useState<AddressFieldValues>(
+    saved ? { ...emptyAddressFields, ...saved } : emptyAddressFields,
+  )
+  const [errors, setErrors] = useState<AddressFieldErrors>({})
+
+  // Signed in (step 23): saved addresses to pick from, the default pre-selected.
+  const [book, setBook] = useState<SavedAddressView[]>([])
+  const [choice, setChoice] = useState<string>(NEW)
+  const [save, setSave] = useState(saved ? savedSave : true)
+  useEffect(() => {
+    if (!signedIn) return
+    let cancelled = false
+    void fetchAddresses().then((r) => {
+      if (cancelled || !r.ok || r.data.length === 0) return
+      setBook(r.data)
+      // Coming back to this step with a typed address? Keep it; otherwise start from the default.
+      if (!saved) setChoice(r.data.find((a) => a.isDefault)?.id ?? r.data[0]!.id)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [signedIn, saved])
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    // Shared rule set from @nowoll/validation: valid district, inside the chosen division, 4-digit postcode…
-    const parsed = addressSchema.safeParse({
-      ...form,
+    const picked = book.find((a) => a.id === choice)
+    if (picked) {
+      setAddress({
+        division: picked.division,
+        district: picked.district,
+        area: picked.area ?? '',
+        addressLine1: picked.addressLine1,
+        addressLine2: picked.addressLine2 ?? '',
+        postalCode: picked.postalCode ?? '',
+      })
+      return complete('address')
+    }
+    const found = checkAddressFields(form, {
       fullName: contact?.fullName ?? '',
       phone: contact?.phone ?? '',
     })
-    if (!parsed.success) {
-      const next: Partial<Record<Field, string>> = {}
-      for (const issue of parsed.error.issues) {
-        const field = issue.path[0] as Field
-        if (field in form && !next[field]) next[field] = issue.message
-      }
-      setErrors(next)
-      return
-    }
-    setErrors({})
-    setAddress(form)
+    setErrors(found)
+    if (Object.keys(found).length > 0) return
+    setAddress(form, signedIn && save)
     complete('address')
   }
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Division
-          <select
-            className={selectClass}
-            value={form.division}
-            // Changing the division clears the district, which must belong to it.
-            onChange={(e) => setForm({ ...form, division: e.target.value, district: '' })}
-            aria-invalid={errors.division ? true : undefined}
-            autoComplete="address-level1"
-          >
-            <option value="">Choose…</option>
-            {DIVISIONS.map((d) => (
-              <option key={d}>{d}</option>
-            ))}
-          </select>
-          {errors.division && (
-            <span className="text-sm font-normal text-danger">{errors.division}</span>
+      {book.length > 0 && (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 text-sm font-medium">Deliver to</legend>
+          {[
+            ...book.map((a) => ({
+              id: a.id,
+              title: a.label ?? a.fullName,
+              detail: addressSummary(a),
+            })),
+            { id: NEW, title: 'A new address', detail: '' },
+          ].map((o) => (
+            <label
+              key={o.id}
+              className="flex cursor-pointer items-start gap-3 rounded-control border border-border-strong p-3 has-[:checked]:border-brand"
+            >
+              <input
+                type="radio"
+                name="saved-address"
+                value={o.id}
+                checked={choice === o.id}
+                onChange={() => setChoice(o.id)}
+                className="mt-1 size-4 accent-brand"
+              />
+              <span>
+                <span className="block font-medium">{o.title}</span>
+                {o.detail && (
+                  <span className="block text-sm text-muted-foreground">{o.detail}</span>
+                )}
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {choice === NEW && (
+        <>
+          <AddressFields form={form} onChange={setForm} errors={errors} />
+          {signedIn && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={save}
+                onChange={(e) => setSave(e.target.checked)}
+                className="size-4 accent-brand"
+              />
+              Save to my addresses
+            </label>
           )}
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          District
-          <select
-            className={selectClass}
-            value={form.district}
-            onChange={(e) => setForm({ ...form, district: e.target.value })}
-            disabled={!form.division}
-            aria-invalid={errors.district ? true : undefined}
-            autoComplete="address-level2"
-          >
-            <option value="">{form.division ? 'Choose…' : 'Choose a division first'}</option>
-            {districts.map((d) => (
-              <option key={d}>{d}</option>
-            ))}
-          </select>
-          {errors.district && (
-            <span className="text-sm font-normal text-danger">{errors.district}</span>
-          )}
-        </label>
-      </div>
-      <Input
-        label="Area / thana"
-        hint="e.g. Dhanmondi"
-        value={form.area}
-        onChange={(e) => setForm({ ...form, area: e.target.value })}
-        error={errors.area}
-      />
-      <Input
-        label="Address"
-        autoComplete="address-line1"
-        hint="House, road, block"
-        value={form.addressLine1}
-        onChange={(e) => setForm({ ...form, addressLine1: e.target.value })}
-        error={errors.addressLine1}
-      />
-      <Input
-        label="Address line 2 (optional)"
-        autoComplete="address-line2"
-        value={form.addressLine2}
-        onChange={(e) => setForm({ ...form, addressLine2: e.target.value })}
-        error={errors.addressLine2}
-      />
-      <Input
-        label="Postcode (optional)"
-        inputMode="numeric"
-        autoComplete="postal-code"
-        value={form.postalCode}
-        onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-        error={errors.postalCode}
-      />
+        </>
+      )}
       <Button type="submit" size="lg">
         Continue to delivery
       </Button>

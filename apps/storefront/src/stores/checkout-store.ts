@@ -27,6 +27,8 @@ interface CheckoutState {
   contact: Contact | null
   address: ShippingAddress | null
   payment: PaymentChoice | null
+  /** Signed in + typed a NEW address + ticked "Save to my addresses" (step 23) → saved after the order. */
+  saveAddress: boolean
   /**
    * DOUBLE-SUBMIT PROTECTION: one random key per checkout. Every "Place order"
    * attempt (including retries after a network error) sends the SAME key, so
@@ -45,7 +47,7 @@ interface CheckoutState {
   complete: (step: CheckoutStep) => void
   goTo: (step: CheckoutStep) => void
   setContact: (c: Contact) => void
-  setAddress: (a: ShippingAddress) => void
+  setAddress: (a: ShippingAddress, save?: boolean) => void
   setPayment: (p: PaymentChoice) => void
   reset: () => void
 }
@@ -56,6 +58,7 @@ const initial = {
   contact: null,
   address: null,
   payment: null,
+  saveAddress: false,
   attemptKey: null,
   placed: null,
   paymentNotice: null,
@@ -92,7 +95,7 @@ export const useCheckoutStore = create<CheckoutState>()(
           STEPS.slice(0, STEPS.indexOf(step)).every((p) => s.done.includes(p)) ? { step } : s,
         ),
       setContact: (contact) => set({ contact }),
-      setAddress: (address) => set({ address }),
+      setAddress: (address, save = false) => set({ address, saveAddress: save }),
       setPayment: (payment) => set({ payment }),
       reset: () => set(initial),
     }),

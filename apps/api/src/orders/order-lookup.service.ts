@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import type { Prisma } from '@nowoll/database'
 import type { OrderStatus, PaymentMethod, PaymentStatus } from '@nowoll/database/enums'
+import type { Paginated } from '@nowoll/types'
 import { bdPhoneSchema, emailSchema } from '@nowoll/validation'
 import { PaymentsService } from '../payments/payments.service.js'
 import { PrismaService } from '../prisma/prisma.service.js'
@@ -65,6 +66,26 @@ export interface OrderReceipt extends OrderBasics {
   }
 }
 
+/** One row of "My orders" (step 23). */
+export interface AccountOrderSummary {
+  displayNumber: string
+  placedAt: Date
+  status: OrderStatus
+  paymentMethod: PaymentMethod
+  paymentStatus: PaymentStatus
+  total: Prisma.Decimal
+  itemCount: number
+  /** Up to 3 item photos for the list. */
+  imageUrls: string[]
+}
+
+/** "My orders" → one order: the full receipt plus delivery progress. */
+export interface AccountOrderDetail extends OrderReceipt {
+  courierName: string | null
+  trackingNumber: string | null
+  timeline: { status: OrderStatus; at: Date }[]
+}
+
 export interface OrderTracking extends OrderBasics {
   /** Only while "Pay now" can work — "Pay now" needs it. Null otherwise. */
   payOrderId: string | null
@@ -113,6 +134,70 @@ export class OrderLookupService {
   async receipt(orderId: string): Promise<OrderReceipt> {
     const order = await this.prisma.order.findUnique({ where: { id: orderId }, include })
     if (!order) throw new NotFoundException('Order not found')
+    return this.toReceipt(order)
+  }
+
+  /**
+   * GET /orders/my — the signed-in customer's orders, newest first. Only
+   * orders placed WHILE signed in (step 22 decision #3: never guest orders
+   * that merely share the email).
+   */
+  async myOrders(
+    userId: string,
+    page: number,
+    pageSize: number,
+  ): Promise<Paginated<AccountOrderSummary>> {
+    const where = { userId }
+    const [total, orders] = await this.prisma.$transaction([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' }, // uses the (user_id, created_at) index
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          items: { orderBy: { createdAt: 'asc' }, select: { quantity: true, imageUrl: true } },
+        },
+      }),
+    ])
+    return {
+      items: orders.map((o) => ({
+        displayNumber: displayNumber(o.orderNumber),
+        placedAt: o.createdAt,
+        status: o.status,
+        paymentMethod: o.paymentMethod,
+        paymentStatus: o.paymentStatus,
+        total: o.total,
+        itemCount: o.items.reduce((n, i) => n + i.quantity, 0),
+        imageUrls: o.items.flatMap((i) => (i.imageUrl ? [i.imageUrl] : [])).slice(0, 3),
+      })),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    }
+  }
+
+  /**
+   * GET /orders/my/:number — one of MY orders. Someone else's order is a 404,
+   * exactly like a missing one: nobody can probe which order numbers exist.
+   */
+  async myOrder(userId: string, number: string): Promise<AccountOrderDetail> {
+    const orderNumber = parseOrderNumber(number)
+    const order =
+      orderNumber === null
+        ? null
+        : await this.prisma.order.findFirst({ where: { orderNumber, userId }, include })
+    if (!order) throw new NotFoundException('Order not found')
+    return {
+      ...(await this.toReceipt(order)),
+      courierName: order.courierName,
+      trackingNumber: order.trackingNumber,
+      timeline: timelineOf(order),
+    }
+  }
+
+  private async toReceipt(order: FullOrder): Promise<OrderReceipt> {
     return {
       orderId: order.id,
       ...(await this.basics(order)),
@@ -158,9 +243,6 @@ export class OrderLookupService {
     if (!order) throw new NotFoundException(NOT_FOUND)
 
     const basics = await this.basics(order)
-    const firstTimes = new Map<OrderStatus, Date>()
-    for (const h of order.statusHistory)
-      if (!firstTimes.has(h.toStatus)) firstTimes.set(h.toStatus, h.createdAt)
     return {
       ...basics,
       payOrderId: basics.canPay ? order.id : null,
@@ -171,7 +253,7 @@ export class OrderLookupService {
       },
       courierName: order.courierName,
       trackingNumber: order.trackingNumber,
-      timeline: [...firstTimes].map(([status, at]) => ({ status, at })),
+      timeline: timelineOf(order),
     }
   }
 
@@ -194,4 +276,12 @@ export class OrderLookupService {
       canPay: await this.payments.canPayNow(order),
     }
   }
+}
+
+/** When the order FIRST reached each status, oldest first — no notes (they're for staff). */
+function timelineOf(order: FullOrder): { status: OrderStatus; at: Date }[] {
+  const firstTimes = new Map<OrderStatus, Date>()
+  for (const h of order.statusHistory)
+    if (!firstTimes.has(h.toStatus)) firstTimes.set(h.toStatus, h.createdAt)
+  return [...firstTimes].map(([status, at]) => ({ status, at }))
 }

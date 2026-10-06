@@ -7,6 +7,7 @@ import { discountPercent, formatBdt } from '@/lib/format'
 import { colorOptions, findVariant, sizeOptions } from '@/lib/variants'
 import { useCartStore } from '@/stores/cart-store'
 import { useUiStore } from '@/stores/ui-store'
+import { WishlistButton } from './wishlist-button'
 
 // A UI limit to catch typos ("100" instead of "1"), not a business rule —
 // the real stock check happens at checkout (Phase 3).
@@ -200,6 +201,8 @@ export function ProductPurchase({
         </label>
         <div className="flex-1">{addButton}</div>
       </div>
+
+      <WishlistButton variantId={variant?.id ?? null} productSlug={product.slug} />
 
       {/* Announced by screen readers when an item is added */}
       <p role="status" className="text-sm text-success">
