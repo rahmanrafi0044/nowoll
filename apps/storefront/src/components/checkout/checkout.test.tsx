@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useCartStore } from '@/stores/cart-store'
 import { useCheckoutStore } from '@/stores/checkout-store'
+import { useSessionStore } from '@/stores/session-store'
 import { CheckoutFlow } from './checkout-flow'
 import { PaymentStep } from './payment-step'
 
@@ -16,8 +17,16 @@ let initAnswer: (() => Promise<Response>) | null = null
 const json = (status: number, body: object) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }))
 
+const savedAddresses: Record<string, unknown>[] = []
+
 function fakeApi(url: string, init: RequestInit) {
+  if (url.endsWith('/addresses') && init.method !== 'POST')
+    return json(200, { success: true, data: [] }) // signed in, no saved addresses yet
   const body = JSON.parse(String(init.body))
+  if (url.endsWith('/addresses')) {
+    savedAddresses.push(body)
+    return json(201, { success: true, data: { id: 'a1', ...body } })
+  }
   if (url.endsWith('/payment/sslcommerz/init')) {
     initCalls.push(body.orderId)
     if (initAnswer) return initAnswer()
@@ -115,6 +124,8 @@ beforeEach(async () => {
   orderAnswer = null
   initCalls.length = 0
   initAnswer = null
+  savedAddresses.length = 0
+  useSessionStore.setState({ status: 'signed-out', user: null })
   vi.stubGlobal('fetch', vi.fn(fakeApi))
   // jsdom can't navigate: record where the browser would have been sent.
   vi.stubGlobal('location', { ...window.location, assign: vi.fn(), replace: vi.fn() })
@@ -439,5 +450,57 @@ describe('PaymentStep — SSLCommerz amount limits', () => {
     expect(screen.getByText('Available for orders from ৳10 to ৳5,00,000')).toBeVisible()
     rerender(<PaymentStep total={null} />) // still loading: don't take the option away
     expect(screen.getByRole('radio', { name: /Pay online/ })).toBeEnabled()
+  })
+})
+
+describe('signed-in checkout (step 23)', () => {
+  it('a new address with "Save to my addresses" ticked is saved after the order', async () => {
+    useSessionStore.setState({
+      status: 'signed-in',
+      user: {
+        id: 'u1',
+        email: 'rafi@example.com',
+        fullName: 'Rafi Rahman',
+        phone: '+8801712345678',
+      },
+    })
+    render(<CheckoutFlow />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue to address' })) // pre-filled from the account
+    expect(await screen.findByLabelText('Save to my addresses')).toBeChecked()
+    await fillAddress()
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }))
+    fireEvent.click(screen.getByRole('radio', { name: /Cash on delivery/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
+    await within(step(/Review and place order/)).findByText('৳1,550')
+    fireEvent.click(screen.getByRole('button', { name: 'Place order' }))
+
+    await waitFor(() => expect(window.location.replace).toHaveBeenCalled())
+    expect(savedAddresses).toEqual([
+      {
+        fullName: 'Rafi Rahman',
+        phone: '+8801712345678',
+        division: 'Dhaka',
+        district: 'Dhaka',
+        addressLine1: 'House 12, Road 5',
+        area: 'Dhanmondi',
+        addressLine2: null,
+        postalCode: null,
+      },
+    ])
+  })
+
+  it('guests never save an address', async () => {
+    render(<CheckoutFlow />)
+    await screen.findByRole('button', { name: 'Continue to address' })
+    await fillContact()
+    expect(screen.queryByLabelText('Save to my addresses')).toBeNull()
+    await fillAddress()
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }))
+    fireEvent.click(screen.getByRole('radio', { name: /Cash on delivery/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
+    await within(step(/Review and place order/)).findByText('৳1,550')
+    fireEvent.click(screen.getByRole('button', { name: 'Place order' }))
+    await waitFor(() => expect(window.location.replace).toHaveBeenCalled())
+    expect(savedAddresses).toEqual([])
   })
 })

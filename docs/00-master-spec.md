@@ -196,6 +196,8 @@
 │   ├── POST   /login
 │   ├── POST   /logout
 │   ├── GET    /me
+│   ├── PATCH  /me             (authenticated — name, mobile)
+│   ├── POST   /change-password (authenticated — needs the current password; 5/min)
 │   ├── POST   /forgot-password
 │   └── POST   /reset-password
 ├── categories/
@@ -233,7 +235,8 @@
 ├── orders/
 │   ├── POST   /            (public — guest or authenticated)
 │   ├── GET    /            (admin, paginated + filterable)
-│   ├── GET    /my          (authenticated customer)
+│   ├── GET    /my          (authenticated customer — orders placed while signed in)
+│   ├── GET    /my/:number  (authenticated — own order by number, e.g. NW-10001; others → 404)
 │   ├── POST   /track       (public, body {orderNumber, contact: email or phone}; 5/min — POST keeps the email out of URLs/logs)
 │   ├── GET    /:id/receipt (public by order UUID — the confirmation page)
 │   ├── GET    /:id         (owner or admin)

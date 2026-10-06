@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config'
 import { APP_GUARD } from '@nestjs/core'
 import { ScheduleModule } from '@nestjs/schedule'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
+import { AddressesModule } from './addresses/addresses.module.js'
 import { AuthModule } from './auth/auth.module.js'
 import { CategoriesModule } from './categories/categories.module.js'
 import { validateEnv } from './config/env.validation.js'
@@ -19,6 +20,7 @@ import { CheckoutModule } from './checkout/checkout.module.js'
 import { ShippingModule } from './shipping/shipping.module.js'
 import { OrdersModule } from './orders/orders.module.js'
 import { PaymentsModule } from './payments/payments.module.js'
+import { WishlistModule } from './wishlist/wishlist.module.js'
 import { PrismaModule } from './prisma/prisma.module.js'
 
 // The root module: wires together config, database, rate limiting and every
@@ -50,6 +52,8 @@ import { PrismaModule } from './prisma/prisma.module.js'
     OrdersModule,
     PaymentsModule,
     AuthModule,
+    AddressesModule,
+    WishlistModule,
   ],
   providers: [
     // Registering the guard globally applies the 100 req/min limit to every route.

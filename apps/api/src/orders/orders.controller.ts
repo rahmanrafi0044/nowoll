@@ -3,19 +3,22 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import { isUUID } from 'class-validator'
-import { CurrentAccount, OptionalSignInGuard } from '../auth/auth.guard.js'
+import { CurrentAccount, OptionalSignInGuard, SignedInGuard } from '../auth/auth.guard.js'
 import type { AccountProfile } from '../auth/auth.service.js'
 import { StrictRateLimit } from '../common/decorators/strict-rate-limit.decorator.js'
 import { CreateOrderDto } from './dto/create-order.dto.js'
+import { MyOrdersQuery } from './dto/my-orders.query.js'
 import { TrackOrderDto } from './dto/track-order.dto.js'
 import { OrderLookupService } from './order-lookup.service.js'
 import { OrdersService } from './orders.service.js'
@@ -61,6 +64,22 @@ export class OrdersController {
   @StrictRateLimit()
   track(@Body() dto: TrackOrderDto) {
     return this.lookup.track(dto)
+  }
+
+  /** "My orders" (step 23) — signed-in customers only, newest first. */
+  @Get('my')
+  @UseGuards(SignedInGuard)
+  @Header('Cache-Control', 'no-store')
+  myOrders(@CurrentAccount() account: AccountProfile, @Query() query: MyOrdersQuery) {
+    return this.lookup.myOrders(account.id, query.page, query.pageSize)
+  }
+
+  /** One of my orders, by its number ("NW-10001"). Someone else's → 404, like a missing one. */
+  @Get('my/:number')
+  @UseGuards(SignedInGuard)
+  @Header('Cache-Control', 'no-store')
+  myOrder(@CurrentAccount() account: AccountProfile, @Param('number') number: string) {
+    return this.lookup.myOrder(account.id, number)
   }
 
   /** The confirmation page's full receipt. The random order id is the key (step 21 decision #1). */

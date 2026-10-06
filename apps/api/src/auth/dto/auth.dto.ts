@@ -82,3 +82,31 @@ export class ResetPasswordDto {
   @Password()
   password!: string
 }
+
+/** PATCH /auth/me — the customer's own details. (Email changes wait for step 26: Supabase must confirm them by email.) */
+export class UpdateProfileDto {
+  @Trim()
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'fullName cannot be empty' })
+  @MaxLength(100)
+  fullName?: string
+
+  /** null or "" clears it. */
+  @Transform(({ value }: { value: unknown }) => (value === '' ? null : value))
+  @NormalizePhone()
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+8801[3-9]\d{8}$/, { message: 'Enter a valid Bangladeshi mobile number' })
+  phone?: string | null
+}
+
+export class ChangePasswordDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Enter your current password' })
+  @MaxLength(PASSWORD_MAX_LENGTH)
+  currentPassword!: string
+
+  @Password()
+  newPassword!: string
+}

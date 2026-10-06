@@ -5,6 +5,7 @@ import {
   Header,
   HttpCode,
   Inject,
+  Patch,
   Post,
   Req,
   Res,
@@ -17,7 +18,14 @@ import { AUTH_CONFIG, type AuthConfig } from './auth-config.js'
 import { ACCESS_COOKIE, clearSessionCookies, setSessionCookies } from './auth-cookies.js'
 import { CurrentAccount, SignedInGuard } from './auth.guard.js'
 import { type AccountProfile, AuthService } from './auth.service.js'
-import { ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto } from './dto/auth.dto.js'
+import {
+  ChangePasswordDto,
+  ForgotPasswordDto,
+  LoginDto,
+  RegisterDto,
+  ResetPasswordDto,
+  UpdateProfileDto,
+} from './dto/auth.dto.js'
 
 const ONE_MINUTE_MS = 60_000
 
@@ -71,6 +79,26 @@ export class AuthController {
   @Header('Cache-Control', 'no-store')
   me(@CurrentAccount() account: AccountProfile) {
     return { user: account }
+  }
+
+  /** The customer's own name and mobile (step 23). */
+  @Patch('me')
+  @UseGuards(SignedInGuard)
+  @Throttle({ default: { ttl: ONE_MINUTE_MS, limit: 30 } })
+  @Header('Cache-Control', 'no-store')
+  async updateMe(@CurrentAccount() account: AccountProfile, @Body() dto: UpdateProfileDto) {
+    return { user: await this.auth.updateProfile(account.id, dto) }
+  }
+
+  /** Needs the current password — and the strict limit (it's a password guess too). */
+  @Post('change-password')
+  @HttpCode(200)
+  @UseGuards(SignedInGuard)
+  @StrictRateLimit()
+  @Header('Cache-Control', 'no-store')
+  async changePassword(@CurrentAccount() account: AccountProfile, @Body() dto: ChangePasswordDto) {
+    await this.auth.changePassword(account, dto)
+    return { changed: true }
   }
 
   /** Always the same answer — whether or not the email has an account. */

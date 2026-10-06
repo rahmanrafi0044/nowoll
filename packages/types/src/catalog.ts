@@ -264,3 +264,53 @@ export interface AccountView {
   fullName: string | null
   phone: string | null
 }
+
+/** GET /orders/my — one row of "My orders". */
+export interface AccountOrderSummaryView {
+  displayNumber: string
+  placedAt: string
+  status: OrderPlacedView['status']
+  paymentMethod: OrderPlacedView['paymentMethod']
+  paymentStatus: OrderPlacedView['paymentStatus']
+  total: Money
+  itemCount: number
+  imageUrls: string[]
+}
+
+/** GET /orders/my/:number — the receipt plus delivery progress. */
+export interface AccountOrderDetailView extends OrderReceiptView {
+  courierName: string | null
+  trackingNumber: string | null
+  timeline: { status: OrderPlacedView['status']; at: string }[]
+}
+
+/** /addresses — a saved delivery address. */
+export interface SavedAddressView {
+  id: string
+  label: string | null
+  fullName: string
+  phone: string
+  addressLine1: string
+  addressLine2: string | null
+  area: string | null
+  district: string
+  division: string
+  postalCode: string | null
+  isDefault: boolean
+}
+
+/** GET /wishlist — a saved size/colour with today's price and stock. */
+export interface WishlistEntryView {
+  variantId: string
+  productId: string
+  sku: string
+  productName: string
+  productSlug: string
+  size: string
+  color: string
+  price: Money
+  compareAtPrice: Money | null
+  imageUrl: string | null
+  inStock: boolean
+  savedAt: string
+}
