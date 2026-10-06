@@ -6,7 +6,9 @@ import {
   type GatewayStatus,
   type PaymentProvider,
   type PaymentResult,
+  type RefundParams,
   type RefundResult,
+  type RefundStatusResult,
   sameAmount,
   type VerifyResult,
 } from '@nowoll/payments'
@@ -107,7 +109,47 @@ export class FakePaymentGateway implements PaymentProvider {
     return { state: 'NOT_FOUND', raw: { no_of_trans_found: 0 } }
   }
 
-  async refundPayment(): Promise<RefundResult> {
-    return { ok: false, reason: 'Refunds are not part of these tests', raw: null }
+  /** Every refund SSLCommerz was asked for. */
+  readonly refunds: RefundParams[] = []
+  /** What the refund API answers next: done at once, still processing, or refused. */
+  refundAnswer: 'refunded' | 'processing' | 'failed' | 'unreachable' = 'refunded'
+  /** Later answers of the refund status query, by refund_ref_id. */
+  readonly refundStatuses = new Map<string, 'REFUNDED' | 'PROCESSING' | 'CANCELLED'>()
+
+  async refundPayment(p: RefundParams): Promise<RefundResult> {
+    this.refunds.push(p)
+    const refundRefId = `RREF-${this.refunds.length}`
+    switch (this.refundAnswer) {
+      case 'refunded':
+        return {
+          ok: true,
+          status: 'refunded',
+          refundRefId,
+          raw: { APIConnect: 'DONE', status: 'success' },
+        }
+      case 'processing':
+        this.refundStatuses.set(refundRefId, 'PROCESSING')
+        return {
+          ok: true,
+          status: 'processing',
+          refundRefId,
+          raw: { APIConnect: 'DONE', status: 'processing' },
+        }
+      case 'failed':
+        return {
+          ok: false,
+          reason: 'Refund failed: Insufficient balance',
+          raw: { APIConnect: 'DONE', status: 'failed' },
+        }
+      case 'unreachable':
+        return { ok: false, reason: 'Refund API did not respond', raw: null }
+    }
+  }
+
+  async getRefundStatus(refundRefId: string): Promise<RefundStatusResult> {
+    const state = this.refundStatuses.get(refundRefId)
+    return state
+      ? { state, raw: { status: state.toLowerCase() } }
+      : { state: 'UNREACHABLE', reason: 'unknown refund' }
   }
 }

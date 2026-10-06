@@ -360,3 +360,63 @@ export interface AdminReviewView extends MyReviewView {
   orderNumber: number
   createdAt: string
 }
+
+export type ReturnStatusView = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'RECEIVED' | 'REFUNDED'
+export type ReturnReasonView =
+  'WRONG_SIZE' | 'DAMAGED' | 'NOT_AS_DESCRIBED' | 'CHANGED_MIND' | 'OTHER'
+
+export interface ReturnLineView {
+  orderItemId: string
+  productName: string
+  variantLabel: string
+  imageUrl: string | null
+  quantity: number
+  restock: boolean
+}
+
+/** GET /returns/my, POST /returns — a return as the customer sees it. */
+export interface MyReturnView {
+  id: string
+  orderNumber: string
+  status: ReturnStatusView
+  reason: ReturnReasonView
+  customerNote: string | null
+  adminNote: string | null
+  rejectionReason: string | null
+  refundAmount: Money | null
+  items: ReturnLineView[]
+  createdAt: string
+  approvedAt: string | null
+  rejectedAt: string | null
+}
+
+/** GET /returns/eligibility/:orderNumber */
+export interface ReturnEligibilityView {
+  canReturn: boolean
+  reason: string | null
+  windowClosesAt: string | null
+  items: {
+    orderItemId: string
+    productName: string
+    variantLabel: string
+    imageUrl: string | null
+    bought: number
+    returnable: number
+  }[]
+}
+
+/** GET /returns/:id (admin) */
+export interface AdminReturnView extends MyReturnView {
+  orderId: string
+  customer: { id: string; name: string | null; email: string; phone: string }
+  paymentMethod: string
+  suggestedRefund: Money
+  maxRefundable: Money
+  refunds: {
+    id: string
+    amount: Money
+    status: string
+    gatewayRefId: string | null
+    createdAt: string
+  }[]
+}

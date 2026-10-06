@@ -97,7 +97,7 @@ SSLCommerz also POSTs the browser to success / fail / cancel → we answer 303 t
 | Risky (`risk_level = 1`) | `UNDER_REVIEW`; never auto-cancelled |
 | Validation API unreachable | `UNDER_REVIEW` with no `val_id`; `reconcile()` asks the transaction query every 5 min → PAID: validated and settled; FAILED/not found: attempt FAILED, order back to unpaid |
 | Failure / cancel reported | Believed only once the transaction query says FAILED; if it says paid, the payment is validated and settled instead |
-| Refunds | Not automated yet — Phase 4 (returns) |
+| Refunds | Through returns (step 25) — see "How refunds are used" below |
 
 ### Unpaid online orders expire
 
@@ -177,7 +177,20 @@ Query: `bank_tran_id`, `refund_trans_id` (our unique id, ≤ 30), `refund_amount
 Response: `APIConnect` (INVALID_REQUEST / FAILED / INACTIVE / DONE), `bank_tran_id`, `trans_id`, `refund_ref_id`, `status` (success / failed / processing), `errorReason`.
 Refund status query: `refund_ref_id`, `store_id`, `store_passwd` → `refunded` / `processing` / `cancelled`.
 
-**Requires the server's public IP to be registered with SSLCommerz** → launch checklist. Refunds are triggered by returns (Phase 4).
+Refund status query (official "Query Refund Status", same endpoint): `refund_ref_id`, `store_id`, `store_passwd` → `APIConnect`, `bank_tran_id`, `tran_id`, `refund_ref_id`, `initiated_on`, `refunded_on`, `status` = `refunded` / `processing` / `cancelled`, `errorReason`.
+**TODO (launch):** confirm in the sandbox that `format=json` is accepted on the status query (documented only for the refund request). If not, our code reports "unreachable" and simply asks again — nothing is guessed.
+
+**Requires the server's public IP to be registered with SSLCommerz** → launch checklist. So a real sandbox refund **cannot** be tested from a development computer.
+
+### How refunds are used (step 25 — `apps/api/src/returns/refunds.service.ts`)
+- Triggered by a **return**, after the parcel is received (admin). `refund_trans_id` = `RF<order number>-<6 hex>`; `refe_id` = our refund record's id.
+- **Never more than paid minus already refunded** — refunds still in progress count. Checked with the payment row **locked** (two refunds can't overspend; proven by a lock test).
+- The refund is **recorded before** SSLCommerz is called; the call is outside any database transaction.
+- `success` → PROCESSED. `processing` → PENDING with `refund_ref_id`; re-checked every 15 minutes.
+  `failed` (SSLCommerz clearly refused) → FAILED; trying again is safe.
+- **No answer at all → stays PENDING ("unknown")** and blocks another attempt: retrying with a NEW `refund_trans_id`
+  could pay twice. An admin checks the SSLCommerz panel and resolves it (refunded / failed).
+- Cash-on-delivery orders: refunded by hand (bKash/bank) and recorded as MANUAL with a short reference — no account numbers stored.
 
 ---
 

@@ -4,6 +4,7 @@ import type {
   PaymentProvider,
   PaymentResult,
   RefundResult,
+  RefundStatusResult,
   VerifyResult,
 } from './types.js'
 
@@ -38,5 +39,9 @@ export class CodAdapter implements PaymentProvider {
 
   async getStatus(): Promise<GatewayStatus> {
     return { state: 'PENDING', raw: null }
+  }
+
+  async getRefundStatus(): Promise<RefundStatusResult> {
+    return { state: 'UNREACHABLE', reason: 'Cash refunds are recorded by an admin, not queried' }
   }
 }

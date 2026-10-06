@@ -250,7 +250,7 @@
 │   ├── POST   /sslcommerz/success  (PUBLIC — browser redirect)
 │   ├── POST   /sslcommerz/fail     (PUBLIC — browser redirect)
 │   ├── POST   /sslcommerz/cancel   (PUBLIC — browser redirect)
-│   └── POST   /refund/:orderId     (admin)
+│   (refunds: through returns — PATCH /returns/:id/refund)
 ├── addresses/
 │   ├── GET    /            (authenticated)
 │   ├── POST   /            (authenticated)
@@ -269,10 +269,15 @@
 │   └── PATCH  /:id/reject  (admin)
 ├── returns/
 │   ├── POST   /            (authenticated)
+│   ├── GET    /eligibility/:orderNumber (authenticated — what can still be returned, until when)
 │   ├── GET    /my          (authenticated)
 │   ├── GET    /            (admin)
-│   ├── PATCH  /:id/approve (admin)
-│   └── PATCH  /:id/reject  (admin)
+│   ├── GET    /:id         (admin — incl. suggested refund and what's left to refund)
+│   ├── PATCH  /:id/approve (admin — with instructions for the customer)
+│   ├── PATCH  /:id/reject  (admin — with a reason)
+│   ├── PATCH  /:id/receive (admin — restock per item)
+│   ├── PATCH  /:id/refund  (admin — GATEWAY via SSLCommerz or MANUAL for cash orders)
+│   └── PATCH  /:id/refunds/:refundId/resolve (admin — a refund SSLCommerz never answered about)
 ├── shipping/
 │   ├── GET    /rates       (public — returns available rates by zone)
 │   ├── GET    /            (admin)
