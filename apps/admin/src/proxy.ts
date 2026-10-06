@@ -26,6 +26,7 @@ export function proxy(request: NextRequest) {
     nonce,
     isDev: process.env.NODE_ENV === 'development',
     connectSrc: [publicEnv.apiUrl],
+    imgSrc: [publicEnv.supabaseUrl, publicEnv.siteUrl].filter((o): o is string => !!o),
   })
   // Next.js reads the CSP from the REQUEST headers to find the nonce and
   // stamps it onto its own <script> tags; the RESPONSE header is what the

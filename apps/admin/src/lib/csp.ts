@@ -8,10 +8,12 @@ export function buildCsp({
   nonce,
   isDev,
   connectSrc,
+  imgSrc = [],
 }: {
   nonce: string
   isDev: boolean
   connectSrc: string[] // our API — the only server the browser talks to
+  imgSrc?: string[] // where product photos come from (Supabase Storage; the shop's demo photos in dev)
 }): string {
   const directives = [
     `default-src 'self'`,
@@ -19,7 +21,7 @@ export function buildCsp({
     // 'unsafe-eval' only in development — React uses eval for better error stacks there.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? ` 'unsafe-eval'` : ''}`,
     `style-src 'self' 'nonce-${nonce}'`,
-    `img-src 'self' blob: data:${connectSrc.map((o) => ` ${o}`).join('')}`,
+    `img-src 'self' blob: data:${[...connectSrc, ...imgSrc].map((o) => ` ${o}`).join('')}`,
     `font-src 'self'`,
     `connect-src 'self'${connectSrc.map((o) => ` ${o}`).join('')}${isDev ? ' ws:' : ''}`,
     `object-src 'none'`,

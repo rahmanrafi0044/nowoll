@@ -15,8 +15,20 @@ if (existsSync(rootEnvFile)) {
   }
 }
 
+// Product photos live in Supabase Storage. next/image only resizes remote
+// images from hosts allow-listed here (same rule as the shop).
+const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+  : undefined
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+
+  images: {
+    remotePatterns: supabaseHost
+      ? [{ protocol: 'https', hostname: supabaseHost, pathname: '/storage/v1/object/public/**' }]
+      : [],
+  },
 
   // Static security headers. The Content-Security-Policy is set per request
   // in src/proxy.ts because it contains a fresh nonce each time.

@@ -48,3 +48,15 @@ export interface BulkProductResult {
   succeeded: string[]
   failed: { id: string; name: string | null; reason: string }[]
 }
+
+/**
+ * What a CSV import did — or, for a dry run, WOULD do (nothing is saved).
+ * Problems come back as an error instead, with one line per problem
+ * (row numbers included) in `details`.
+ */
+export interface ProductImportSummary {
+  dryRun: boolean
+  products: { created: number; updated: number; unchanged: number }
+  variants: { created: number; updated: number; unchanged: number }
+  stockChanges: number
+}
