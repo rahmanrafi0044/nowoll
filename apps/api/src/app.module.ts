@@ -20,6 +20,7 @@ import { CheckoutModule } from './checkout/checkout.module.js'
 import { ShippingModule } from './shipping/shipping.module.js'
 import { OrdersModule } from './orders/orders.module.js'
 import { PaymentsModule } from './payments/payments.module.js'
+import { ReviewsModule } from './reviews/reviews.module.js'
 import { WishlistModule } from './wishlist/wishlist.module.js'
 import { PrismaModule } from './prisma/prisma.module.js'
 
@@ -54,6 +55,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     AuthModule,
     AddressesModule,
     WishlistModule,
+    ReviewsModule,
   ],
   providers: [
     // Registering the guard globally applies the 100 req/min limit to every route.

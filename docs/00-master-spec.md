@@ -262,7 +262,8 @@
 │   └── DELETE /:variantId  (authenticated)
 ├── reviews/
 │   ├── GET    /product/:productId  (public, approved only)
-│   ├── POST   /            (authenticated, must have delivered order with product)
+│   ├── GET    /my          (authenticated — own reviews with status / rejection reason)
+│   ├── POST   /            (authenticated, must have delivered order with product; again = edit → back to PENDING)
 │   ├── GET    /            (admin, all statuses)
 │   ├── PATCH  /:id/approve (admin)
 │   └── PATCH  /:id/reject  (admin)

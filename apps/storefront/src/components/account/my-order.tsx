@@ -5,6 +5,7 @@ import { PayNow } from '@/components/checkout/pay-now'
 import { OrderProgress } from '@/components/orders/order-progress'
 import { STATUS_LABEL, formatDate } from '@/components/orders/order-status'
 import { ReceiptDetails } from '@/components/orders/receipt-details'
+import { OrderReviews } from '@/components/reviews/order-reviews'
 import { useAccountData } from '@/hooks/use-account-data'
 import { fetchMyOrder } from '@/lib/account-api'
 
@@ -55,6 +56,8 @@ export function MyOrder({ number }: { number: string }) {
           <PayNow orderId={order.orderId} total={order.total} />
         </div>
       )}
+      {/* Only verified buyers review: the order must be delivered (step 24). */}
+      {order.status === 'DELIVERED' && <OrderReviews items={order.items} />}
       <ReceiptDetails receipt={order} />
     </div>
   )

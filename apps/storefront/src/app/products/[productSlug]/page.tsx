@@ -1,11 +1,19 @@
-import type { CategoryDetail, Paginated, ProductCardView, ProductDetailView } from '@nowoll/types'
+import type {
+  CategoryDetail,
+  Paginated,
+  ProductCardView,
+  ProductDetailView,
+  ProductReviewsView,
+} from '@nowoll/types'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
 import { ProductView } from '@/components/product/product-view'
+import { ProductReviews } from '@/components/reviews/product-reviews'
 import { apiGet } from '@/lib/api'
 import { absoluteUrl, breadcrumbJsonLd, JsonLd } from '@/lib/json-ld'
+import { productJsonLd } from '@/lib/product-json-ld'
 
 type Props = { params: Promise<{ productSlug: string }> }
 
@@ -61,11 +69,14 @@ export default async function ProductPage({ params }: Props) {
   const categorySlug = product.breadcrumb.at(-1)?.slug
   const category = categorySlug ? await apiGet<CategoryDetail>(`/categories/${categorySlug}`) : null
   const sizeGuide = category?.sizeGuide ?? null
+  // Approved reviews (step 24) — refreshed with the page (ISR, 60 s). If the
+  // reviews can't be loaded, the product page still works without them.
+  const reviews = await apiGet<ProductReviewsView>(`/reviews/product/${product.id}`)
 
   return (
     // Extra bottom padding on phones so the sticky "Add to bag" bar never covers content.
     <div className="mx-auto max-w-7xl px-4 py-8 pb-28 md:pb-12">
-      <JsonLd data={productJsonLd(product)} />
+      <JsonLd data={productJsonLd(product, reviews)} />
       <JsonLd
         data={breadcrumbJsonLd(product.breadcrumb, {
           name: product.name,
@@ -127,30 +138,8 @@ export default async function ProductPage({ params }: Props) {
             </p>
           </section>
         )}
+        <ProductReviews productId={product.id} initial={reviews} />
       </ProductView>
     </div>
   )
-}
-
-/** Product structured data: lets Google show price and availability in search results. */
-function productJsonLd(product: ProductDetailView) {
-  const prices = product.variants.map((v) => Number(v.price))
-  const inStock = product.variants.some((v) => v.inStock)
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: product.name,
-    description: product.shortDescription ?? product.description ?? undefined,
-    image: product.images.map((i) => absoluteUrl(i.url)),
-    brand: { '@type': 'Brand', name: 'Nowoll' },
-    offers: {
-      '@type': 'AggregateOffer',
-      priceCurrency: 'BDT',
-      lowPrice: prices.length ? Math.min(...prices) : Number(product.basePrice),
-      highPrice: prices.length ? Math.max(...prices) : Number(product.basePrice),
-      offerCount: product.variants.length,
-      availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-      url: absoluteUrl(`/products/${product.slug}`),
-    },
-  }
 }

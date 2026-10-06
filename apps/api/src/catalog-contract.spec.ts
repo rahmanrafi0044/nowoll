@@ -4,6 +4,9 @@
 // long before a customer sees a broken page.
 import type {
   AccountOrderDetailView,
+  AdminReviewView,
+  MyReviewView,
+  ProductReviewsView,
   AccountOrderSummaryView,
   AccountView,
   CategoryDetail,
@@ -40,6 +43,7 @@ import type {
 import type { PlacedOrder } from './orders/orders.service.js'
 import type { PaymentsService, PaymentStatusSummary } from './payments/payments.service.js'
 import type { CartQuote } from './pricing/cart-pricing.js'
+import type { AdminReview, MyReview, ProductReviews } from './reviews/reviews.service.js'
 import type { ShippingRate } from './shipping/shipping.service.js'
 import type { WishlistEntry } from './wishlist/wishlist.service.js'
 import type { PublicVariant } from './products/product-view.js'
@@ -83,6 +87,12 @@ describe('API ↔ storefront contract', () => {
     expectTypeOf<Serialized<AccountOrderDetail>>().toEqualTypeOf<AccountOrderDetailView>()
     expectTypeOf<Serialized<SavedAddress>>().toEqualTypeOf<SavedAddressView>()
     expectTypeOf<Serialized<WishlistEntry>>().toEqualTypeOf<WishlistEntryView>()
+  })
+
+  it('reviews', () => {
+    expectTypeOf<Serialized<ProductReviews>>().toEqualTypeOf<ProductReviewsView>()
+    expectTypeOf<Serialized<MyReview>>().toEqualTypeOf<MyReviewView>()
+    expectTypeOf<Serialized<AdminReview>>().toEqualTypeOf<AdminReviewView>()
   })
 
   it('payments', () => {

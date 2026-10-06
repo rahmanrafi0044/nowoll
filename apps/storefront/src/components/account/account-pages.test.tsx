@@ -123,6 +123,7 @@ describe('my orders', () => {
     paymentStatus: 'PENDING',
     items: [
       {
+        productId: 'p1',
         productName: 'Oxford Shirt',
         variantLabel: 'M / Blue',
         imageUrl: null,
@@ -169,6 +170,21 @@ describe('my orders', () => {
     expect(screen.getByText(/Sent with/)).toHaveTextContent('Steadfast — tracking number SF1')
     expect(screen.getByText('House 12, Dhanmondi, Dhaka, Dhaka')).toBeVisible()
     expect(screen.queryByRole('button', { name: /Pay now/ })).toBeNull()
+  })
+
+  it('"Review your items" appears only once the order is delivered (verified buyers)', async () => {
+    routes['GET /orders/my/NW-10001'] = () => ok(detail())
+    routes['GET /reviews/my'] = () => ok([])
+    const { unmount } = render(<MyOrder number="NW-10001" />) // SHIPPED
+    await screen.findByRole('heading', { name: 'Order NW-10001' })
+    await new Promise((r) => setTimeout(r, 50)) // let anything that would load, load
+    expect(screen.queryByRole('heading', { name: 'Review your items' })).toBeNull()
+    expect(called('GET', '/reviews/my')).toEqual([]) // not even asked for
+    unmount()
+    routes['GET /orders/my/NW-10001'] = () => ok(detail({ status: 'DELIVERED' }))
+    render(<MyOrder number="NW-10001" />)
+    expect(await screen.findByRole('heading', { name: 'Review your items' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Write a review' })).toBeVisible()
   })
 
   it('an unpaid online order offers "Pay now"; a missing one says so', async () => {

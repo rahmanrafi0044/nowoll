@@ -5,6 +5,8 @@
 // responses ever drift from these shapes (apps/api/src/catalog-contract.spec.ts).
 // ============================================================================
 
+import type { Paginated } from './api.js'
+
 /** A decimal amount in BDT, as a string, e.g. "1490" or "1499.5". */
 export type Money = string
 
@@ -202,6 +204,7 @@ export interface PaymentStatusView {
 
 /** One line of a placed order (names and prices as they were when ordered). */
 export interface OrderLineView {
+  productId: string | null
   productName: string
   variantLabel: string
   imageUrl: string | null
@@ -313,4 +316,47 @@ export interface WishlistEntryView {
   imageUrl: string | null
   inStock: boolean
   savedAt: string
+}
+
+export type ReviewStatusView = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+/** A published review (first name + last initial only). */
+export interface PublicReviewView {
+  id: string
+  rating: number
+  title: string | null
+  body: string
+  author: string
+  createdAt: string
+}
+
+export interface RatingSummaryView {
+  average: number | null
+  count: number
+  breakdown: Record<'1' | '2' | '3' | '4' | '5', number>
+}
+
+/** GET /reviews/product/:productId */
+export interface ProductReviewsView extends Paginated<PublicReviewView> {
+  summary: RatingSummaryView
+}
+
+/** GET /reviews/my, POST /reviews — the customer's own review and its status. */
+export interface MyReviewView {
+  id: string
+  productId: string
+  rating: number
+  title: string | null
+  body: string
+  status: ReviewStatusView
+  rejectionReason: string | null
+  updatedAt: string
+}
+
+/** GET /reviews (admin) */
+export interface AdminReviewView extends MyReviewView {
+  product: { id: string; name: string; slug: string }
+  author: { id: string; name: string | null; email: string }
+  orderNumber: number
+  createdAt: string
 }

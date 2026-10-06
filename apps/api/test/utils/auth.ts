@@ -8,8 +8,13 @@ export async function signUp(
   email: string,
   extra: { fullName?: string; phone?: string; password?: string } = {},
 ): Promise<{ cookie: string; userId: string }> {
+  // Each sign-up comes from a different (pretend) visitor, so tests that need
+  // many accounts don't hit the real 5-per-minute sign-up limit. (The API
+  // trusts one proxy hop, so X-Forwarded-For decides the visitor's IP.)
+  const n = () => Math.floor(Math.random() * 250) + 1
   const res = await request(app.getHttpServer())
     .post('/api/v1/auth/register')
+    .set('X-Forwarded-For', `10.${n()}.${n()}.${n()}`)
     .send({
       fullName: extra.fullName ?? 'Test Customer',
       email,

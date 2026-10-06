@@ -23,6 +23,8 @@ import { displayNumber } from './order-number.js'
 // ============================================================================
 
 export interface OrderLine {
+  /** null if the product was deleted since (the order keeps its copy of the name). */
+  productId: string | null
   productName: string
   variantLabel: string
   imageUrl: string | null
@@ -265,6 +267,7 @@ export class OrderLookupService {
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,
       items: order.items.map((i) => ({
+        productId: i.productId,
         productName: i.productName,
         variantLabel: i.variantLabel,
         imageUrl: i.imageUrl,
