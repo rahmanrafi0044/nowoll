@@ -133,6 +133,14 @@ Both clients are stateless (`persistSession: false`). The service role key stays
 Not yet: Google sign-in (later step), staff/admin sign-in with 2FA (Phase 5 — `user_role` claim via a
 custom access token hook, to be checked against Supabase's docs then).
 
+### Real-project check (6 Oct 2026)
+One test account against the real Supabase project, then deleted (Supabase + dev DB):
+login sets HttpOnly cookies · wrong password and unknown email get the same answer · re-register →
+`EMAIL_TAKEN` · `/me` · renewal with only the refresh cookie (both cookies rotated) · after sign-out the
+refresh token no longer renews · forgot-password answers the same for any address (Supabase rejects
+`example.com` addresses, logged only). Found: a sign-up whose `users` row failed to save (local DB was
+down) was rebuilt **without the name** → the name now comes from `user_metadata.full_name`.
+
 ### Testing
 API tests use `apps/api/test/utils/fake-auth-provider.ts` (tokens expire, refresh tokens are single-use,
 reset links work once) — no test creates a real account.

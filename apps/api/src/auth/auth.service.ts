@@ -93,7 +93,7 @@ export class AuthService {
         'Sign-in is not available right now. Please try again shortly.',
       )
     }
-    const user = await this.ensureUser(result.session.userId, result.session.email)
+    const user = await this.ensureUser(result.session)
     return { session: result.session, user }
   }
 
@@ -107,10 +107,10 @@ export class AuthService {
     let renewed: AuthSession | null = null
     if (!claims && tokens.refresh) {
       renewed = await this.provider.refresh(tokens.refresh)
-      claims = renewed ? { userId: renewed.userId, email: renewed.email } : null
+      claims = renewed
     }
     if (!claims) return null
-    return { user: await this.ensureUser(claims.userId, claims.email), renewed }
+    return { user: await this.ensureUser(claims), renewed }
   }
 
   /** POST /auth/logout — ends the session at Supabase too (best effort). */
@@ -139,14 +139,13 @@ export class AuthService {
         'Your password could not be changed right now. Please try again.',
       )
 
-    const user = await this.ensureUser(owner.userId, owner.email)
     const signedIn = await this.provider.signIn(owner.email, dto.password)
     if (!signedIn.ok)
       throw new ServiceUnavailableException({
         message: 'Your password was changed — please sign in.',
         code: 'SIGN_IN_AFTER_RESET_FAILED',
       })
-    return { session: signedIn.session, user }
+    return { session: signedIn.session, user: await this.ensureUser(signedIn.session) }
   }
 
   async profile(userId: string): Promise<AccountProfile> {
@@ -159,8 +158,18 @@ export class AuthService {
    * table (decision #6) — e.g. an account made in the Supabase dashboard, or a
    * sign-up that stopped halfway. Then refuses banned / deleted accounts.
    */
-  private async ensureUser(userId: string, email: string): Promise<AccountProfile> {
-    const user = await this.saveUser({ id: userId, email: email.toLowerCase() })
+  private async ensureUser(who: {
+    userId: string
+    email: string
+    fullName: string | null
+  }): Promise<AccountProfile> {
+    // (The name comes from Supabase, where sign-up stored it — found in the real-project check:
+    // a sign-up whose users row failed to save was rebuilt without it.)
+    const user = await this.saveUser({
+      id: who.userId,
+      email: who.email.toLowerCase(),
+      ...(who.fullName && { fullName: who.fullName }),
+    })
     if (user.status === UserStatus.BANNED || user.deletedAt)
       throw new ForbiddenException({
         message:

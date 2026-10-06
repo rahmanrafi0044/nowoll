@@ -15,6 +15,7 @@ interface Account {
   id: string
   email: string
   password: string
+  fullName: string | null // Supabase keeps it as user_metadata.full_name
 }
 
 export class FakeAuthProvider implements AuthProvider {
@@ -40,7 +41,7 @@ export class FakeAuthProvider implements AuthProvider {
         reason: 'EMAIL_TAKEN',
         message: 'An account with this email already exists.',
       }
-    const account = { id: randomUUID(), email: p.email, password: p.password }
+    const account = { id: randomUUID(), email: p.email, password: p.password, fullName: p.fullName }
     this.accounts.set(p.email, account)
     return { ok: true, userId: account.id }
   }
@@ -56,7 +57,7 @@ export class FakeAuthProvider implements AuthProvider {
     const r = this.refreshTokens.get(refreshToken)
     if (!r || this.down) return null
     this.refreshTokens.delete(refreshToken) // single use
-    return this.issue({ id: r.userId, email: r.email, password: '' })
+    return this.issue({ id: r.userId, email: r.email, password: '', fullName: r.fullName })
   }
 
   async verifyAccessToken(accessToken: string): Promise<AccessClaims | null> {
@@ -96,18 +97,18 @@ export class FakeAuthProvider implements AuthProvider {
   }
 
   /** An account that exists in Supabase but not (yet) in our users table. */
-  addAccount(email: string, password: string): Account {
-    const a = { id: randomUUID(), email, password }
+  addAccount(email: string, password: string, fullName: string | null = null): Account {
+    const a = { id: randomUUID(), email, password, fullName }
     this.accounts.set(email, a)
     return a
   }
 
   private issue(a: Account): AuthSession {
-    const claims = { userId: a.id, email: a.email }
+    const claims = { userId: a.id, email: a.email, fullName: a.fullName }
     const accessToken = `access-${randomUUID()}`
     const refreshToken = `refresh-${randomUUID()}`
     this.access.set(accessToken, { claims, expiresAt: Date.now() + 3600_000 })
     this.refreshTokens.set(refreshToken, { ...claims, accessToken })
-    return { accessToken, refreshToken, expiresIn: 3600, userId: a.id, email: a.email }
+    return { accessToken, refreshToken, expiresIn: 3600, ...claims }
   }
 }

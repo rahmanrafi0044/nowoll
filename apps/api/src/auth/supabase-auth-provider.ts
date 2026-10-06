@@ -87,7 +87,11 @@ export class SupabaseAuthProvider implements AuthProvider {
     const { data, error } = await this.anon.auth.getClaims(accessToken)
     const claims = data?.claims
     if (error || !claims || typeof claims.sub !== 'string') return null
-    return { userId: claims.sub, email: typeof claims.email === 'string' ? claims.email : '' }
+    return {
+      userId: claims.sub,
+      email: typeof claims.email === 'string' ? claims.email : '',
+      fullName: metadataName(claims.user_metadata),
+    }
   }
 
   async signOut(accessToken: string): Promise<void> {
@@ -125,7 +129,14 @@ function toSession(s: Session): AuthSession {
     expiresIn: s.expires_in,
     userId: s.user.id,
     email: s.user.email ?? '',
+    fullName: metadataName(s.user.user_metadata),
   }
+}
+
+/** The name given at sign-up (we store it as user_metadata.full_name). */
+function metadataName(metadata: unknown): string | null {
+  const name = (metadata as { full_name?: unknown } | null | undefined)?.full_name
+  return typeof name === 'string' && name.trim() ? name.trim() : null
 }
 
 /** code + status only — never tokens or passwords in logs. */

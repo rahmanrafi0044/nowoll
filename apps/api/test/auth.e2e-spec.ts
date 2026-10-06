@@ -134,6 +134,18 @@ describe('/auth', () => {
       await login('rafi@example.com', newCustomer.password).expect(429)
     })
 
+    it('a sign-up whose users row failed to save is repaired on sign-in — WITH the name (found in the real-Supabase check)', async () => {
+      fake.addAccount('halfway@example.com', 'halfway-password', 'Halfway Customer')
+      const res = await login('halfway@example.com', 'halfway-password').expect(200)
+      expect(res.body.data.user).toMatchObject({
+        email: 'halfway@example.com',
+        fullName: 'Halfway Customer',
+      })
+      expect(
+        (await db.user.findUniqueOrThrow({ where: { email: 'halfway@example.com' } })).fullName,
+      ).toBe('Halfway Customer')
+    })
+
     it('an account made outside the shop (e.g. Supabase dashboard) gets its users row on first sign-in', async () => {
       fake.addAccount('staff@nowoll.com', 'dashboard-made-1')
       await login('staff@nowoll.com', 'dashboard-made-1').expect(200)

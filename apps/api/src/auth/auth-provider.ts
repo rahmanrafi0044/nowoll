@@ -15,12 +15,14 @@ export interface AuthSession {
   expiresIn: number // seconds until the access token expires
   userId: string
   email: string
+  fullName: string | null // from sign-up (Supabase user_metadata.full_name)
 }
 
 /** What a VERIFIED access token says. */
 export interface AccessClaims {
   userId: string // "sub" — the same id as our users table
   email: string
+  fullName: string | null // user_metadata.full_name — lets a missing users row be rebuilt with the name
 }
 
 export type CreateUserResult =
