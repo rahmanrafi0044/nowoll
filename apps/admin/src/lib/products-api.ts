@@ -1,4 +1,5 @@
 import type {
+  AdminProductDetail,
   AdminProductList,
   BulkProductAction,
   BulkProductResult,
@@ -43,3 +44,75 @@ export function importProductsCsv(file: File, dryRun: boolean) {
   form.append('file', file)
   return call<ProductImportSummary>('POST', `/products/import?dryRun=${dryRun}`, form)
 }
+
+// ── One product: create and edit (step 30b) ──────────────────────────────
+
+export const fetchProduct = (id: string) => call<AdminProductDetail>('GET', `/admin/products/${id}`)
+
+/** The editable product fields, as the API takes them (prices as numbers). */
+export interface ProductFields {
+  name: string
+  slug: string
+  categoryId: string
+  basePrice: number
+  compareAtPrice: number | null
+  shortDescription: string | null
+  description: string | null
+  tags: string[]
+  isFeatured: boolean
+  seoTitle: string | null
+  seoDescription: string | null
+  status: 'DRAFT' | 'ACTIVE'
+}
+
+/** New products always start as DRAFT (API rule). */
+export const createProduct = (body: Pick<ProductFields, 'name' | 'categoryId' | 'basePrice'>) =>
+  call<{ id: string }>('POST', '/products', body)
+
+export const updateProduct = (id: string, body: Partial<ProductFields>) =>
+  call<{ id: string }>('PATCH', `/products/${id}`, body)
+
+/** Archive = soft delete: hidden everywhere, kept for order history. */
+export const archiveProduct = (id: string) => call<{ id: string }>('DELETE', `/products/${id}`)
+
+export interface VariantFields {
+  sku: string
+  size: string
+  color: string
+  colorHex: string | null
+  price: number | null
+  compareAtPrice: number | null
+  lowStockThreshold: number | null
+  isActive: boolean
+  /** Starting stock — only when the variant is created. */
+  stock: number
+}
+
+export const createVariant = (productId: string, body: Partial<VariantFields>) =>
+  call<{ id: string }>('POST', `/variants/product/${productId}`, body)
+
+export const updateVariant = (id: string, body: Partial<Omit<VariantFields, 'stock'>>) =>
+  call<{ id: string }>('PATCH', `/variants/${id}`, body)
+
+export const deleteVariant = (id: string) => call<{ id: string }>('DELETE', `/variants/${id}`)
+
+export function uploadImage(
+  productId: string,
+  file: File,
+  fields: { altText: string; variantId: string | null },
+) {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('altText', fields.altText)
+  if (fields.variantId) form.append('variantId', fields.variantId)
+  return call<{ id: string }>('POST', `/products/${productId}/images`, form)
+}
+
+export const updateImage = (
+  productId: string,
+  imageId: string,
+  body: { altText?: string; variantId?: string | null; sortOrder?: number },
+) => call<{ id: string }>('PATCH', `/products/${productId}/images/${imageId}`, body)
+
+export const deleteImage = (productId: string, imageId: string) =>
+  call<{ id: string }>('DELETE', `/products/${productId}/images/${imageId}`)

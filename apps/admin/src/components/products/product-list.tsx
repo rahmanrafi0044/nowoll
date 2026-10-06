@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { type FormEvent, useCallback, useState } from 'react'
 import { Panel } from '@/components/dashboard/panel'
 import { useLoad } from '@/components/dashboard/use-load'
+import { flattenCategories } from '@/lib/categories'
 import { formatInstantDate } from '@/lib/date'
 import { formatBdt } from '@/lib/format'
 import {
@@ -111,6 +112,12 @@ export function ProductList({ filters }: { filters: ProductFilters }) {
           >
             Export CSV
           </Button>
+          <Link
+            href="/admin/products/new"
+            className="inline-flex h-11 items-center rounded-control bg-brand px-5 text-sm font-medium text-brand-foreground hover:bg-brand-hover"
+          >
+            New product
+          </Link>
           <Link
             href="/admin/products/import"
             className="inline-flex h-11 items-center rounded-control border border-border-strong bg-surface px-5 text-sm font-medium hover:bg-surface-muted"
@@ -254,7 +261,7 @@ function Filters({
           onChange={(e) => onChange({ categoryId: e.target.value || undefined })}
         >
           <option value="">All categories</option>
-          {flatten(categories).map((c) => (
+          {flattenCategories(categories).map((c) => (
             <option key={c.id} value={c.id}>
               {c.label}
             </option>
@@ -347,7 +354,12 @@ function ProductTable({
                 <ProductThumb image={p.image} />
               </td>
               <td className="py-2">
-                <span className="font-medium">{p.name}</span>
+                <Link
+                  href={`/admin/products/${p.id}`}
+                  className="font-medium underline-offset-4 hover:underline"
+                >
+                  {p.name}
+                </Link>
                 {p.isFeatured && (
                   <span className="ml-2 text-xs text-muted-foreground">
                     <span aria-hidden="true">★ </span>Featured
@@ -450,12 +462,4 @@ function missing(p: AdminProductRow): string {
     Boolean,
   )
   return `Needs ${needs.join(' and ')} before it can go live`
-}
-
-/** The category tree as one list: "Men", "Men › Shirts", … */
-function flatten(nodes: CategoryNode[], prefix = ''): { id: string; label: string }[] {
-  return nodes.flatMap((n) => [
-    { id: n.id, label: `${prefix}${n.name}` },
-    ...flatten(n.children ?? [], `${prefix}${n.name} › `),
-  ])
 }

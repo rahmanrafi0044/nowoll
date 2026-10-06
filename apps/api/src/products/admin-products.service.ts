@@ -2,6 +2,7 @@ import { HttpException, Injectable, Logger, NotFoundException } from '@nestjs/co
 import { Prisma } from '@nowoll/database'
 import { ProductStatus } from '@nowoll/database/enums'
 import type {
+  AdminProductDetail,
   AdminProductList,
   AdminProductRow,
   BulkProductAction,
@@ -79,6 +80,66 @@ export class AdminProductsService {
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize),
+    }
+  }
+
+  /** GET /admin/products/:id — the edit page: drafts and archived too, exact stock, all photos. */
+  async detail(id: string): Promise<AdminProductDetail> {
+    const p = await this.prisma.product.findUnique({
+      where: { id },
+      include: {
+        category: { select: { id: true, name: true } },
+        // Deleted variants are gone for good (kept only for order history);
+        // inactive ones stay visible here so they can be switched back on.
+        variants: {
+          where: { deletedAt: null },
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        },
+        images: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
+      },
+    })
+    if (!p) throw new NotFoundException('Product not found')
+    const missingToPublish: AdminProductDetail['missingToPublish'] = []
+    if (!p.variants.some((v) => v.isActive)) missingToPublish.push('variant')
+    if (p.images.length === 0) missingToPublish.push('image')
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      status: p.status,
+      isFeatured: p.isFeatured,
+      category: p.category,
+      basePrice: p.basePrice.toString(),
+      compareAtPrice: p.compareAtPrice?.toString() ?? null,
+      shortDescription: p.shortDescription,
+      description: p.description,
+      tags: p.tags,
+      seoTitle: p.seoTitle,
+      seoDescription: p.seoDescription,
+      variants: p.variants.map((v) => ({
+        id: v.id,
+        sku: v.sku,
+        size: v.size,
+        color: v.color,
+        colorHex: v.colorHex,
+        price: v.price?.toString() ?? null,
+        compareAtPrice: v.compareAtPrice?.toString() ?? null,
+        stock: v.stock,
+        lowStockThreshold: v.lowStockThreshold,
+        weightGrams: v.weightGrams,
+        isActive: v.isActive,
+        sortOrder: v.sortOrder,
+      })),
+      images: p.images.map((i) => ({
+        id: i.id,
+        url: i.url,
+        altText: i.altText,
+        variantId: i.variantId,
+        sortOrder: i.sortOrder,
+      })),
+      missingToPublish,
+      createdAt: p.createdAt.toISOString(),
+      updatedAt: p.updatedAt.toISOString(),
     }
   }
 

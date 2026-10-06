@@ -39,5 +39,11 @@ export function useLoad<T>(load: () => Promise<ApiCallResult<T>>) {
     setAttempt((a) => a + 1)
   }, [])
 
-  return { state, retry }
+  /**
+   * Load again WITHOUT the "Loading…" in between: what's on screen stays
+   * (forms keep what was typed) until the new data arrives. Used after saves.
+   */
+  const refresh = useCallback(() => setAttempt((a) => a + 1), [])
+
+  return { state, retry, refresh }
 }
