@@ -192,7 +192,6 @@ Create accounts at all of these. All have free tiers to start with:
 |---|---|---|
 | **GitHub** | Code repository | https://github.com |
 | **Supabase** | Database + Storage + Auth | https://supabase.com |
-| **SSLCommerz** | Bangladesh payment gateway | https://developer.sslcommerz.com/registration/ |
 | **Resend** | Transactional emails | https://resend.com |
 | **Vercel** | Frontend hosting | https://vercel.com |
 | **Sentry** | Error tracking | https://sentry.io |
