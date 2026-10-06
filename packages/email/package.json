@@ -1,0 +1,41 @@
+{
+  "name": "@nowoll/email",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Nowoll emails: React Email templates + senders (Resend in production, Mailpit in development)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "preview": "node --env-file-if-exists=../../.env --import tsx scripts/preview.tsx",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@react-email/components": "1.0.12",
+    "nodemailer": "^10.0.15",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@nowoll/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@types/nodemailer": "^8.0.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^9.39.0",
+    "tsx": "^4.23.0",
+    "typescript": "6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

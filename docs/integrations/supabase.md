@@ -128,7 +128,9 @@ Both clients are stateless (`persistSession: false`). The service role key stays
    <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">Choose a new password</a>
    ```
    (`{{ .RedirectTo }}` = the `redirectTo` our API passes; `{{ .TokenHash }}` is meant for building your own link.)
-3. **Custom SMTP (Resend)** — step 26. Until then reset emails reach only your Supabase organization's members.
+3. **Custom SMTP (Resend)** — exact settings in [resend.md](./resend.md) → "Supabase password-reset emails
+   through Resend". Until then reset emails reach only your Supabase organization's members. The branded
+   reset-email HTML is [supabase-reset-password.html](./supabase-reset-password.html) (replaces step 2's one-line link).
 
 Not yet: Google sign-in (later step), staff/admin sign-in with 2FA (Phase 5 — `user_role` claim via a
 custom access token hook, to be checked against Supabase's docs then).

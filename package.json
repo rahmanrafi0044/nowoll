@@ -1,7 +1,7 @@
 {
   "name": "nowoll",
   "version": "1.0.0",
-  "description": "Nowoll \u2014 always new | E-commerce clothing store (Bangladesh)",
+  "description": "Nowoll — always new | E-commerce clothing store (Bangladesh)",
   "private": true,
   "scripts": {
     "dev": "turbo run dev",
@@ -18,7 +18,8 @@
     "format:check": "prettier --check .",
     "storage:setup": "pnpm --filter @nowoll/api storage:setup",
     "db:seed:demo": "pnpm --filter @nowoll/api seed:demo --",
-    "payments:sandbox-check": "pnpm --filter @nowoll/payments sandbox-check"
+    "payments:sandbox-check": "pnpm --filter @nowoll/payments sandbox-check",
+    "email:preview": "pnpm --filter @nowoll/email preview"
   },
   "devDependencies": {
     "@nowoll/config": "workspace:*",
