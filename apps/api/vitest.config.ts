@@ -22,6 +22,7 @@ export default defineConfig({
       // so nothing is ever uploaded to the real Supabase project.
       NEXT_PUBLIC_SUPABASE_URL: 'https://test-project.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
       // Dummy credentials switch "Pay online" on; the gateway itself is always the
       // fake (test/utils/fake-payment-gateway.ts) — no test ever calls SSLCommerz.
       SSLCOMMERZ_STORE_ID: 'test-store',

@@ -1,6 +1,7 @@
 import { ValidationPipe } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import type { NestExpressApplication } from '@nestjs/platform-express'
+import cookieParser from 'cookie-parser'
 import helmet from 'helmet'
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js'
 import { ResponseInterceptor } from './common/interceptors/response.interceptor.js'
@@ -19,6 +20,9 @@ export function configureApp(app: NestExpressApplication): void {
   // In production the API sits behind Nginx. Trusting one proxy hop lets us see
   // the customer's real IP (from X-Forwarded-For) — essential for per-IP rate limiting.
   app.set('trust proxy', 1)
+
+  // Reads the login cookies (nw_access / nw_refresh) into req.cookies (step 22).
+  app.use(cookieParser())
 
   // Helmet sets security headers (Content-Security-Policy, X-Frame-Options, …).
   app.use(helmet())

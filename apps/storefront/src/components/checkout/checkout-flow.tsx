@@ -6,6 +6,7 @@ import { useCartHydrated } from '@/hooks/use-cart-hydrated'
 import { useCheckoutQuote } from '@/hooks/use-checkout-quote'
 import { useCartStore } from '@/stores/cart-store'
 import { useCheckoutStore } from '@/stores/checkout-store'
+import { useSessionStore } from '@/stores/session-store'
 import { AddressStep } from './address-step'
 import { ContactStep } from './contact-step'
 import { OrderPlaced } from './order-placed'
@@ -36,6 +37,11 @@ export function CheckoutFlow() {
   useEffect(() => {
     void useCheckoutStore.persist.rehydrate()
   }, [])
+
+  // Signed in? Then the contact step starts from the account's details.
+  const sessionUser = useSessionStore((s) => s.user)
+  const loadSession = useSessionStore((s) => s.load)
+  useEffect(() => void loadSession(), [loadSession])
 
   const hydrated = useCartHydrated()
   const items = useCartStore((s) => s.items)
@@ -93,7 +99,8 @@ export function CheckoutFlow() {
           title="Contact"
           summary={contact && `${contact.fullName} · ${contact.email} · ${contact.phone}`}
         >
-          <ContactStep />
+          {/* Re-created once the account is known, so the details fill in. */}
+          <ContactStep key={sessionUser?.id ?? 'guest'} />
         </StepSection>
         <StepSection
           step="address"

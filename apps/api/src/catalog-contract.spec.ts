@@ -3,6 +3,7 @@
 // those shapes, this file stops compiling and `pnpm typecheck` fails —
 // long before a customer sees a broken page.
 import type {
+  AccountView,
   CategoryDetail,
   CartQuoteView,
   CheckoutQuoteView,
@@ -21,6 +22,7 @@ import type {
   Serialized,
 } from '@nowoll/types'
 import { expectTypeOf } from 'vitest'
+import type { AccountProfile } from './auth/auth.service.js'
 import type { PublicCategoryDetail, PublicCategoryNode } from './categories/categories.service.js'
 import type { DiscountPreview } from './discounts/discounts.service.js'
 import type { CheckoutQuote } from './checkout/checkout.service.js'
@@ -62,6 +64,10 @@ describe('API ↔ storefront contract', () => {
     expectTypeOf<Serialized<PlacedOrder>>().toEqualTypeOf<OrderPlacedView>()
     expectTypeOf<Serialized<OrderReceipt>>().toEqualTypeOf<OrderReceiptView>()
     expectTypeOf<Serialized<OrderTracking>>().toEqualTypeOf<OrderTrackingView>()
+  })
+
+  it('accounts', () => {
+    expectTypeOf<Serialized<AccountProfile>>().toEqualTypeOf<AccountView>()
   })
 
   it('payments', () => {

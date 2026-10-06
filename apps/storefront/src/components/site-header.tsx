@@ -1,5 +1,6 @@
 import type { CategoryNode } from '@nowoll/types'
 import Link from 'next/link'
+import { AccountButton } from './account-button'
 import { CartButton } from './cart-button'
 import { MobileMenu } from './mobile-menu'
 
@@ -31,8 +32,10 @@ export function SiteHeader({ categories }: { categories: CategoryNode[] }) {
             ))}
           </ul>
         </nav>
-        {/* Account button arrives with Phase 4 (customer accounts). */}
-        <CartButton />
+        <div className="flex items-center gap-4">
+          <AccountButton />
+          <CartButton />
+        </div>
       </div>
     </header>
   )
