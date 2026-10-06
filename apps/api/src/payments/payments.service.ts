@@ -17,6 +17,7 @@ import {
   type PaymentProvider,
   type VerifyResult,
 } from '@nowoll/payments'
+import { ORDER_NOTIFIER, type OrderNotifier } from '../orders/order-notifier.js'
 import { displayNumber } from '../orders/order-number.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import { SettingsService } from '../settings/settings.service.js'
@@ -83,6 +84,7 @@ export class PaymentsService {
     private readonly settings: SettingsService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentProvider,
     @Inject(PAYMENTS_CONFIG) private readonly config: PaymentsConfig,
+    @Inject(ORDER_NOTIFIER) private readonly notifier: OrderNotifier,
   ) {}
 
   /** Why an order of this total can't be paid online right now — or null if it can. */
@@ -322,7 +324,7 @@ export class PaymentsService {
       return 'NOT_PAID'
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const effect = await this.prisma.$transaction(async (tx) => {
       // Same lock as OrdersService.cancel(): a payment and the expiry sweep
       // for the same order take turns — never both at once.
       await tx.$queryRaw`SELECT id FROM orders WHERE id = ${payment.orderId}::uuid FOR UPDATE`
@@ -422,6 +424,20 @@ export class PaymentsService {
       this.logger.log(`${label}: paid — order confirmed`)
       return 'CONFIRMED' as const
     })
+
+    // After the commit only: "Payment received ✓" email via the order worker (step 27).
+    if (effect === 'CONFIRMED') {
+      const order = await this.prisma.order.findUniqueOrThrow({
+        where: { id: payment.orderId },
+        select: { orderNumber: true },
+      })
+      await this.notifier
+        .paymentConfirmed({ orderId: payment.orderId, orderNumber: order.orderNumber })
+        .catch((e: unknown) =>
+          this.logger.error(`Payment-confirmed notification failed: ${String(e)}`),
+        )
+    }
+    return effect
   }
 
   /**

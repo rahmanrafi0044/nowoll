@@ -37,6 +37,15 @@ describe('content', () => {
     expect(email.text).toContain('6 October 2026')
   })
 
+  it('payment received: the full receipt, the amount paid, no "pay in cash"', async () => {
+    const email = await renderEmail(EXAMPLES.paymentConfirmed!)
+    expect(email.subject).toBe('Payment received — order NW-10007')
+    expect(email.text).toMatch(/we've received ৳3,550/)
+    expect(email.text).toContain('Eid Silk Panjabi')
+    expect(email.text).toContain('40 / Maroon')
+    expect(email.text).not.toMatch(/in cash/)
+  })
+
   it('online orders: no "pay in cash" line', async () => {
     const email = await renderEmail(
       orderConfirmationEmail({ ...exampleConfirmation(), paymentMethod: 'SSLCOMMERZ' }),

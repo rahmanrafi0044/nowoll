@@ -88,6 +88,10 @@ export class EnvironmentVariables {
   })
   COOKIE_DOMAIN?: string
 
+  // Redis: the background job queues (BullMQ, step 27 — CLAUDE.md §10).
+  @Matches(/^rediss?:\/\/.+/, { message: 'REDIS_URL must look like redis://host:6379' })
+  REDIS_URL: string = 'redis://localhost:6379'
+
   // The API's own public address. SSLCommerz sends payment notifications and
   // the customer's browser back to it, so in production it must be the real
   // https address (e.g. https://api.nowoll.com) — never localhost.

@@ -1,4 +1,5 @@
 import { Section } from '@react-email/components'
+import type { ReactNode } from 'react'
 import { BRAND } from '../brand.js'
 import { formatBdt, formatDate, type Money } from '../format.js'
 import { CallToAction, Heading, Layout, Note, P } from '../layout.js'
@@ -29,69 +30,98 @@ export function welcomeEmail(d: { name: string | null; shopUrl: string }): Email
   }
 }
 
-// ---- 2. Order placed (with receipt) ------------------------------------------
-export function orderConfirmationEmail(d: {
+// ---- 2 + 3. Order receipt: cash order placed / online payment confirmed ------------
+/** What both receipt emails show. */
+export interface ReceiptEmailData {
   name: string
   orderNumber: string
   placedAt: string
-  paymentMethod: 'COD' | 'SSLCOMMERZ'
   lines: EmailOrderLine[]
   totals: EmailTotals
   address: string
   link: Link
-}): EmailContent {
+}
+
+/** Cash on delivery: sent when the order is placed. */
+export function orderConfirmationEmail(
+  d: ReceiptEmailData & { paymentMethod: 'COD' | 'SSLCOMMERZ' },
+): EmailContent {
   const cod = d.paymentMethod === 'COD'
   return {
     tag: 'order-confirmation',
     subject: `Order ${d.orderNumber} — thank you!`,
     element: (
-      <Layout preview={`We've got your order ${d.orderNumber}.`}>
-        <Heading>Thank you, {firstName(d.name)}!</Heading>
-        <P>We&apos;ve received your order — placed {formatDate(d.placedAt)}.</P>
-        <Note>
-          Order number: <strong>{d.orderNumber}</strong>
-        </Note>
-        {cod ? (
-          <P>
-            We&apos;ll call you shortly to confirm. Please pay{' '}
-            <strong>{formatBdt(d.totals.total)}</strong> in cash when your parcel arrives.
-          </P>
-        ) : (
-          <P>We&apos;ll email you again as soon as your online payment is confirmed.</P>
-        )}
-        <OrderLines lines={d.lines} />
-        <Totals totals={d.totals} />
-        <Section style={{ marginTop: '20px' }}>
-          <P muted>Delivering to: {d.address}</P>
-        </Section>
-        <CallToAction href={d.link.url}>{d.link.label}</CallToAction>
-      </Layout>
+      <Receipt
+        d={d}
+        preview={`We've got your order ${d.orderNumber}.`}
+        heading={`Thank you, ${firstName(d.name)}!`}
+        intro={
+          cod ? (
+            <P>
+              We&apos;ll call you shortly to confirm. Please pay{' '}
+              <strong>{formatBdt(d.totals.total)}</strong> in cash when your parcel arrives.
+            </P>
+          ) : (
+            <P>We&apos;ll email you again as soon as your online payment is confirmed.</P>
+          )
+        }
+      />
     ),
   }
 }
 
-// ---- 3. SSLCommerz payment confirmed ------------------------------------------
-export function paymentConfirmedEmail(d: {
-  name: string
-  orderNumber: string
-  amount: Money
-  link: Link
-}): EmailContent {
+/**
+ * Online payment confirmed (SSLCommerz): the ONLY email an online order gets
+ * at checkout (step 27 decision #2) — so it carries the full receipt.
+ */
+export function paymentConfirmedEmail(d: ReceiptEmailData): EmailContent {
   return {
     tag: 'payment-confirmed',
     subject: `Payment received — order ${d.orderNumber}`,
     element: (
-      <Layout preview={`We've received ${formatBdt(d.amount)} for order ${d.orderNumber}.`}>
-        <Heading>Payment received ✓</Heading>
-        <P>
-          Thanks, {firstName(d.name)} — we&apos;ve received <strong>{formatBdt(d.amount)}</strong>{' '}
-          for order <strong>{d.orderNumber}</strong>. It&apos;s confirmed, and we&apos;re getting it
-          ready.
-        </P>
-        <CallToAction href={d.link.url}>{d.link.label}</CallToAction>
-      </Layout>
+      <Receipt
+        d={d}
+        preview={`We've received ${formatBdt(d.totals.total)} for order ${d.orderNumber}.`}
+        heading="Payment received ✓"
+        intro={
+          <P>
+            Thanks, {firstName(d.name)} — we&apos;ve received{' '}
+            <strong>{formatBdt(d.totals.total)}</strong>. Your order is confirmed and we&apos;re
+            getting it ready.
+          </P>
+        }
+      />
     ),
   }
+}
+
+function Receipt({
+  d,
+  preview,
+  heading,
+  intro,
+}: {
+  d: ReceiptEmailData
+  preview: string
+  heading: string
+  intro: ReactNode
+}) {
+  return (
+    <Layout preview={preview}>
+      <Heading>{heading}</Heading>
+      <P>Order placed {formatDate(d.placedAt)}.</P>
+      <Note>
+        Order number: <strong>{d.orderNumber}</strong>
+      </Note>
+      {intro}
+      <OrderLines lines={d.lines} />
+      <Totals totals={d.totals} />
+      <Section style={{ marginTop: '20px' }}>
+        <P muted>Delivering to: {d.address}</P>
+      </Section>
+      <CallToAction href={d.link.url}>{d.link.label}</CallToAction>
+    </Layout>
+  )
 }
 
 // ---- 4. Shipped ------------------------------------------------------------------

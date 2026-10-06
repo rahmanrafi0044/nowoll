@@ -26,6 +26,7 @@
     "@nestjs/throttler": "^6.7.1",
     "@nowoll/database": "workspace:*",
     "@nowoll/payments": "workspace:*",
+    "@nowoll/queues": "workspace:^",
     "@nowoll/types": "workspace:*",
     "@nowoll/validation": "workspace:*",
     "@supabase/supabase-js": "^2.117.2",

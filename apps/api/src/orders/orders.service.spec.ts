@@ -24,7 +24,10 @@ const discounts = new DiscountsService(prisma)
 const settings = new SettingsService(prisma)
 const checkout = new CheckoutService(prisma, discounts, new ShippingService(prisma), settings)
 const placedEvents: unknown[] = []
-const notifier = { orderPlaced: async (e: unknown) => void placedEvents.push(e) }
+const notifier = {
+  orderPlaced: async (e: unknown) => void placedEvents.push(e),
+  paymentConfirmed: async () => {},
+}
 const { stock } = makeStockService(prisma)
 const { payments } = makePaymentsService(prisma)
 const orders = new OrdersService(prisma, checkout, discounts, stock, payments, notifier)

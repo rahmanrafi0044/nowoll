@@ -19,6 +19,7 @@ import { CartModule } from './cart/cart.module.js'
 import { CheckoutModule } from './checkout/checkout.module.js'
 import { ShippingModule } from './shipping/shipping.module.js'
 import { OrdersModule } from './orders/orders.module.js'
+import { NotificationsModule } from './notifications/notifications.module.js'
 import { PaymentsModule } from './payments/payments.module.js'
 import { ReturnsModule } from './returns/returns.module.js'
 import { ReviewsModule } from './reviews/reviews.module.js'
@@ -40,6 +41,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ name: 'default', ...GLOBAL_RATE_LIMIT }]),
     PrismaModule,
+    NotificationsModule,
     StorageModule,
     HealthModule,
     CategoriesModule,
