@@ -6,7 +6,8 @@ import { AuthController } from './auth.controller.js'
 import { OptionalSignInGuard, SignedInGuard } from './auth.guard.js'
 import { AuthService } from './auth.service.js'
 
-// Customer accounts (Phase 4 step 22). Staff/admin sign-in is separate (Phase 5).
+// Customer accounts (Phase 4 step 22). Staff/admin sign-in is admin-auth/ (step 29a),
+// which shares this module's Supabase adapter (AUTH_PROVIDER) and cookie settings.
 @Module({
   controllers: [AuthController],
   providers: [
@@ -18,6 +19,6 @@ import { AuthService } from './auth.service.js'
     { provide: AUTH_CONFIG, inject: [ConfigService], useFactory: authConfigFrom },
   ],
   // Other modules put SignedInGuard / OptionalSignInGuard on their routes.
-  exports: [AuthService, SignedInGuard, OptionalSignInGuard, AUTH_CONFIG],
+  exports: [AuthService, SignedInGuard, OptionalSignInGuard, AUTH_CONFIG, AUTH_PROVIDER],
 })
 export class AuthModule {}

@@ -15,6 +15,15 @@ import type { AuthSession } from './auth-provider.js'
 // ============================================================================
 export const ACCESS_COOKIE = 'nw_access'
 export const REFRESH_COOKIE = 'nw_refresh'
+
+// The ADMIN panel's session uses its own pair (step 29a): being signed in to
+// the shop never signs you in to admin, and signing out of one leaves the other.
+export interface CookieNames {
+  access: string
+  refresh: string
+}
+export const CUSTOMER_COOKIES: CookieNames = { access: ACCESS_COOKIE, refresh: REFRESH_COOKIE }
+export const ADMIN_COOKIES: CookieNames = { access: 'nw_admin_access', refresh: 'nw_admin_refresh' }
 export const REFRESH_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // a month of "remember me"
 
 export interface CookieSettings {
@@ -30,12 +39,21 @@ const base = (s: CookieSettings): CookieOptions => ({
   ...(s.domain && { domain: s.domain }),
 })
 
-export function setSessionCookies(res: Response, session: AuthSession, s: CookieSettings): void {
-  res.cookie(ACCESS_COOKIE, session.accessToken, { ...base(s), maxAge: session.expiresIn * 1000 })
-  res.cookie(REFRESH_COOKIE, session.refreshToken, { ...base(s), maxAge: REFRESH_MAX_AGE_MS })
+export function setSessionCookies(
+  res: Response,
+  session: AuthSession,
+  s: CookieSettings,
+  names: CookieNames = CUSTOMER_COOKIES,
+): void {
+  res.cookie(names.access, session.accessToken, { ...base(s), maxAge: session.expiresIn * 1000 })
+  res.cookie(names.refresh, session.refreshToken, { ...base(s), maxAge: REFRESH_MAX_AGE_MS })
 }
 
-export function clearSessionCookies(res: Response, s: CookieSettings): void {
-  res.clearCookie(ACCESS_COOKIE, base(s))
-  res.clearCookie(REFRESH_COOKIE, base(s))
+export function clearSessionCookies(
+  res: Response,
+  s: CookieSettings,
+  names: CookieNames = CUSTOMER_COOKIES,
+): void {
+  res.clearCookie(names.access, base(s))
+  res.clearCookie(names.refresh, base(s))
 }

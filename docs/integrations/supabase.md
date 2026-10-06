@@ -7,7 +7,7 @@ Nowoll uses Supabase for three things:
 |---|---|---|
 | **PostgreSQL** (hosted database) | API via Prisma | Local Docker Postgres in dev; Supabase in production (Phase 7) |
 | **Storage** (product images) | API only | ✅ Implemented — Phase 2 step 10 |
-| **Auth** (login, 2FA) | storefront, admin, API | Phase 4 — admin proxy already verifies tokens with `getClaims()` |
+| **Auth** (login, 2FA) | API only (both apps sign in through it) | ✅ Customers — step 22 · ✅ Admin + 2FA — step 29a |
 
 **Dashboard:** https://supabase.com/dashboard
 **SDK:** `@supabase/supabase-js` (v2.117) — all calls below were checked against the installed SDK's type definitions, not written from memory.
@@ -132,8 +132,7 @@ Both clients are stateless (`persistSession: false`). The service role key stays
    through Resend". Until then reset emails reach only your Supabase organization's members. The branded
    reset-email HTML is [supabase-reset-password.html](./supabase-reset-password.html) (replaces step 2's one-line link).
 
-Not yet: Google sign-in (later step), staff/admin sign-in with 2FA (Phase 5 — `user_role` claim via a
-custom access token hook, to be checked against Supabase's docs then).
+Not yet: Google sign-in (later step).
 
 ### Real-project check (6 Oct 2026)
 One test account against the real Supabase project, then deleted (Supabase + dev DB):
@@ -143,9 +142,61 @@ refresh token no longer renews · forgot-password answers the same for any addre
 `example.com` addresses, logged only). Found: a sign-up whose `users` row failed to save (local DB was
 down) was rebuilt **without the name** → the name now comes from `user_metadata.full_name`.
 
+## Admin sign-in and 2FA (step 29a)
+
+Staff sign in at the admin panel with the **same Supabase account** as the shop, through our API
+(`/api/v1/admin/auth/*`), in two steps: password, then a 6-digit code from an authenticator app (TOTP).
+The admin session lives in its **own** cookies, `nw_admin_access` / `nw_admin_refresh` (same flags as the
+shop's) — the shop session never opens the admin panel, and signing out of one leaves the other.
+
+**Every admin request** (`AdminGuard`) needs all of:
+- a valid admin token (signature checked with `getClaims`, renewed if expired);
+- `users.role` = `ADMIN` or `STAFF`, read from **our database** each request — so revoking or banning
+  works on the very next click. (Chosen over a Supabase "custom access token hook": nothing to configure,
+  and no stale role inside a token that lives an hour.);
+- not banned or soft-deleted;
+- the token's `aal` claim = `aal2` (code entered). A password-only (`aal1`) session can only set up
+  the app or enter a code.
+
+### Supabase calls used (checked against the installed SDK types and the official docs)
+| Our method | Supabase call | Client |
+|---|---|---|
+| hasVerifiedTotp | `auth.admin.mfa.listFactors({ userId })` | service role |
+| enrollTotp | `auth.mfa.enroll({ factorType: 'totp', friendlyName, issuer: 'Nowoll' })` → `totp.qr_code` (SVG data URL), `totp.secret` | as the user |
+| verifyTotp | `auth.mfa.challengeAndVerify({ factorId, code })` → a new session at `aal2` | as the user |
+| removeTotp | `auth.admin.mfa.deleteFactor({ id, userId })` — "logs the user out of all active sessions if the deleted factor was verified" | service role |
+| (guard) | `aal` claim from `getClaims` — "This assurance level is encoded in the `aal` claim in the JWT" | anon |
+
+"As the user" = a throw-away stateless client per call, `auth.setSession({ access_token, refresh_token })`
+first (the MFA calls act on the client's current session). Half-finished set-ups (`unverified` factors) are
+deleted before a new QR code is made. Official docs facts relied on: "TOTP MFA API is free to use and is
+enabled on all Supabase projects by default"; after verifying a new factor "all other sessions are logged out"
+(SDK docs) — so the first set-up signs that person out of other devices.
+
+**Rules:** an already set-up app can't be replaced with just the password (a stolen password must not beat
+2FA) — that takes `pnpm admin:reset-2fa`. 5 tries/min on login, enrol and verify per IP.
+
+### Who is staff — commands (repo root)
+```bash
+pnpm admin:grant you@example.com          # ADMIN (or add STAFF)
+pnpm admin:revoke someone@example.com     # back to a customer account
+pnpm admin:reset-2fa you@example.com      # lost phone — see below
+```
+The account must exist first: sign up on the shop with that email. In production these run on the server
+with the production `.env` — never edit `users.role` by hand.
+
+### Lost phone
+1. Someone with server access runs `pnpm admin:reset-2fa <email>` — the old app is removed and that person
+   is signed out everywhere.
+2. They sign in again: password → a new QR code → scan it with the new phone.
+
+If NO admin can sign in, the same command is the way back in (it needs only server access, not the panel).
+Tip: when scanning, also save the set-up key (shown under "Can't scan it?") in a password manager.
+
 ### Testing
 API tests use `apps/api/test/utils/fake-auth-provider.ts` (tokens expire, refresh tokens are single-use,
-reset links work once) — no test creates a real account.
+reset links work once; each authenticator app's code is fixed — `codeOnPhone(userId)`) — no test creates a
+real account. Admin sign-in: `apps/api/test/admin-auth.e2e-spec.ts`; helper `test/utils/admin.ts`.
 
 ---
 
