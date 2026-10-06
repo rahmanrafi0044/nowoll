@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@nowoll/ui'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { type ReactNode, useEffect, useState } from 'react'
 import { LOGIN_PATH } from '@/lib/admin-access'
@@ -16,6 +17,12 @@ import { type AdminProfile, fetchAdmin, signOut } from '@/lib/admin-auth-api'
 // server renewed an expired session while rendering, the browser would never
 // receive the new cookies — and the old refresh token would be used up.)
 // ============================================================================
+// The admin sections, in the header. More arrive with each Phase 5 step.
+const NAV = [
+  { href: '/admin/dashboard', label: 'Dashboard' },
+  { href: '/admin/products', label: 'Products' },
+]
+
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [admin, setAdmin] = useState<AdminProfile | null>(null)
@@ -53,7 +60,28 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <>
       <header className="border-b border-border bg-surface">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <span className="font-semibold">Nowoll Admin</span>
+          <div className="flex items-center gap-6">
+            <span className="font-semibold">Nowoll Admin</span>
+            <nav aria-label="Admin sections" className="flex gap-4 text-sm">
+              {NAV.map((item) => {
+                const current = pathname === item.href || pathname.startsWith(`${item.href}/`)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={current ? 'page' : undefined}
+                    className={
+                      current
+                        ? 'font-medium text-foreground underline underline-offset-8'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+          </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden text-muted-foreground sm:inline">
               {admin.fullName ?? admin.email} · {admin.role === 'ADMIN' ? 'Admin' : 'Staff'}

@@ -1,3 +1,4 @@
+import type { ProductImportSummary } from '@nowoll/types'
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { Prisma } from '@nowoll/database'
 import { InventoryChangeReason, ProductStatus } from '@nowoll/database/enums'
@@ -29,12 +30,8 @@ import {
 //   • Rows are matched by product_slug and sku. Import never deletes anything.
 // ============================================================================
 
-export interface ImportSummary {
-  dryRun: boolean
-  products: { created: number; updated: number; unchanged: number }
-  variants: { created: number; updated: number; unchanged: number }
-  stockChanges: number
-}
+/** Shared with the admin app (its import preview shows exactly these numbers). */
+export type ImportSummary = ProductImportSummary
 
 type Row = { line: number; cells: Partial<Record<CsvColumn, string>> }
 

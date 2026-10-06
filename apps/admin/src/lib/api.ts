@@ -1,11 +1,22 @@
+import type { ApiResult } from '@nowoll/types'
 import { publicEnv } from '@/lib/env'
 
-// The API's answer shape (CLAUDE.md §8).
-type ApiResult<T> =
-  { success: true; data: T } | { success: false; error?: string; message?: string }
-
 export type ApiCallResult<T> =
-  { ok: true; data: T } | { ok: false; status: number; error?: string; message: string }
+  | { ok: true; data: T }
+  | {
+      ok: false
+      status: number
+      error?: string
+      message: string
+      /** One line per problem, when the API lists them (e.g. CSV import, with row numbers). */
+      details?: string[]
+    }
+
+const OFFLINE = {
+  ok: false,
+  status: 0,
+  message: 'Could not connect. Check your internet and try again.',
+} as const
 
 /**
  * One call to the API from the browser. Never throws: failures come back as { ok: false }.
@@ -21,24 +32,47 @@ export async function call<T>(
     const res = await fetch(`${publicEnv.apiUrl}/api/v1${path}`, {
       method,
       credentials: 'include',
-      ...((method === 'POST' || method === 'PATCH') && {
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body ?? {}),
-      }),
+      ...(body instanceof FormData
+        ? { body } // the browser sets the multipart Content-Type (with its boundary) itself
+        : (method === 'POST' || method === 'PATCH') && {
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body ?? {}),
+          }),
     })
-    const json = (await res.json()) as ApiResult<T>
-    if (json.success) return { ok: true, data: json.data }
-    return {
-      ok: false,
-      status: res.status,
-      error: json.error,
-      message: json.message ?? 'Something went wrong. Please try again.',
-    }
+    return toResult<T>(res, (await res.json()) as ApiResult<T>)
   } catch {
-    return {
-      ok: false,
-      status: 0,
-      message: 'Could not connect. Check your internet and try again.',
-    }
+    return OFFLINE
+  }
+}
+
+/**
+ * Downloads a file the API sends (e.g. the products CSV) and hands it to the
+ * browser's "save" — the request needs the admin cookies, so a plain link won't do.
+ */
+export async function download(path: string, fallbackName: string): Promise<ApiCallResult<null>> {
+  try {
+    const res = await fetch(`${publicEnv.apiUrl}/api/v1${path}`, { credentials: 'include' })
+    if (!res.ok) return toResult<null>(res, (await res.json()) as ApiResult<null>)
+    const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1]
+    const url = URL.createObjectURL(await res.blob())
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name ?? fallbackName
+    a.click()
+    URL.revokeObjectURL(url)
+    return { ok: true, data: null }
+  } catch {
+    return OFFLINE
+  }
+}
+
+function toResult<T>(res: Response, json: ApiResult<T>): ApiCallResult<T> {
+  if (json.success) return { ok: true, data: json.data }
+  return {
+    ok: false,
+    status: res.status,
+    error: json.error,
+    message: json.message ?? 'Something went wrong. Please try again.',
+    ...(json.details && { details: json.details }),
   }
 }

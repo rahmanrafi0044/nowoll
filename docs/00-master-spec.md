@@ -200,6 +200,16 @@
 │   ├── POST   /change-password (authenticated — needs the current password; 5/min)
 │   ├── POST   /forgot-password
 │   └── POST   /reset-password
+├── admin/                  (admin panel — every route: staff role + 2FA, except sign-in itself)
+│   ├── auth/
+│   │   ├── POST   /login        (email + password → { next: 'enroll' | 'verify' }; 5/min)
+│   │   ├── POST   /2fa/enroll   (password-only session — first time: QR code; 5/min)
+│   │   ├── POST   /2fa/verify   (password-only session — 6-digit code → full session; 5/min)
+│   │   ├── GET    /me
+│   │   └── POST   /logout
+│   └── products/
+│       ├── GET    /             (drafts + live; ?status=ARCHIVED|all, q, categoryId, lowStock, sort, page)
+│       └── POST   /bulk         (publish | unpublish | feature | unfeature | archive — up to 100, each on its own)
 ├── categories/
 │   ├── GET    /           (public, nested tree)
 │   ├── GET    /:slug       (public)
@@ -213,8 +223,9 @@
 │   ├── PATCH  /:id         (admin)
 │   ├── DELETE /:id         (admin, soft delete)
 │   ├── POST   /:id/images  (admin)
+│   ├── PATCH  /:id/images/:imageId (admin — alt text, order, variant)
 │   ├── DELETE /:id/images/:imageId (admin)
-│   ├── POST   /import      (admin, CSV)
+│   ├── POST   /import      (admin, CSV; ?dryRun=true checks without saving)
 │   └── GET    /export      (admin, CSV)
 ├── variants/
 │   ├── GET    /product/:productId

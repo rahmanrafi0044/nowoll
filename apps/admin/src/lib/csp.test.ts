@@ -26,6 +26,23 @@ describe('buildCsp', () => {
     expect(policy(prod)['connect-src']).toContain('https://api.nowoll.com')
   })
 
+  it('allows product photos from the given hosts only — they cannot be fetched by scripts', () => {
+    const csp = buildCsp({
+      nonce: 'abc',
+      isDev: false,
+      connectSrc: ['https://api.nowoll.com'],
+      imgSrc: ['https://abc.supabase.co'],
+    })
+    expect(policy(csp)['img-src']).toEqual([
+      "'self'",
+      'blob:',
+      'data:',
+      'https://api.nowoll.com',
+      'https://abc.supabase.co',
+    ])
+    expect(policy(csp)['connect-src']).not.toContain('https://abc.supabase.co')
+  })
+
   it('adds unsafe-eval and websockets only in development (React dev tooling)', () => {
     const dev = buildCsp({ nonce: 'abc', isDev: true, connectSrc: [] })
     expect(policy(dev)['script-src']).toContain("'unsafe-eval'")
