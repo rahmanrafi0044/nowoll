@@ -76,7 +76,11 @@ describe('order lookup', () => {
     })
 
     it('the email never has to be in a URL (GET is not offered)', async () => {
-      await http().get('/api/v1/orders/track?orderId=NW-10001&email=rafi@example.com').expect(404)
+      // (Since step 31, GET /orders/:id is the ADMIN order page, so this is refused
+      // by the admin guard — 401 — rather than 404. Either way: nothing comes back.)
+      const res = await http().get('/api/v1/orders/track?orderId=NW-10001&email=rafi@example.com')
+      expect([401, 404]).toContain(res.status)
+      expect(res.body.data).toBeUndefined()
     })
   })
 
