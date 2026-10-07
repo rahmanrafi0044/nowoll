@@ -20,6 +20,7 @@ import { type AdminProfile, fetchAdmin, signOut } from '@/lib/admin-auth-api'
 // The admin sections, in the header. More arrive with each Phase 5 step.
 const NAV = [
   { href: '/admin/dashboard', label: 'Dashboard' },
+  { href: '/admin/orders', label: 'Orders' },
   { href: '/admin/products', label: 'Products' },
 ]
 
