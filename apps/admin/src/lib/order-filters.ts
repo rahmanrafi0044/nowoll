@@ -30,7 +30,11 @@ export function parseOrderFilters(
   const method = one('paymentMethod')
   return {
     q: one('q')?.trim().slice(0, 100) || undefined,
-    status: STATUSES.find((s) => s === one('status')),
+    // One status, or several ("CONFIRMED,PROCESSING" = to ship) — all must be known.
+    status: (() => {
+      const list = (one('status') ?? '').split(',').filter(Boolean)
+      return list.length > 0 && list.every((s) => STATUSES.includes(s)) ? list.join(',') : undefined
+    })(),
     paymentMethod: method === 'COD' || method === 'SSLCOMMERZ' ? method : undefined,
     paymentStatus: PAYMENT_STATUSES.find((s) => s === one('paymentStatus')),
     from: DATE.test(one('from') ?? '') ? one('from') : undefined,

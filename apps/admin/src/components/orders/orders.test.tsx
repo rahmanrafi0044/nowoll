@@ -170,6 +170,10 @@ describe('OrderList', () => {
       to: undefined,
       page: 3,
     })
+    expect(parseOrderFilters({ status: 'CONFIRMED,PROCESSING' }).status).toBe(
+      'CONFIRMED,PROCESSING',
+    )
+    expect(parseOrderFilters({ status: 'CONFIRMED,LOST' }).status).toBeUndefined()
     expect(parseOrderFilters({ status: 'LOST', paymentMethod: 'bkash' })).toMatchObject({
       status: undefined,
       paymentMethod: undefined,
@@ -192,6 +196,10 @@ describe('OrderDetail', () => {
     )
     expect(card('History')).toHaveTextContent('Order placed')
     expect(card('History')).toHaveTextContent('Automatic')
+    expect(screen.getByRole('link', { name: 'Invoice ↗' })).toHaveAttribute(
+      'href',
+      '/admin/orders/o1/invoice',
+    )
   })
 
   it('the buttons are exactly what the API allows next', async () => {

@@ -1,5 +1,7 @@
-import { Type } from 'class-transformer'
+import { Transform, Type } from 'class-transformer'
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -56,9 +58,15 @@ export class AdminOrdersQuery {
   @MaxLength(100)
   q?: string
 
+  /** One status, or several separated by commas: "CONFIRMED,PROCESSING" (= to ship). */
   @IsOptional()
-  @IsIn(ORDER_STATUSES)
-  status?: (typeof ORDER_STATUSES)[number]
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.split(',').map((s) => s.trim()) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(7)
+  @IsIn(ORDER_STATUSES, { each: true })
+  status?: (typeof ORDER_STATUSES)[number][]
 
   @IsOptional()
   @IsIn(['COD', 'SSLCOMMERZ'])

@@ -246,7 +246,7 @@
 │   └── POST   /validate    (public, rate-limited to 5/min)
 ├── orders/
 │   ├── POST   /            (public — guest or authenticated)
-│   ├── GET    /            (admin, paginated + filterable)
+│   ├── GET    /            (admin, paginated + filterable; ?status=CONFIRMED,PROCESSING takes several)
 │   ├── GET    /my          (authenticated customer — orders placed while signed in)
 │   ├── GET    /my/:number  (authenticated — own order by number, e.g. NW-10001; others → 404)
 │   ├── POST   /track       (public, body {orderNumber, contact: email or phone}; 5/min — POST keeps the email out of URLs/logs)
@@ -256,7 +256,7 @@
 │   ├── PATCH  /:id/tracking (admin — correct courier/tracking after shipping; no new email)
 │   ├── PATCH  /:id/notes   (admin — staff-only notes)
 │   ├── PATCH  /:id/cash-collected (admin — COD cash handed over → paid)
-│   └── GET    /:id/invoice (admin, PDF)
+│   └── GET    /:id/invoice (admin — data for the printable invoice page; the browser's "Save as PDF" makes the PDF, so Bangla prints correctly)
 ├── payment/
 │   ├── POST   /sslcommerz/init     (authenticated or guest, after order)
 │   ├── POST   /sslcommerz/ipn      (PUBLIC — called by SSLCommerz server)

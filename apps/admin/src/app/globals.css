@@ -15,3 +15,14 @@
   --color-chart-1: #2a78d6;
   --color-chart-grid: #e5e5e5;
 }
+
+/* Printing (the invoice, step 31b): A4, white, no screen-only chrome. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  body {
+    background: white;
+  }
+}

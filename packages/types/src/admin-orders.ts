@@ -111,3 +111,18 @@ export interface OrderStatusChange {
   /** DELIVERED + cash on delivery: the cash was collected → paid. */
   cashCollected?: boolean
 }
+
+/** GET /orders/:id/invoice — what the printable invoice page shows. */
+export interface OrderInvoice {
+  order: AdminOrderDetail
+  /** The shop's details from the settings (empty ones are null — left off the invoice). */
+  store: {
+    name: string
+    tagline: string | null
+    address: string | null
+    phone: string | null
+    email: string | null
+  }
+  /** Today, as a shop date (Bangladesh): YYYY-MM-DD. */
+  issuedOn: string
+}

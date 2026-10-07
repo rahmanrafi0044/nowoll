@@ -170,6 +170,7 @@ function Filters({
           onChange={(e) => onChange({ status: e.target.value || undefined })}
         >
           <option value="">Any status</option>
+          <option value="CONFIRMED,PROCESSING">To ship (confirmed + packing)</option>
           {Object.entries(ORDER_STATUS).map(([value, s]) => (
             <option key={value} value={value}>
               {s.label}

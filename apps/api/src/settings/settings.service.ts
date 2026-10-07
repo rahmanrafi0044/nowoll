@@ -83,4 +83,31 @@ export class SettingsService {
     )
     return 7
   }
+
+  /**
+   * The shop's own details (invoices, step 31b). Missing or empty settings
+   * come back as null, so an invoice simply leaves the line out; the name
+   * falls back to "Nowoll".
+   */
+  async storeInfo(): Promise<{
+    name: string
+    tagline: string | null
+    address: string | null
+    phone: string | null
+    email: string | null
+  }> {
+    const keys = ['store_name', 'store_tagline', 'store_address', 'store_phone', 'store_email']
+    const rows = await this.prisma.setting.findMany({ where: { key: { in: keys } } })
+    const text = (key: string) => {
+      const value = rows.find((r) => r.key === key)?.value
+      return typeof value === 'string' && value.trim() ? value.trim() : null
+    }
+    return {
+      name: text('store_name') ?? 'Nowoll',
+      tagline: text('store_tagline'),
+      address: text('store_address'),
+      phone: text('store_phone'),
+      email: text('store_email'),
+    }
+  }
 }

@@ -99,6 +99,21 @@ describe('Dashboard', () => {
     expect(within(box).getAllByText('2')).toHaveLength(1)
   })
 
+  it('needs attention: each waiting line opens the matching order list (not when it is 0)', async () => {
+    render(<Dashboard />)
+    await screen.findByText('Sales today')
+    const box = section('Needs attention')
+    expect(
+      within(box).getByRole('link', { name: /cash-on-delivery orders to confirm/ }),
+    ).toHaveAttribute('href', '/admin/orders?status=PENDING&paymentMethod=COD')
+    expect(within(box).getByRole('link', { name: /to pack and ship/ })).toHaveAttribute(
+      'href',
+      '/admin/orders?status=CONFIRMED,PROCESSING',
+    )
+    expect(within(box).queryByRole('link', { name: /payments to check/ })).not.toBeInTheDocument() // 0 waiting
+    expect(within(box).queryByRole('link', { name: /return requests/ })).not.toBeInTheDocument() // page in step 35
+  })
+
   it('needs attention: all zero → "All caught up"', async () => {
     mocked.fetchSummary.mockResolvedValue(
       ok({
