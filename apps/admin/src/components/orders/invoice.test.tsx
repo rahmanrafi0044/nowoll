@@ -13,6 +13,7 @@ const ORDER = {
     email: 'rafi@example.com',
     phone: '+8801712345678',
     hasAccount: true,
+    accountId: 'u1',
   },
   address: {
     line1: 'বাড়ি ১২, রোড ৫',

@@ -188,9 +188,16 @@ function Customer({ order }: { order: AdminOrderDetail }) {
       <a href={`mailto:${order.customer.email}`} className="break-all underline underline-offset-4">
         {order.customer.email}
       </a>
-      <span className="text-xs text-muted-foreground">
-        {order.customer.hasAccount ? 'Has an account' : 'Guest checkout'}
-      </span>
+      {order.customer.accountId ? (
+        <Link
+          href={`/admin/customers/${order.customer.accountId}`}
+          className="text-xs underline underline-offset-4"
+        >
+          View customer account
+        </Link>
+      ) : (
+        <span className="text-xs text-muted-foreground">Guest checkout</span>
+      )}
       <address className="mt-2 not-italic">
         {a.line1}
         {a.line2 && <>, {a.line2}</>}

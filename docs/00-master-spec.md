@@ -207,6 +207,11 @@
 │   │   ├── POST   /2fa/verify   (password-only session — 6-digit code → full session; 5/min)
 │   │   ├── GET    /me
 │   │   └── POST   /logout
+│   ├── customers/            (shop ACCOUNTS only — never staff)
+│   │   ├── GET    /             (?q=name/email/phone, status=ACTIVE|BANNED, sort=newest|spent|orders|name, page)
+│   │   ├── GET    /:id          (contact, stats, addresses, account orders + staff-only guest orders with the same email/phone)
+│   │   ├── PATCH  /:id/ban      (reason required, staff-only; refused on next request + checkout by email/phone refused)
+│   │   └── PATCH  /:id/unban
 │   └── products/
 │       ├── GET    /             (drafts + live; ?status=ARCHIVED|all, q, categoryId, lowStock, sort, page)
 │       ├── GET    /:id          (the edit page: all non-deleted variants with exact stock, photos in order, what's missing to publish)
