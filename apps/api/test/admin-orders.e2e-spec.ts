@@ -329,6 +329,39 @@ describe('admin orders (step 31a)', () => {
     })
   })
 
+  describe('invoice (data for the printable page)', () => {
+    it('the order plus the shop details from settings — empty ones are null', async () => {
+      const { id } = await placeOrder()
+      await db.setting.createMany({
+        data: [
+          { key: 'store_name', value: 'Nowoll' },
+          { key: 'store_tagline', value: 'always new' },
+          { key: 'store_address', value: 'House 1, Road 2, Dhanmondi, Dhaka' },
+          { key: 'store_phone', value: '' },
+        ],
+      })
+      const inv = (await http().get(`/api/v1/orders/${id}/invoice`).expect(200)).body.data
+      expect(inv.store).toEqual({
+        name: 'Nowoll',
+        tagline: 'always new',
+        address: 'House 1, Road 2, Dhanmondi, Dhaka',
+        phone: null,
+        email: null,
+      })
+      expect(inv.order).toMatchObject({ id, totals: { total: '3040' } })
+      expect(inv.issuedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      expect(inv.order.items).toHaveLength(1)
+    })
+
+    it('no settings at all → the name falls back to "Nowoll"; unknown order → 404', async () => {
+      const { id } = await placeOrder()
+      expect(
+        (await http().get(`/api/v1/orders/${id}/invoice`).expect(200)).body.data.store.name,
+      ).toBe('Nowoll')
+      await http().get('/api/v1/orders/00000000-0000-4000-8000-000000000000/invoice').expect(404)
+    })
+  })
+
   describe('list', () => {
     it('newest first; search by number, phone (any format), name or email; filters', async () => {
       const a = await placeOrder('COD', {
@@ -355,6 +388,7 @@ describe('admin orders (step 31a)', () => {
       expect(await ids('q=RAFI%40EXAMPLE')).toEqual([a.id])
       expect(await ids('paymentMethod=COD')).toEqual([a.id])
       expect(await ids('status=PENDING&paymentStatus=PENDING')).toEqual([b.id, a.id])
+      await http().get('/api/v1/orders?status=PENDING,LOST').expect(400)
       const row = (await http().get('/api/v1/orders').expect(200)).body.data.items[1]
       expect(row).toMatchObject({
         id: a.id,
@@ -365,6 +399,10 @@ describe('admin orders (step 31a)', () => {
         itemCount: 1,
         total: '3040',
       })
+      // Several statuses ("to ship" = confirmed + packing): each one in the list counts.
+      await status(a.id, { from: 'PENDING', to: 'CONFIRMED' }).expect(200)
+      expect(await ids('status=PROCESSING,CONFIRMED')).toEqual([a.id])
+      expect(await ids('status=PENDING,CONFIRMED')).toEqual([b.id, a.id])
     })
 
     it('date range = whole Bangladesh days', async () => {
@@ -418,6 +456,7 @@ describe('admin orders (step 31a)', () => {
       await h().patch(`/api/v1/orders/${id}/tracking`).send({}).expect(401)
       await h().patch(`/api/v1/orders/${id}/notes`).send({}).expect(401)
       await h().patch(`/api/v1/orders/${id}/cash-collected`).expect(401)
+      await h().get(`/api/v1/orders/${id}/invoice`).expect(401)
       // /orders/my is the CUSTOMER's list: "please sign in" (customer), not the admin guard
       const my = await h().get('/api/v1/orders/my').expect(401)
       expect(my.body.error).toBe('NOT_SIGNED_IN')

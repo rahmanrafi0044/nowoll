@@ -59,7 +59,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <header className="border-b border-border bg-surface">
+      {/* print:hidden — printed pages (the invoice) are just the page itself. */}
+      <header className="border-b border-border bg-surface print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-6">
             <span className="font-semibold">Nowoll Admin</span>

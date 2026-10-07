@@ -1,14 +1,27 @@
 import type { AnalyticsSummary } from '@nowoll/types'
+import Link from 'next/link'
 
 // Work waiting for someone right now — the box to check first each morning.
-// (Links to the matching lists arrive with the orders page, step 31, and the
-// returns page, step 35.)
+// Each line opens the matching, already-filtered order list (step 31b);
+// return requests get their link with the returns page (step 35).
 export function NeedsAttention({ counts }: { counts: AnalyticsSummary['needsAttention'] }) {
   const rows = [
-    { n: counts.codToConfirm, text: 'cash-on-delivery orders to confirm by phone' },
-    { n: counts.toShip, text: 'confirmed orders to pack and ship' },
-    { n: counts.paymentsToReview, text: 'online payments to check by hand' },
-    { n: counts.returnRequests, text: 'return requests to approve or reject' },
+    {
+      n: counts.codToConfirm,
+      text: 'cash-on-delivery orders to confirm by phone',
+      href: '/admin/orders?status=PENDING&paymentMethod=COD',
+    },
+    {
+      n: counts.toShip,
+      text: 'confirmed orders to pack and ship',
+      href: '/admin/orders?status=CONFIRMED,PROCESSING',
+    },
+    {
+      n: counts.paymentsToReview,
+      text: 'online payments to check by hand',
+      href: '/admin/orders?paymentStatus=UNDER_REVIEW',
+    },
+    { n: counts.returnRequests, text: 'return requests to approve or reject', href: null },
   ]
   if (rows.every((r) => r.n === 0))
     return <p className="text-sm text-muted-foreground">All caught up — nothing is waiting.</p>
@@ -21,7 +34,13 @@ export function NeedsAttention({ counts }: { counts: AnalyticsSummary['needsAtte
           >
             {r.n}
           </span>
-          <span className={`text-sm ${r.n === 0 ? 'text-muted-foreground' : ''}`}>{r.text}</span>
+          {r.href && r.n > 0 ? (
+            <Link href={r.href} className="text-sm underline underline-offset-4">
+              {r.text}
+            </Link>
+          ) : (
+            <span className={`text-sm ${r.n === 0 ? 'text-muted-foreground' : ''}`}>{r.text}</span>
+          )}
         </li>
       ))}
     </ul>

@@ -1,10 +1,11 @@
 import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { Prisma } from '@nowoll/database'
 import { OrderStatus, PaymentMethod, PaymentStatus } from '@nowoll/database/enums'
-import type { AdminOrderDetail, AdminOrderList } from '@nowoll/types'
-import { addDays, startOfStoreDay } from '../analytics/store-time.js'
+import type { AdminOrderDetail, AdminOrderList, OrderInvoice } from '@nowoll/types'
+import { addDays, startOfStoreDay, storeDate } from '../analytics/store-time.js'
 import { CUSTOMER_NOTIFIER, type CustomerNotifier } from '../notifications/customer-notifier.js'
 import { PrismaService } from '../prisma/prisma.service.js'
+import { SettingsService } from '../settings/settings.service.js'
 import type {
   AdminOrdersQuery,
   OrderNotesDto,
@@ -92,6 +93,7 @@ export class AdminOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
+    private readonly settings: SettingsService,
     @Inject(CUSTOMER_NOTIFIER) private readonly notifier: CustomerNotifier,
   ) {}
 
@@ -99,7 +101,7 @@ export class AdminOrdersService {
   async list(query: AdminOrdersQuery): Promise<AdminOrderList> {
     const { page, pageSize } = query
     const where: Prisma.OrderWhereInput = {
-      ...(query.status && { status: query.status }),
+      ...(query.status && { status: { in: query.status } }),
       ...(query.paymentMethod && { paymentMethod: query.paymentMethod }),
       ...(query.paymentStatus && { paymentStatus: query.paymentStatus }),
       ...((query.from || query.to) && {
@@ -211,6 +213,16 @@ export class AdminOrdersService {
       createdAt: o.createdAt.toISOString(),
       updatedAt: o.updatedAt.toISOString(),
     }
+  }
+
+  /**
+   * GET /orders/:id/invoice — the data for the PRINTABLE invoice page (step 31b
+   * decision: the browser's "Save as PDF" renders Bangla names correctly,
+   * where a server-made PDF would need a font and often breaks Bangla letters).
+   */
+  async invoice(id: string, now = new Date()): Promise<OrderInvoice> {
+    const [order, store] = await Promise.all([this.detail(id), this.settings.storeInfo()])
+    return { order, store, issuedOn: storeDate(now) }
   }
 
   /** PATCH /orders/:id/status */

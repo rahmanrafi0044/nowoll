@@ -58,6 +58,14 @@ export function OrderDetail({ id }: { id: string }) {
               <span className="text-sm text-muted-foreground">
                 Placed {formatInstantDateTime(order.createdAt)}
               </span>
+              <a
+                href={`/admin/orders/${order.id}/invoice`}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-auto text-sm font-medium underline underline-offset-4"
+              >
+                Invoice ↗
+              </a>
             </header>
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="flex flex-col gap-6 lg:col-span-2">

@@ -30,6 +30,13 @@ export class AdminOrdersController {
     return this.adminOrders.detail(id)
   }
 
+  /** The spec's invoice route — data for the printable page (see AdminOrdersService.invoice). */
+  @Get(':id/invoice')
+  @Header('Cache-Control', 'no-store')
+  invoice(@Param('id', ParseUUIDPipe) id: string) {
+    return this.adminOrders.invoice(id)
+  }
+
   @Patch(':id/status')
   @Header('Cache-Control', 'no-store')
   changeStatus(

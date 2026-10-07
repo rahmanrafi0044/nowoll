@@ -1,4 +1,9 @@
-import type { AdminOrderDetail, AdminOrderList, OrderStatusChange } from '@nowoll/types'
+import type {
+  AdminOrderDetail,
+  AdminOrderList,
+  OrderInvoice,
+  OrderStatusChange,
+} from '@nowoll/types'
 import { call } from '@/lib/api'
 
 // Orders in the admin panel (step 31) — apps/api/src/orders/admin-orders.*
@@ -22,6 +27,9 @@ export function fetchOrders(filters: OrderFilters) {
 }
 
 export const fetchOrder = (id: string) => call<AdminOrderDetail>('GET', `/orders/${id}`)
+
+/** The printable invoice's data (order + the shop's details). */
+export const fetchInvoice = (id: string) => call<OrderInvoice>('GET', `/orders/${id}/invoice`)
 
 export const changeOrderStatus = (id: string, body: OrderStatusChange) =>
   call<AdminOrderDetail>('PATCH', `/orders/${id}/status`, body)
