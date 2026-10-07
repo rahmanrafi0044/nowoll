@@ -90,7 +90,10 @@ describe('NewProductForm', () => {
     mocked.createProduct.mockResolvedValue(ok({ id: 'new-id' }))
     render(<NewProductForm />)
     fireEvent.change(screen.getByLabelText('Product name'), { target: { value: ' Linen Shirt ' } })
-    fireEvent.change(await screen.findByRole('combobox', { name: 'Category' }), {
+    // Wait for the OPTIONS, not just the dropdown: it exists (disabled) while the
+    // categories load, and choosing too early silently does nothing (seen on CI).
+    await screen.findByRole('option', { name: 'Men › Shirts' })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Category' }), {
       target: { value: 'c2' },
     })
     fireEvent.change(screen.getByLabelText('Price (৳)'), { target: { value: '1,490.50' } })
