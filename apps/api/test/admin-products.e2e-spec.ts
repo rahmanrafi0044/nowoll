@@ -152,6 +152,96 @@ describe('admin products (step 30a)', () => {
     })
   })
 
+  describe('one product (the edit page)', () => {
+    const detail = (id: string) => http().get(`/api/v1/admin/products/${id}`)
+
+    it('everything in one answer: inactive variants (with exact stock), photos in order; deleted variants gone', async () => {
+      const c = await makeCategory({ name: 'Men' })
+      const p = await makeProduct({
+        categoryId: c.id,
+        name: 'Oxford Shirt',
+        status: 'DRAFT',
+        basePrice: '1490',
+        description: 'Line one\nLine two',
+        tags: ['cotton'],
+        variants: [
+          { size: 'M', color: 'Blue', stock: 7, price: '1590' },
+          { size: 'L', color: 'Blue', stock: 0, isActive: false },
+          { size: 'XL', color: 'Blue', stock: 3 },
+        ],
+      })
+      await db.productVariant.update({
+        where: { id: p.variants[2]!.id },
+        data: { deletedAt: new Date(), isActive: false },
+      })
+      await db.productImage.create({
+        data: {
+          productId: p.id,
+          url: 'https://example.supabase.co/second.jpg',
+          storagePath: 'products/second.jpg',
+          altText: 'Back view',
+          sortOrder: 5,
+          variantId: p.variants[0]!.id,
+        },
+      })
+
+      const d = (await detail(p.id).expect(200)).body.data
+      expect(d).toMatchObject({
+        id: p.id,
+        name: 'Oxford Shirt',
+        status: 'DRAFT',
+        category: { id: c.id, name: 'Men' },
+        basePrice: '1490',
+        description: 'Line one\nLine two',
+        tags: ['cotton'],
+        missingToPublish: [],
+      })
+      expect(
+        d.variants.map(
+          (v: { size: string; stock: number; isActive: boolean; price: string | null }) => [
+            v.size,
+            v.stock,
+            v.isActive,
+            v.price,
+          ],
+        ),
+      ).toEqual([
+        ['M', 7, true, '1590'],
+        ['L', 0, false, null],
+      ])
+      expect(
+        d.images.map((i: { altText: string; sortOrder: number }) => [i.altText, i.sortOrder]),
+      ).toEqual([
+        ['Oxford Shirt photo', 0],
+        ['Back view', 5],
+      ])
+      expect(d.images[1].variantId).toBe(p.variants[0]!.id)
+    })
+
+    it('says what is missing before it can go live (inactive variants do not count)', async () => {
+      const c = await makeCategory()
+      const p = await makeProduct({
+        categoryId: c.id,
+        status: 'DRAFT',
+        withImage: false,
+        variants: [{ size: 'M', color: 'B', isActive: false }],
+      })
+      expect((await detail(p.id).expect(200)).body.data.missingToPublish).toEqual([
+        'variant',
+        'image',
+      ])
+    })
+
+    it('archived products open too (read-only use); unknown id → 404; bad id → 400', async () => {
+      const c = await makeCategory()
+      const p = await makeProduct({ categoryId: c.id, status: 'ARCHIVED' })
+      await db.product.update({ where: { id: p.id }, data: { deletedAt: new Date() } })
+      expect((await detail(p.id).expect(200)).body.data.status).toBe('ARCHIVED')
+      await detail('00000000-0000-4000-8000-000000000000').expect(404)
+      await detail('not-an-id').expect(400)
+    })
+  })
+
   describe('bulk actions', () => {
     it('publish: ready products go live; one with no photo fails on its own, with the reason', async () => {
       const c = await makeCategory()
@@ -231,6 +321,9 @@ describe('admin products (step 30a)', () => {
     const outsider = await createTestApp({ asAdmin: false })
     try {
       await request(outsider.getHttpServer()).get('/api/v1/admin/products').expect(401)
+      await request(outsider.getHttpServer())
+        .get('/api/v1/admin/products/00000000-0000-4000-8000-000000000000')
+        .expect(401)
       await request(outsider.getHttpServer())
         .post('/api/v1/admin/products/bulk')
         .send({ action: 'archive', ids: ['00000000-0000-4000-8000-000000000000'] })

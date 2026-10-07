@@ -209,6 +209,7 @@
 │   │   └── POST   /logout
 │   └── products/
 │       ├── GET    /             (drafts + live; ?status=ARCHIVED|all, q, categoryId, lowStock, sort, page)
+│       ├── GET    /:id          (the edit page: all non-deleted variants with exact stock, photos in order, what's missing to publish)
 │       └── POST   /bulk         (publish | unpublish | feature | unfeature | archive — up to 100, each on its own)
 ├── categories/
 │   ├── GET    /           (public, nested tree)

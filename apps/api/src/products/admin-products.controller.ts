@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Header, HttpCode, Post, Query } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common'
 import { AdminOnly } from '../common/decorators/admin-only.decorator.js'
 import { AdminProductsService } from './admin-products.service.js'
 import { AdminProductsQuery, BulkProductsDto } from './dto/admin-products.dto.js'
@@ -14,6 +24,12 @@ export class AdminProductsController {
   @Header('Cache-Control', 'no-store')
   list(@Query() query: AdminProductsQuery) {
     return this.adminProducts.list(query)
+  }
+
+  @Get(':id')
+  @Header('Cache-Control', 'no-store')
+  detail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.adminProducts.detail(id)
   }
 
   @Post('bulk')

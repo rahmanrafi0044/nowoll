@@ -60,3 +60,54 @@ export interface ProductImportSummary {
   variants: { created: number; updated: number; unchanged: number }
   stockChanges: number
 }
+
+/** One variant on the admin edit page — inactive ones included (deleted ones never). */
+export interface AdminVariant {
+  id: string
+  sku: string
+  size: string
+  color: string
+  colorHex: string | null
+  /** null = sells at the product's base price. */
+  price: Money | null
+  compareAtPrice: Money | null
+  /** Exact stock. Changed only through the inventory page (every change logged). */
+  stock: number
+  /** null = the store-wide low-stock setting. */
+  lowStockThreshold: number | null
+  weightGrams: number | null
+  isActive: boolean
+  sortOrder: number
+}
+
+export interface AdminImage {
+  id: string
+  url: string
+  altText: string
+  variantId: string | null
+  /** 0 = the main photo. */
+  sortOrder: number
+}
+
+/** GET /admin/products/:id — everything the edit page needs, in one answer. */
+export interface AdminProductDetail {
+  id: string
+  name: string
+  slug: string
+  status: AdminProductStatus
+  isFeatured: boolean
+  category: { id: string; name: string }
+  basePrice: Money
+  compareAtPrice: Money | null
+  shortDescription: string | null
+  description: string | null
+  tags: string[]
+  seoTitle: string | null
+  seoDescription: string | null
+  variants: AdminVariant[]
+  images: AdminImage[]
+  /** What it still needs before it can go live (empty = ready). */
+  missingToPublish: ('variant' | 'image')[]
+  createdAt: string
+  updatedAt: string
+}
