@@ -233,3 +233,65 @@ describe('inventory API — without admin access', () => {
     ).expect(401)
   })
 })
+
+// Step 33: the history says WHO made a manual change, and which ORDER (by number) moved stock.
+describe('inventory history — who and which order (step 33)', () => {
+  it('a manual change records the signed-in staff member; an order shows its number', async () => {
+    const { randomUUID } = await import('node:crypto')
+    const { signInAsStaff } = await import('./utils/admin.js')
+    const { seedShippingZones } = await import('./utils/factories.js')
+    await resetDatabase()
+    await seedShippingZones()
+    const app = await createTestApp({ asAdmin: false }) // the REAL admin guard
+    try {
+      const http = () => request(app.getHttpServer())
+      const c = await makeCategory()
+      const p = await makeProduct({
+        categoryId: c.id,
+        basePrice: '1000',
+        variants: [{ size: 'M', color: 'Blue', stock: 10 }],
+      })
+      const v = p.variants[0]!
+      const { cookie, userId } = await signInAsStaff(app, 'rafi@nowoll.com')
+
+      await http()
+        .patch(`/api/v1/inventory/${v.id}/adjust`)
+        .set('Cookie', cookie)
+        .send({ change: 5, note: 'Received from supplier' })
+        .expect(200)
+      const placed = await http()
+        .post('/api/v1/orders')
+        .set('Idempotency-Key', randomUUID())
+        .send({
+          items: [{ variantId: v.id, quantity: 2 }],
+          contact: { fullName: 'Buyer', email: 'buyer@example.com', phone: '01712345678' },
+          address: { division: 'Dhaka', district: 'Dhaka', addressLine1: 'House 1' },
+          paymentMethod: 'COD',
+          expectedTotal: '2060',
+        })
+        .expect(201)
+
+      const log = (
+        await http().get(`/api/v1/inventory/${v.id}/log`).set('Cookie', cookie).expect(200)
+      ).body.data.items
+      expect(log[0]).toMatchObject({
+        change: -2,
+        stockAfter: 13,
+        reason: 'ORDER_PLACED',
+        actor: null, // the system
+        order: { id: placed.body.data.orderId, number: placed.body.data.displayNumber },
+      })
+      expect(log[1]).toMatchObject({
+        change: 5,
+        stockAfter: 15,
+        reason: 'MANUAL_ADJUSTMENT',
+        note: 'Received from supplier',
+        actor: { id: userId, name: 'Rafi' },
+        order: null,
+        createdAt: expect.any(String),
+      })
+    } finally {
+      await app.close()
+    }
+  })
+})

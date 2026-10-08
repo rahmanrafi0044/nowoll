@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common'
+import type { AdminProfile } from '../admin-auth/admin-auth.service.js'
 import { AdminOnly } from '../common/decorators/admin-only.decorator.js'
+import { CurrentAdmin } from '../common/guards/admin.guard.js'
 import { AdjustStockDto } from './dto/adjust-stock.dto.js'
 import { ListInventoryQuery, PageQuery } from './dto/list-inventory.query.js'
 import { InventoryService } from './inventory.service.js'
@@ -21,8 +23,12 @@ export class InventoryController {
   }
 
   @Patch(':variantId/adjust')
-  adjust(@Param('variantId', ParseUUIDPipe) variantId: string, @Body() dto: AdjustStockDto) {
-    return this.inventory.adjust(variantId, dto)
+  adjust(
+    @Param('variantId', ParseUUIDPipe) variantId: string,
+    @Body() dto: AdjustStockDto,
+    @CurrentAdmin() admin: AdminProfile | undefined,
+  ) {
+    return this.inventory.adjust(variantId, dto, admin?.id ?? null)
   }
 
   @Get(':variantId/log')

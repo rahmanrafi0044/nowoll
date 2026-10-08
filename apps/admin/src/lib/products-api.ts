@@ -32,6 +32,8 @@ export const bulkProducts = (action: BulkProductAction, ids: string[]) =>
 export interface CategoryNode {
   id: string
   name: string
+  /** The inventory filter uses slugs (the API answers with them). */
+  slug?: string
   children?: CategoryNode[]
 }
 export const fetchCategories = () => call<CategoryNode[]>('GET', '/categories')
