@@ -1,7 +1,7 @@
 import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { Prisma } from '@nowoll/database'
 import { OrderStatus, PaymentMethod, PaymentStatus } from '@nowoll/database/enums'
-import type { AdminOrderDetail, AdminOrderList, OrderInvoice } from '@nowoll/types'
+import type { AdminOrderDetail, AdminOrderList, AdminOrderRow, OrderInvoice } from '@nowoll/types'
 import { addDays, startOfStoreDay, storeDate } from '../analytics/store-time.js'
 import { CUSTOMER_NOTIFIER, type CustomerNotifier } from '../notifications/customer-notifier.js'
 import { PrismaService } from '../prisma/prisma.service.js'
@@ -124,20 +124,7 @@ export class AdminOrdersService {
       }),
     ])
     return {
-      items: rows.map((o) => ({
-        id: o.id,
-        number: displayNumber(o.orderNumber),
-        status: o.status,
-        paymentMethod: o.paymentMethod,
-        paymentStatus: o.paymentStatus,
-        customerName: o.customerName,
-        phone: o.phone,
-        email: o.email,
-        district: o.shippingDistrict,
-        itemCount: o._count.items,
-        total: o.total.toString(),
-        createdAt: o.createdAt.toISOString(),
-      })),
+      items: rows.map(toOrderRow),
       total,
       page,
       pageSize,
@@ -156,7 +143,13 @@ export class AdminOrdersService {
       status: o.status,
       paymentMethod: o.paymentMethod,
       paymentStatus: o.paymentStatus,
-      customer: { name: o.customerName, email: o.email, phone: o.phone, hasAccount: !!o.userId },
+      customer: {
+        name: o.customerName,
+        email: o.email,
+        phone: o.phone,
+        hasAccount: !!o.userId,
+        accountId: o.userId,
+      },
       address: {
         line1: o.shippingAddressLine1,
         line2: o.shippingAddressLine2,
@@ -358,6 +351,26 @@ export class AdminOrdersService {
     await send().catch((e: unknown) =>
       this.logger.error(`Customer notification failed: ${String(e)}`),
     )
+  }
+}
+
+/** One order as a list row — shared with the customer page (step 32). */
+export function toOrderRow(
+  o: Prisma.OrderGetPayload<{ include: { _count: { select: { items: true } } } }>,
+): AdminOrderRow {
+  return {
+    id: o.id,
+    number: displayNumber(o.orderNumber),
+    status: o.status,
+    paymentMethod: o.paymentMethod,
+    paymentStatus: o.paymentStatus,
+    customerName: o.customerName,
+    phone: o.phone,
+    email: o.email,
+    district: o.shippingDistrict,
+    itemCount: o._count.items,
+    total: o.total.toString(),
+    createdAt: o.createdAt.toISOString(),
   }
 }
 

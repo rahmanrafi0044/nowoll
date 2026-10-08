@@ -35,7 +35,14 @@ export interface AdminOrderDetail {
   status: AdminOrderStatus
   paymentMethod: 'COD' | 'SSLCOMMERZ'
   paymentStatus: AdminPaymentStatus
-  customer: { name: string; email: string; phone: string; hasAccount: boolean }
+  customer: {
+    name: string
+    email: string
+    phone: string
+    hasAccount: boolean
+    /** The customer account that placed it (null = guest) — for the customer page link. */
+    accountId: string | null
+  }
   address: {
     line1: string
     line2: string | null

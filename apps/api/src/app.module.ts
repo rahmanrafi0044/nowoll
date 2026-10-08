@@ -8,6 +8,7 @@ import { AdminAuthModule } from './admin-auth/admin-auth.module.js'
 import { AnalyticsModule } from './analytics/analytics.module.js'
 import { AuthModule } from './auth/auth.module.js'
 import { CategoriesModule } from './categories/categories.module.js'
+import { CustomersModule } from './customers/customers.module.js'
 import { validateEnv } from './config/env.validation.js'
 import { GLOBAL_RATE_LIMIT } from './config/rate-limit.js'
 import { HealthModule } from './health/health.module.js'
@@ -60,6 +61,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     AuthModule,
     AdminAuthModule,
     AnalyticsModule,
+    CustomersModule,
     AddressesModule,
     WishlistModule,
     ReviewsModule,

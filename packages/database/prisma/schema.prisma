@@ -147,7 +147,12 @@ model User {
   phone        String?
   role         UserRole   @default(CUSTOMER)
   status       UserStatus @default(ACTIVE)
-  bannedReason String?    @map("banned_reason")
+  bannedReason String?    @map("banned_reason") // staff-only — the customer only sees "disabled"
+  // Who banned the account and when (step 32) — accountability for a decision
+  // that locks a customer out. Cleared again on unban. SetNull: removing the
+  // staff member's row later must never delete the record that a ban happened.
+  bannedAt     DateTime?  @map("banned_at")
+  bannedById   String?    @map("banned_by_id") @db.Uuid
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
   deletedAt    DateTime?  @map("deleted_at")
@@ -161,6 +166,8 @@ model User {
   inventoryLogs  InventoryLog[]       @relation("InventoryActor")
   statusChanges  OrderStatusHistory[] @relation("StatusChangedBy")
   discountUsages DiscountUsage[]
+  bannedBy       User?                @relation("BannedBy", fields: [bannedById], references: [id], onDelete: SetNull)
+  banned         User[]               @relation("BannedBy")
 
   @@index([role]) // admin "list staff" and role checks
   @@map("users")

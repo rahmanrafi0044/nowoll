@@ -47,6 +47,7 @@ const ORDER: AdminOrderDetail = {
     email: 'rafi@example.com',
     phone: '+8801712345678',
     hasAccount: false,
+    accountId: null,
   },
   address: {
     line1: 'House 12, Road 5',
@@ -182,6 +183,16 @@ describe('OrderList', () => {
 })
 
 describe('OrderDetail', () => {
+  it('an order from an account links to the customer page', async () => {
+    mocked.fetchOrder.mockResolvedValue(
+      ok({ ...ORDER, customer: { ...ORDER.customer, hasAccount: true, accountId: 'u1' } }),
+    )
+    await openOrder()
+    expect(
+      within(card('Customer')).getByRole('link', { name: 'View customer account' }),
+    ).toHaveAttribute('href', '/admin/customers/u1')
+  })
+
   it('shows items, totals, the customer’s note, a phone link and the history', async () => {
     await openOrder()
     const items = card('Items')
@@ -196,6 +207,7 @@ describe('OrderDetail', () => {
     )
     expect(card('History')).toHaveTextContent('Order placed')
     expect(card('History')).toHaveTextContent('Automatic')
+    expect(card('Customer')).toHaveTextContent('Guest checkout') // no account → no link
     expect(screen.getByRole('link', { name: 'Invoice ↗' })).toHaveAttribute(
       'href',
       '/admin/orders/o1/invoice',

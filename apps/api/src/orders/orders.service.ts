@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -13,6 +14,7 @@ import {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  UserStatus,
 } from '@nowoll/database/enums'
 import { isDistrictInDivision } from '@nowoll/validation'
 import { CheckoutService } from '../checkout/checkout.service.js'
@@ -82,6 +84,8 @@ export class OrdersService {
     // Same request seen before (double tap / network retry) → the same order back (decision #4).
     const existing = await this.findByIdempotencyKey(idempotencyKey)
     if (existing) return existing
+
+    await this.refuseBannedCustomers(dto.contact.email, dto.contact.phone)
 
     if (!isDistrictInDivision(dto.address.district, dto.address.division)) {
       throw new BadRequestException(
@@ -245,6 +249,28 @@ export class OrdersService {
       })
       .catch((e: unknown) => this.logger.error(`Order-placed notification failed: ${String(e)}`))
     return placed
+  }
+
+  /**
+   * A BANNED customer can't order — signed in (the auth guard already
+   * refuses them) or as a guest with the same email or phone (step 32 decision
+   * #5: that is what makes a ban stop repeated fake cash-on-delivery orders).
+   * The message says nothing about the ban or the account.
+   */
+  private async refuseBannedCustomers(email: string, phone: string): Promise<void> {
+    const banned = await this.prisma.user.findFirst({
+      where: {
+        status: UserStatus.BANNED,
+        deletedAt: null,
+        OR: [{ email: { equals: email, mode: 'insensitive' } }, { phone }],
+      },
+      select: { id: true },
+    })
+    if (banned)
+      throw new ForbiddenException({
+        message: 'We can’t take this order online. Please contact us to order.',
+        code: 'ORDER_REFUSED',
+      })
   }
 
   /**
