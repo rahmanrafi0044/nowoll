@@ -6,3 +6,16 @@ import { afterEach } from 'vitest'
 afterEach(() => {
   cleanup()
 })
+
+// jsdom (the test "browser") has no <dialog> showModal()/close() yet — real
+// browsers all do. A minimal stand-in, TESTS ONLY: open/close + the "close" event.
+if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+    this.open = true
+  }
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+    if (!this.open) return
+    this.open = false
+    this.dispatchEvent(new Event('close'))
+  }
+}

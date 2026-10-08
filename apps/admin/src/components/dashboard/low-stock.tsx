@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { LowStockRow } from '@/lib/analytics-api'
 
 const SHOWN = 8
@@ -26,9 +27,12 @@ export function LowStock({ data }: { data: { items: LowStockRow[]; total: number
           </li>
         ))}
       </ul>
-      {data.total > SHOWN && (
-        <p className="mt-2 text-sm text-muted-foreground">and {data.total - SHOWN} more</p>
-      )}
+      <p className="mt-2 text-sm text-muted-foreground">
+        {data.total > SHOWN && `and ${data.total - SHOWN} more · `}
+        <Link href="/admin/inventory/low-stock" className="underline underline-offset-4">
+          See all and change stock
+        </Link>
+      </p>
     </>
   )
 }

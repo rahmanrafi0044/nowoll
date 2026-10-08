@@ -1,26 +1,22 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import type { Prisma } from '@nowoll/database'
 import { InventoryChangeReason, ProductStatus } from '@nowoll/database/enums'
-import type { Paginated } from '@nowoll/types'
+import type {
+  InventoryHistory,
+  InventoryReason,
+  InventoryRow,
+  Paginated,
+  StockAdjustResult,
+} from '@nowoll/types'
+import { displayNumber } from '../orders/order-number.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import { SettingsService } from '../settings/settings.service.js'
 import type { AdjustStockDto } from './dto/adjust-stock.dto.js'
 import type { ListInventoryQuery, PageQuery } from './dto/list-inventory.query.js'
-import { type StockChange, StockService } from './stock.service.js'
+import { StockService } from './stock.service.js'
 
-export interface InventoryRow {
-  variantId: string
-  sku: string
-  size: string
-  color: string
-  stock: number
-  threshold: number // the variant's own, or the store-wide setting
-  usesStoreThreshold: boolean
-  isLow: boolean
-  isActive: boolean
-  product: { id: string; name: string; slug: string; status: string }
-  category: { name: string; slug: string }
-}
+// The row shape is shared with the admin app (packages/types → admin-inventory.ts).
+export type { InventoryRow }
 
 const ROW_INCLUDE = {
   product: {
@@ -121,7 +117,11 @@ export class InventoryService {
   }
 
   /** PATCH /inventory/:variantId/adjust — a manual change, always logged with a note. */
-  async adjust(variantId: string, dto: AdjustStockDto): Promise<Omit<StockChange, 'alert'>> {
+  async adjust(
+    variantId: string,
+    dto: AdjustStockDto,
+    actorId: string | null = null, // the staff member (step 33) — shown in the history
+  ): Promise<StockAdjustResult> {
     if (dto.change !== undefined && dto.setTo !== undefined) {
       throw new BadRequestException('Send either change or setTo, not both.')
     }
@@ -133,6 +133,7 @@ export class InventoryService {
         adjustment,
         reason: InventoryChangeReason.MANUAL_ADJUSTMENT,
         note: dto.note,
+        actorId,
       }),
     )
     await this.stock.notifyLowStock([result]) // after commit — see StockService
@@ -141,7 +142,7 @@ export class InventoryService {
   }
 
   /** GET /inventory/:variantId/log — newest first. Works for archived variants too (history is history). */
-  async history(variantId: string, query: PageQuery) {
+  async history(variantId: string, query: PageQuery): Promise<InventoryHistory> {
     const variant = await this.prisma.productVariant.findUnique({
       where: { id: variantId },
       select: { id: true },
@@ -153,7 +154,10 @@ export class InventoryService {
       this.prisma.inventoryLog.count({ where }),
       this.prisma.inventoryLog.findMany({
         where,
-        include: { actor: { select: { id: true, fullName: true, email: true } } },
+        include: {
+          actor: { select: { id: true, fullName: true, email: true } },
+          order: { select: { id: true, orderNumber: true } }, // its number, for display
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
@@ -164,11 +168,11 @@ export class InventoryService {
         id: l.id,
         change: l.change,
         stockAfter: l.stockAfter,
-        reason: l.reason,
+        reason: l.reason as InventoryReason,
         note: l.note,
-        orderId: l.orderId,
-        actor: l.actor,
-        createdAt: l.createdAt,
+        order: l.order ? { id: l.order.id, number: displayNumber(l.order.orderNumber) } : null,
+        actor: l.actor ? { id: l.actor.id, name: l.actor.fullName ?? l.actor.email } : null,
+        createdAt: l.createdAt.toISOString(),
       })),
       total,
       page: query.page,

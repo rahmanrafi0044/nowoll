@@ -241,8 +241,8 @@
 ├── inventory/
 │   ├── GET    /            (admin)
 │   ├── GET    /low-stock   (admin)
-│   ├── PATCH  /:variantId/adjust  (admin)
-│   └── GET    /:variantId/log     (admin)
+│   ├── PATCH  /:variantId/adjust  (admin — {change} or {setTo}, note required; records the staff member)
+│   └── GET    /:variantId/log     (admin — reason, note, who, order number)
 ├── discounts/
 │   ├── GET    /            (admin)
 │   ├── POST   /            (admin)
