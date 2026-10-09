@@ -40,7 +40,9 @@ describe('admin content (step 36)', () => {
           .text,
       ).toBe('Eid sale — 20% off')
       await save('announcement_bar', { text: 'Eid sale' }, false).expect(200)
-      await http().get('/api/v1/content-blocks/announcement_bar').expect(404) // off → hidden
+      expect(
+        (await http().get('/api/v1/content-blocks/announcement_bar').expect(200)).body.data,
+      ).toBeNull() // off → hidden
     })
 
     it('refuses anything outside the format, listing every problem — nothing is stored', async () => {
@@ -121,7 +123,9 @@ describe('admin content (step 36)', () => {
       expect(cleared).toMatchObject({ data: null, isActive: false, valid: true })
       expect(cleared.updatedAt).not.toBeNull() // still there — soft, not deleted
       expect(await db.contentBlock.count({ where: { key: 'announcement_bar' } })).toBe(1)
-      await http().get('/api/v1/content-blocks/announcement_bar').expect(404)
+      expect(
+        (await http().get('/api/v1/content-blocks/announcement_bar').expect(200)).body.data,
+      ).toBeNull()
       // A new announcement can be written afterwards as usual.
       await save('announcement_bar', { text: 'New' }).expect(200)
       await http().get('/api/v1/content-blocks/announcement_bar').expect(200)
@@ -201,7 +205,9 @@ describe('admin content (step 36)', () => {
         .expect(401)
       await h().post('/api/v1/admin/content/images').expect(401)
       await h().delete('/api/v1/admin/content-blocks/announcement_bar').expect(401)
-      await h().get('/api/v1/content-blocks/announcement_bar').expect(404) // public: open (nothing saved yet)
+      expect(
+        (await h().get('/api/v1/content-blocks/announcement_bar').expect(200)).body.data,
+      ).toBeNull() // public: open (nothing saved yet)
     } finally {
       await outsider.close()
     }

@@ -24,17 +24,19 @@ export class ContentBlocksService {
 
   /**
    * GET /content-blocks/:key — an ACTIVE block from the allow-list, checked
-   * against its schema. Unknown keys, inactive blocks and blocks whose data
-   * doesn't match the schema all answer 404, so the storefront simply hides
-   * that section instead of showing broken content.
+   * against its schema. Inactive, cleared, never-saved and invalid blocks
+   * answer 200 with data null ("nothing to show") so the storefront hides
+   * that section. NOT 404: Next.js only caches 200 answers, so a 404 would
+   * leave the shop showing its last cached copy — e.g. a removed announcement
+   * bar stayed up. Only keys outside the allow-list answer 404.
    * (homepage_layout is checked SECTION BY SECTION — one broken section hides
    * only itself — see readHomepageLayout.)
    */
-  async findActive(key: string): Promise<{ key: string; data: unknown }> {
+  async findActive(key: string): Promise<{ key: string; data: unknown } | null> {
     if (!isKnownKey(key)) throw new NotFoundException('Content not found')
 
     const block = await this.prisma.contentBlock.findUnique({ where: { key } })
-    if (!block || !block.isActive) throw new NotFoundException('Content not found')
+    if (!block || !block.isActive) return null
 
     if (key === 'homepage_layout') return { key, data: readHomepageLayout(block.data) }
     const parsed = CONTENT_BLOCK_SCHEMAS[key].safeParse(block.data)
@@ -42,7 +44,7 @@ export class ContentBlocksService {
       this.logger.warn(
         `Content block "${key}" has invalid data — hidden. Fix it in Admin → Content.`,
       )
-      throw new NotFoundException('Content not found')
+      return null
     }
     return { key, data: parsed.data }
   }

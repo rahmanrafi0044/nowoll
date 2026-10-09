@@ -31,14 +31,18 @@ describe('content blocks API', () => {
     await db.contentBlock.create({
       data: { key: 'announcement_bar', data: { text: 'Hi' }, isActive: false },
     })
-    await http().get('/api/v1/content-blocks/announcement_bar').expect(404)
+    expect(
+      (await http().get('/api/v1/content-blocks/announcement_bar').expect(200)).body.data,
+    ).toBeNull()
   })
 
   it('hides blocks whose data is invalid (e.g. a javascript: link) instead of serving them', async () => {
     await db.contentBlock.create({
       data: { key: 'homepage_hero', data: { ...hero, ctaHref: 'javascript:alert(1)' } },
     })
-    await http().get('/api/v1/content-blocks/homepage_hero').expect(404)
+    expect(
+      (await http().get('/api/v1/content-blocks/homepage_hero').expect(200)).body.data,
+    ).toBeNull()
   })
 
   it('refuses keys that are not on the allow-list, even if the row exists', async () => {
