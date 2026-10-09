@@ -109,3 +109,16 @@ describe('canonicalFor / hasActiveFilters', () => {
     expect(hasActiveFilters(parseListingParams({ inStock: '1' }))).toBe(true)
   })
 })
+
+describe('featured and tag (homepage "View all" links, step 36)', () => {
+  it('read from the address, passed to the API, kept in links', () => {
+    const p = parseListingParams({ featured: 'true', tag: ' eid ' })
+    expect(p).toMatchObject({ featured: true, tag: 'eid' })
+    expect(toApiQuery(p)).toContain('featured=true')
+    expect(toApiQuery(p)).toContain('tag=eid')
+    expect(listingHref('/shop', p, { sort: 'newest' })).toBe(
+      '/shop?featured=true&tag=eid&sort=newest',
+    )
+    expect(parseListingParams({ featured: 'yes' }).featured).toBeUndefined()
+  })
+})

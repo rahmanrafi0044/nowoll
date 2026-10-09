@@ -5,13 +5,22 @@ import Link from 'next/link'
 const MAX_TILES = 8
 
 // "Shop by category": one tile per top-level category, in the admin's sort order.
-export function CategoryGrid({ categories }: { categories: CategoryNode[] }) {
+export function CategoryGrid({
+  categories,
+  id = 'shop-by-category',
+  title = 'Shop by category',
+}: {
+  categories: CategoryNode[]
+  /** Heading id + title — set from the admin's homepage builder (step 36). */
+  id?: string
+  title?: string
+}) {
   if (categories.length === 0) return null
 
   return (
-    <section aria-labelledby="shop-by-category" className="mx-auto max-w-7xl px-4 py-12">
-      <h2 id="shop-by-category" className="text-2xl font-semibold tracking-tight">
-        Shop by category
+    <section aria-labelledby={id} className="mx-auto max-w-7xl px-4 py-12">
+      <h2 id={id} className="text-2xl font-semibold tracking-tight">
+        {title}
       </h2>
       <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {categories.slice(0, MAX_TILES).map((category) => (

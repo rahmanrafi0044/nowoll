@@ -22,6 +22,9 @@ export interface ListingParams {
   minPrice?: number
   maxPrice?: number
   inStock?: boolean
+  /** Homepage "View all" links (step 36): only featured products / one tag. */
+  featured?: boolean
+  tag?: string
   sort?: SortValue
   page: number
 }
@@ -56,6 +59,8 @@ export function parseListingParams(raw: RawSearchParams): ListingParams {
     minPrice,
     maxPrice,
     inStock: first(raw.inStock) === '1' ? true : undefined,
+    featured: first(raw.featured) === 'true' ? true : undefined,
+    tag: first(raw.tag)?.slice(0, 30),
     sort,
     page: Number.isInteger(pageNum) && pageNum >= 1 && pageNum <= 1000 ? pageNum : 1,
   }
@@ -71,6 +76,8 @@ export function toApiQuery(params: ListingParams, category?: string): string {
   if (params.minPrice !== undefined) qs.set('minPrice', String(params.minPrice))
   if (params.maxPrice !== undefined) qs.set('maxPrice', String(params.maxPrice))
   if (params.inStock) qs.set('inStock', 'true')
+  if (params.featured) qs.set('featured', 'true')
+  if (params.tag) qs.set('tag', params.tag)
   if (params.sort) qs.set('sort', params.sort)
   qs.set('page', String(params.page))
   qs.set('pageSize', String(PAGE_SIZE))
@@ -95,6 +102,8 @@ export function listingHref(
   if (next.minPrice !== undefined) qs.set('minPrice', String(next.minPrice))
   if (next.maxPrice !== undefined) qs.set('maxPrice', String(next.maxPrice))
   if (next.inStock) qs.set('inStock', '1')
+  if (next.featured) qs.set('featured', 'true')
+  if (next.tag) qs.set('tag', next.tag)
   if (next.sort) qs.set('sort', next.sort)
   if (next.page > 1) qs.set('page', String(next.page))
   const s = qs.toString()
