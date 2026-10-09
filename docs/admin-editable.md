@@ -42,17 +42,17 @@
 | # | What | Status |
 |---|---|---|
 | 6 | Main menu: which categories, in what order, plus custom links ("Sale", "Eid collection") | 🛠 38b |
-| 7 | Announcement bar (text, link, on/off) | 🛠 36 |
+| 7 | Announcement bar (text, link, on/off) | ✅ (step 36) |
 
 ### C. Homepage
 | # | What | Status |
 |---|---|---|
-| 8 | Hero: heading, text, button, photo | 🛠 36 |
-| 9 | Show / hide and rename sections (categories, featured, new arrivals, newsletter) | 🛠 36 |
-| 10 | Section order | 🛠 36 |
-| 11 | Promo banners: 1–3 picture banners, each with a link | 🛠 36 |
-| 12 | Extra product rows from a category or tag (e.g. "Eid collection") | 🛠 36 |
-| 13 | Trust badges ("Cash on delivery · 7-day returns · Nationwide delivery") | 🛠 36 |
+| 8 | Hero: heading, text, button, photo | ✅ (step 36) |
+| 9 | Show / hide and rename sections (categories, featured, new arrivals, newsletter) | ✅ (step 36) |
+| 10 | Section order | ✅ (step 36) |
+| 11 | Promo banners: 1–3 picture banners, each with a link | ✅ (step 36) |
+| 12 | Extra product rows from a category or tag (e.g. "Eid collection") | ✅ (step 36) |
+| 13 | Trust badges ("Cash on delivery · 7-day returns · Nationwide delivery") | ✅ (step 36) |
 
 ### D. Catalogue
 | # | What | Status |
@@ -76,8 +76,8 @@
 ### G. Pages and blog
 | # | What | Status |
 |---|---|---|
-| 21 | Static pages (privacy, terms, returns, about, contact) — Markdown, draft / published, SEO | 🛠 36 |
-| 22 | FAQ page (a static page) | 🛠 36 |
+| 21 | Static pages (privacy, terms, returns, about, contact) — Markdown, draft / published, SEO | ✅ (step 36) |
+| 22 | FAQ page (a static page) | ✅ (step 36) |
 | 23 | Blog | 🛠 43 |
 
 ### H. Checkout and payments
@@ -97,7 +97,7 @@
 ### J. SEO and marketing
 | # | What | Status |
 |---|---|---|
-| 30 | Google title / description per product, category, page | ✅ products · 🛠 categories (36b), pages (36) |
+| 30 | Google title / description per product, category, page | ✅ products, pages · 🛠 categories (36b) |
 | 31 | Site-wide Google title / description and share image | 🛠 38 |
 | 32 | Google Analytics and Meta Pixel **IDs** (validated ID fields; the scripts themselves are added by code) | 🛠 39 |
 | 33 | Redirects: an old web address sends visitors to the new one | 🛠 43c |

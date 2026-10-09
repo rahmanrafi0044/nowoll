@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import type { CategoryNode } from '@nowoll/types'
+import type { CategoryNode, PageLinkView } from '@nowoll/types'
 import type { AnnouncementBar as AnnouncementBarData } from '@nowoll/validation'
 import { CartDrawer } from '@/components/cart/cart-drawer'
 import { CartHydrator } from '@/components/cart-hydrator'
@@ -29,11 +29,12 @@ export const viewport: Viewport = {
 }
 
 // The header, announcement bar and footer appear on every page, so their data
-// is loaded here. Both requests run in parallel and are cached for 60 seconds.
+// is loaded here. The requests run in parallel and are cached for 60 seconds.
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const [categories, announcement] = await Promise.all([
+  const [categories, announcement, pages] = await Promise.all([
     apiGet<CategoryNode[]>('/categories'),
     apiGet<{ data: AnnouncementBarData }>('/content-blocks/announcement_bar'),
+    apiGet<PageLinkView[]>('/pages'),
   ])
 
   return (
@@ -43,7 +44,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         {announcement && <AnnouncementBar data={announcement.data} />}
         <SiteHeader categories={categories ?? []} />
         <main className="flex-1">{children}</main>
-        <SiteFooter />
+        <SiteFooter pages={pages ?? []} />
         <CartDrawer />
       </body>
     </html>

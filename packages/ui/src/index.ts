@@ -7,3 +7,4 @@ export {
 } from './components/button.js'
 export { Input, type InputProps } from './components/input.js'
 export { cn } from './cn.js'
+export { Markdown, type MarkdownProps } from './components/markdown.js'

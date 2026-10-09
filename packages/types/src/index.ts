@@ -6,6 +6,7 @@ export * from './admin-orders.js'
 export * from './admin-products.js'
 export * from './analytics.js'
 export * from './catalog.js'
+export * from './pages.js'
 export * from './serialized.js'
 
 // Database model types (Product, Order, …) — TYPE-ONLY, so importing them
