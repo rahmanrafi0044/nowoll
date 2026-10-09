@@ -44,7 +44,7 @@ describe('products API — as admin', () => {
 
     // Drafts are invisible to customers
     expect((await http().get('/api/v1/products').expect(200)).body.data.total).toBe(0)
-    await http().get('/api/v1/products/oxford-shirt').expect(404)
+    expect((await http().get('/api/v1/products/oxford-shirt').expect(200)).body.data).toBeNull()
 
     // Can't publish without an image (image upload arrives in the next commit)
     const blocked = await http()
@@ -77,7 +77,7 @@ describe('products API — as admin', () => {
     ])
 
     await http().delete(`/api/v1/products/${product.id}`).expect(200)
-    await http().get('/api/v1/products/oxford-shirt').expect(404)
+    expect((await http().get('/api/v1/products/oxford-shirt').expect(200)).body.data).toBeNull()
   })
 
   it('manages variants through /variants', async () => {

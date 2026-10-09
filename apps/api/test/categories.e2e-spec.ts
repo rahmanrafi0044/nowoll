@@ -55,7 +55,8 @@ describe('categories API — as admin', () => {
     // …so delete the child first, then the parent.
     await http().delete(`/api/v1/categories/${child.body.data.id}`).expect(200)
     await http().delete(`/api/v1/categories/${id}`).expect(200)
-    await http().get('/api/v1/categories/men').expect(404)
+    // Gone for customers: 200 + null (Next.js only caches 200 answers — see findBySlug).
+    expect((await http().get('/api/v1/categories/men').expect(200)).body.data).toBeNull()
     expect((await http().get('/api/v1/categories')).body.data).toEqual([])
   })
 

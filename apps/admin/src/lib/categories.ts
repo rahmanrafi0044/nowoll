@@ -6,7 +6,7 @@ export function flattenCategories(
   prefix = '',
 ): { id: string; label: string }[] {
   return nodes.flatMap((n) => [
-    { id: n.id, label: `${prefix}${n.name}` },
+    { id: n.id, label: `${prefix}${n.name}${n.isActive === false ? ' (hidden)' : ''}` },
     ...flattenCategories(n.children ?? [], `${prefix}${n.name} › `),
   ])
 }

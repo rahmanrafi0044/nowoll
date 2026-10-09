@@ -85,21 +85,21 @@ describe('CategoriesService.findTree / findBySlug', () => {
 
   it('returns a category with breadcrumb, size guide and direct children', async () => {
     await seedTree()
-    const formal = await service.findBySlug('formal')
+    const formal = (await service.findBySlug('formal'))!
     expect(formal.breadcrumb.map((b) => b.slug)).toEqual(['men', 'shirts'])
     expect(formal.sizeGuide).toBe('S=38')
 
-    const men = await service.findBySlug('men')
+    const men = (await service.findBySlug('men'))!
     expect(men.children.map((c) => c.slug)).toEqual(['shirts'])
   })
 
-  it('404s for hidden, archived, unknown — and children of hidden parents', async () => {
+  it('null for hidden, archived, unknown — and children of hidden parents', async () => {
     const { men } = await seedTree()
-    await expect(service.findBySlug('hidden')).rejects.toBeInstanceOf(NotFoundException)
-    await expect(service.findBySlug('nope')).rejects.toBeInstanceOf(NotFoundException)
+    expect(await service.findBySlug('hidden')).toBeNull()
+    expect(await service.findBySlug('nope')).toBeNull()
 
     await service.update(men.id, { isActive: false })
-    await expect(service.findBySlug('formal')).rejects.toBeInstanceOf(NotFoundException)
+    expect(await service.findBySlug('formal')).toBeNull()
   })
 })
 

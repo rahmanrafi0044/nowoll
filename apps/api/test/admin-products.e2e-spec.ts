@@ -281,6 +281,30 @@ describe('admin products (step 30a)', () => {
       })
     })
 
+    it('move: products go to another category — e.g. to empty a category before archiving it (step 36b)', async () => {
+      const from = await makeCategory({ name: 'Old' })
+      const to = await makeCategory({ name: 'New' })
+      const a = await makeProduct({ categoryId: from.id })
+      const b = await makeProduct({ categoryId: from.id, status: 'DRAFT' })
+      const move = (body: object) => http().post('/api/v1/admin/products/bulk').send(body)
+      const res = await move({ action: 'move', ids: [a.id, b.id], categoryId: to.id }).expect(200)
+      expect(res.body.data).toEqual({ action: 'move', succeeded: [a.id, b.id], failed: [] })
+      expect(await db.product.count({ where: { categoryId: to.id } })).toBe(2)
+      expect(await db.product.findUniqueOrThrow({ where: { id: b.id } })).toMatchObject({
+        status: 'DRAFT', // only the category changes
+      })
+      // …and now the old category can be archived.
+      await http().delete(`/api/v1/categories/${from.id}`).expect(200)
+
+      await move({ action: 'move', ids: [a.id] }).expect(400) // where to?
+      await move({ action: 'feature', ids: [a.id], categoryId: to.id }).expect(400) // only for move
+      const gone = await makeCategory()
+      await db.category.update({ where: { id: gone.id }, data: { deletedAt: new Date() } })
+      const r = await move({ action: 'move', ids: [a.id], categoryId: gone.id }).expect(400)
+      expect(r.body.message).toMatch(/no longer exists/)
+      expect((await db.product.findUniqueOrThrow({ where: { id: a.id } })).categoryId).toBe(to.id)
+    })
+
     it('archive: soft delete (kept for order history), unfeatured; archiving again → "not found"', async () => {
       const c = await makeCategory()
       const p = await makeProduct({ categoryId: c.id, isFeatured: true })

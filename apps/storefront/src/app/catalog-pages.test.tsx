@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { renderServer } from '@/test-utils/render-server'
 import { productDetail } from '@/test-utils/fixtures'
 import CategoryPage, { generateMetadata as categoryMetadata } from './shop/[categorySlug]/page'
@@ -177,7 +177,10 @@ describe('/shop/[categorySlug]', () => {
 describe('/products/[productSlug]', () => {
   it('renders the product with purchase panel, details, size guide and structured data', async () => {
     responses.set('/products/oxford-shirt', productDetail())
-    responses.set('/categories/shirts', { sizeGuide: 'S = 38"\nM = 40"' })
+    responses.set('/categories/shirts', {
+      sizeGuide:
+        '| Size | Chest |\n|---|---|\n| S | 38" |\n| M | 40" |\n\n<script>alert(1)</script>',
+    })
     const { container } = await renderServer(
       ProductPage({ params: Promise.resolve({ productSlug: 'oxford-shirt' }) }),
     )
@@ -186,6 +189,10 @@ describe('/products/[productSlug]', () => {
     expect(screen.getAllByRole('button', { name: 'Choose a size' }).length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: 'Size guide' })).toHaveAttribute('href', '#size-guide')
     expect(screen.getByRole('heading', { name: 'Size guide' })).toBeInTheDocument()
+    // The size guide is Markdown (step 36b): a real table; pasted HTML never runs.
+    const guide = container.querySelector('#size-guide')!
+    expect(within(guide as HTMLElement).getByRole('table')).toHaveTextContent('SizeChestS38"M40"')
+    expect(guide.querySelector('script')).toBeNull()
 
     const lds = [...container.querySelectorAll('script[type="application/ld+json"]')].map((s) =>
       JSON.parse(s.innerHTML),

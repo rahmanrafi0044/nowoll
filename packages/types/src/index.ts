@@ -1,4 +1,5 @@
 export * from './api.js'
+export * from './admin-categories.js'
 export * from './admin-customers.js'
 export * from './admin-discounts.js'
 export * from './admin-inventory.js'

@@ -25,8 +25,13 @@ export function fetchProducts(filters: ProductFilters) {
   return call<AdminProductList>('GET', `/admin/products?${params}`)
 }
 
-export const bulkProducts = (action: BulkProductAction, ids: string[]) =>
-  call<BulkProductResult>('POST', '/admin/products/bulk', { action, ids })
+/** categoryId: only for "move". */
+export const bulkProducts = (action: BulkProductAction, ids: string[], categoryId?: string) =>
+  call<BulkProductResult>('POST', '/admin/products/bulk', {
+    action,
+    ids,
+    ...(categoryId && { categoryId }),
+  })
 
 /** For the category filter: the shop's category tree. */
 export interface CategoryNode {
@@ -34,9 +39,18 @@ export interface CategoryNode {
   name: string
   /** The inventory filter uses slugs (the API answers with them). */
   slug?: string
+  /** Present in the admin tree: false = switched off (labelled "hidden" in lists). */
+  isActive?: boolean
   children?: CategoryNode[]
 }
-export const fetchCategories = () => call<CategoryNode[]>('GET', '/categories')
+/**
+ * Every category, HIDDEN ones too (step 36b) — for the product filters and
+ * forms: a product can sit in a category that is switched off.
+ */
+export const fetchCategories = () => call<CategoryNode[]>('GET', '/admin/categories')
+
+/** Only the categories customers can see — for the homepage builder's product rows. */
+export const fetchShopCategories = () => call<CategoryNode[]>('GET', '/categories')
 
 export const exportProductsCsv = () => download('/products/export', 'nowoll-products.csv')
 

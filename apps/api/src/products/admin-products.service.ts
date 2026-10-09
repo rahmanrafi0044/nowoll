@@ -1,4 +1,10 @@
-import { HttpException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common'
 import { Prisma } from '@nowoll/database'
 import { ProductStatus } from '@nowoll/database/enums'
 import type {
@@ -144,7 +150,22 @@ export class AdminProductsService {
   }
 
   /** POST /admin/products/bulk */
-  async bulk(action: BulkProductAction, ids: string[]): Promise<BulkProductResult> {
+  async bulk(
+    action: BulkProductAction,
+    ids: string[],
+    categoryId?: string,
+  ): Promise<BulkProductResult> {
+    if (action !== 'move' && categoryId !== undefined)
+      throw new BadRequestException('A category is only used with the "move" action.')
+    if (action === 'move') {
+      if (categoryId === undefined)
+        throw new BadRequestException('Choose the category to move the products to.')
+      // Checked once up front, so a wrong category doesn't fail every product one by one.
+      const target = await this.prisma.category.count({
+        where: { id: categoryId, deletedAt: null },
+      })
+      if (!target) throw new BadRequestException('That category no longer exists.')
+    }
     const names = new Map(
       (
         await this.prisma.product.findMany({
@@ -158,7 +179,7 @@ export class AdminProductsService {
     // product failing (e.g. no photo yet) never blocks the others.
     for (const id of ids) {
       try {
-        await this.apply(action, id)
+        await this.apply(action, id, categoryId)
         result.succeeded.push(id)
       } catch (error) {
         result.failed.push({ id, name: names.get(id) ?? null, reason: this.reasonOf(error) })
@@ -167,7 +188,7 @@ export class AdminProductsService {
     return result
   }
 
-  private apply(action: BulkProductAction, id: string): Promise<unknown> {
+  private apply(action: BulkProductAction, id: string, categoryId?: string): Promise<unknown> {
     const update = (dto: UpdateProductDto) => this.products.update(id, dto)
     switch (action) {
       case 'publish':
@@ -180,6 +201,8 @@ export class AdminProductsService {
         return update({ isFeatured: false })
       case 'archive':
         return this.products.remove(id)
+      case 'move':
+        return update({ categoryId })
     }
   }
 

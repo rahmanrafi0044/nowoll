@@ -129,7 +129,7 @@ describe('ProductsService.remove', () => {
     const row = await prisma.product.findUniqueOrThrow({ where: { id: p.id } })
     expect(row).toMatchObject({ status: 'ARCHIVED', isFeatured: false })
     expect(row.deletedAt).toBeInstanceOf(Date)
-    await expect(service.findBySlug(p.slug)).rejects.toBeInstanceOf(NotFoundException)
+    expect(await service.findBySlug(p.slug)).toBeNull()
     await expect(service.remove(p.id)).rejects.toBeInstanceOf(NotFoundException)
   })
 })
@@ -276,7 +276,7 @@ describe('ProductsService.findBySlug', () => {
       ],
     })
 
-    const detail = await service.findBySlug(p.slug)
+    const detail = (await service.findBySlug(p.slug))!
     expect(detail.breadcrumb.map((b) => b.name)).toEqual(['Men', 'Shirts'])
     expect(
       detail.variants.map((v) => [
@@ -292,10 +292,10 @@ describe('ProductsService.findBySlug', () => {
     expect(detail.variants[0]).not.toHaveProperty('stock')
   })
 
-  it('404s for drafts', async () => {
+  it('null for drafts', async () => {
     const c = await makeCategory()
     const draft = await makeProduct({ categoryId: c.id, status: 'DRAFT' })
-    await expect(service.findBySlug(draft.slug)).rejects.toBeInstanceOf(NotFoundException)
+    expect(await service.findBySlug(draft.slug)).toBeNull()
   })
 })
 

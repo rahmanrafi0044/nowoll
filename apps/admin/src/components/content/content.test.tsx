@@ -18,7 +18,7 @@ vi.mock('@/lib/content-api', () => ({
   clearContentBlock: vi.fn(),
   uploadContentImage: vi.fn(),
 }))
-vi.mock('@/lib/products-api', () => ({ fetchCategories: vi.fn() }))
+vi.mock('@/lib/products-api', () => ({ fetchShopCategories: vi.fn() }))
 const mocked = vi.mocked(api)
 const ok = <T,>(data: T) => ({ ok: true as const, data })
 
@@ -37,7 +37,7 @@ const block = (
 
 beforeEach(() => {
   vi.resetAllMocks()
-  vi.mocked(products.fetchCategories).mockResolvedValue(
+  vi.mocked(products.fetchShopCategories).mockResolvedValue(
     ok([
       {
         id: 'c1',
