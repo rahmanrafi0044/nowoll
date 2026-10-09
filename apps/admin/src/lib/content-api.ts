@@ -23,6 +23,10 @@ export const fetchContentBlock = (key: ContentKey) =>
 export const saveContentBlock = (key: ContentKey, data: unknown, isActive: boolean) =>
   call<AdminContentBlock>('PUT', `/admin/content-blocks/${key}`, { data, isActive })
 
+/** Empties a block and switches it off (the shop goes back to its default — for the announcement: no bar). */
+export const clearContentBlock = (key: ContentKey) =>
+  call<AdminContentBlock>('DELETE', `/admin/content-blocks/${key}`)
+
 /** A homepage picture (hero, banner) → its https address. */
 export function uploadContentImage(file: File) {
   const form = new FormData()

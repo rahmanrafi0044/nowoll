@@ -113,6 +113,23 @@ describe('admin content (step 36)', () => {
       expect(admin.valid).toBe(false) // the editor can say "something here needs fixing"
     })
 
+    it('clear (DELETE): empties the block and switches it off — the row is kept (soft), the shop shows nothing', async () => {
+      await save('announcement_bar', { text: 'Eid sale', href: '/shop' }).expect(200)
+      const cleared = (
+        await http().delete('/api/v1/admin/content-blocks/announcement_bar').expect(200)
+      ).body.data
+      expect(cleared).toMatchObject({ data: null, isActive: false, valid: true })
+      expect(cleared.updatedAt).not.toBeNull() // still there — soft, not deleted
+      expect(await db.contentBlock.count({ where: { key: 'announcement_bar' } })).toBe(1)
+      await http().get('/api/v1/content-blocks/announcement_bar').expect(404)
+      // A new announcement can be written afterwards as usual.
+      await save('announcement_bar', { text: 'New' }).expect(200)
+      await http().get('/api/v1/content-blocks/announcement_bar').expect(200)
+      // Never saved → clearing still works; unknown keys → 404.
+      await http().delete('/api/v1/admin/content-blocks/homepage_hero').expect(200)
+      await http().delete('/api/v1/admin/content-blocks/internal_notes').expect(404)
+    })
+
     it('list: every editable block, saved or not; unknown keys → 404', async () => {
       await save('announcement_bar', { text: 'Hello' }).expect(200)
       const blocks = (await http().get('/api/v1/admin/content-blocks').expect(200)).body.data
@@ -183,6 +200,7 @@ describe('admin content (step 36)', () => {
         .send({ data: { text: 'x' }, isActive: true })
         .expect(401)
       await h().post('/api/v1/admin/content/images').expect(401)
+      await h().delete('/api/v1/admin/content-blocks/announcement_bar').expect(401)
       await h().get('/api/v1/content-blocks/announcement_bar').expect(404) // public: open (nothing saved yet)
     } finally {
       await outsider.close()

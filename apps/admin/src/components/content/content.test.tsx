@@ -15,6 +15,7 @@ vi.mock('@/lib/content-api', () => ({
   fetchContentBlocks: vi.fn(),
   fetchContentBlock: vi.fn(),
   saveContentBlock: vi.fn(),
+  clearContentBlock: vi.fn(),
   uploadContentImage: vi.fn(),
 }))
 vi.mock('@/lib/products-api', () => ({ fetchCategories: vi.fn() }))
@@ -121,37 +122,85 @@ describe('announcement bar', () => {
       false,
     )
   })
-  it('remove from the shop: asks first, re-saves the SAVED words switched off (not half-typed edits)', async () => {
+  it('Clear + Save removes the announcement: asks first, then deletes its words (soft clear in the API)', async () => {
+    mocked.fetchContentBlock.mockResolvedValue(
+      ok(block('announcement_bar', { text: 'Eid sale', href: '/shop' })),
+    )
+    mocked.clearContentBlock.mockResolvedValue(
+      ok(block('announcement_bar', null, { updatedAt: '2026-10-09T10:00:00Z' })),
+    )
+    render(<AnnouncementEditor />)
+    const text = await screen.findByLabelText('Text')
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(text).toHaveValue('')
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    const confirm = screen.getByRole('group', { name: 'Confirm removing the announcement' })
+    expect(confirm).toHaveTextContent('its words are deleted')
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Keep it' }))
+    expect(mocked.clearContentBlock).not.toHaveBeenCalled()
+    expect(mocked.saveContentBlock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, remove it' }))
+    await waitFor(() => expect(mocked.clearContentBlock).toHaveBeenCalledWith('announcement_bar'))
+    expect(await screen.findByRole('status')).toHaveTextContent('Removed')
+    expect(text).toHaveValue('')
+    expect(screen.queryByRole('button', { name: 'Hide from the shop' })).toBeNull()
+    // Nothing saved any more → an empty Save is just "write something".
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Write the announcement')
+    expect(mocked.clearContentBlock).toHaveBeenCalledTimes(1)
+  })
+
+  it('a link without words is not a removal — it asks for the words', async () => {
+    mocked.fetchContentBlock.mockResolvedValue(
+      ok(block('announcement_bar', { text: 'Old', href: null })),
+    )
+    render(<AnnouncementEditor />)
+    fireEvent.change(await screen.findByLabelText('Text'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('Link (optional)'), { target: { value: '/shop' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Write the announcement')
+    expect(screen.queryByRole('group')).toBeNull()
+  })
+
+  it('hide from the shop: asks first, re-saves the LATEST saved words switched off (not half-typed edits)', async () => {
     mocked.fetchContentBlock.mockResolvedValue(
       ok(block('announcement_bar', { text: 'Eid sale', href: '/shop' })),
     )
     render(<AnnouncementEditor />)
-    fireEvent.change(await screen.findByLabelText('Text'), { target: { value: 'Half-typed' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Remove from the shop' }))
-    const confirm = screen.getByRole('group', { name: 'Confirm removing the announcement' })
-    fireEvent.click(within(confirm).getByRole('button', { name: 'Keep it' }))
-    expect(mocked.saveContentBlock).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Remove from the shop' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Yes, remove it' }))
+    const text = await screen.findByLabelText('Text')
+    // Save new words first: Hide must use THESE, not what the page opened with.
+    fireEvent.change(text, { target: { value: 'Puja sale' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await screen.findByRole('status')
+    fireEvent.change(text, { target: { value: 'Half-typed' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Hide from the shop' }))
+    const confirm = screen.getByRole('group', { name: 'Confirm hiding the announcement' })
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Keep it showing' }))
+    expect(mocked.saveContentBlock).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Hide from the shop' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, hide it' }))
     await waitFor(() =>
-      expect(mocked.saveContentBlock).toHaveBeenCalledWith(
+      expect(mocked.saveContentBlock).toHaveBeenLastCalledWith(
         'announcement_bar',
-        { text: 'Eid sale', href: '/shop' },
+        { text: 'Puja sale', href: '/shop' },
         false,
       ),
     )
-    expect(await screen.findByRole('status')).toHaveTextContent('Removed')
+    expect(await screen.findByRole('status')).toHaveTextContent('Hidden')
     expect(screen.getByLabelText('Show it on the shop')).not.toBeChecked()
-    expect(screen.queryByRole('button', { name: 'Remove from the shop' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Hide from the shop' })).toBeNull()
+    expect(mocked.clearContentBlock).not.toHaveBeenCalled()
   })
 
-  it('remove is offered only while the bar is on the shop; Clear empties the boxes without saving', async () => {
+  it('hide is offered only while the bar is on the shop; Clear empties the boxes without saving', async () => {
     mocked.fetchContentBlock.mockResolvedValue(
       ok(block('announcement_bar', { text: 'Old', href: '/shop' }, { isActive: false })),
     )
     render(<AnnouncementEditor />)
     const text = await screen.findByLabelText('Text')
-    expect(screen.queryByRole('button', { name: 'Remove from the shop' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Hide from the shop' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
     expect(text).toHaveValue('')
     expect(screen.getByLabelText('Link (optional)')).toHaveValue('')
@@ -159,13 +208,13 @@ describe('announcement bar', () => {
     expect(mocked.saveContentBlock).not.toHaveBeenCalled()
   })
 
-  it('switching it on by saving offers Remove straight away', async () => {
+  it('switching it on by saving offers Hide straight away', async () => {
     mocked.fetchContentBlock.mockResolvedValue(ok(block('announcement_bar')))
     render(<AnnouncementEditor />)
     fireEvent.change(await screen.findByLabelText('Text'), { target: { value: 'Hello' } })
-    expect(screen.queryByRole('button', { name: 'Remove from the shop' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Hide from the shop' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByRole('button', { name: 'Remove from the shop' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Hide from the shop' })).toBeInTheDocument()
   })
 })
 

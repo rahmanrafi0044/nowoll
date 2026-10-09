@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
-import type { Prisma } from '@nowoll/database'
+import { Prisma } from '@nowoll/database'
 import { CONTENT_BLOCK_SCHEMAS, type ContentBlockKey, readHomepageLayout } from '@nowoll/validation'
 import { PrismaService } from '../prisma/prisma.service.js'
 
@@ -8,7 +8,7 @@ const isKnownKey = (key: string): key is ContentBlockKey => key in CONTENT_BLOCK
 /** One block as the admin editor sees it (step 36). */
 export interface AdminContentBlock {
   key: ContentBlockKey
-  /** What is saved (null = never saved: the storefront uses its default). */
+  /** What is saved (null = never saved, or cleared: the storefront uses its default). */
   data: unknown
   isActive: boolean
   /** Does the saved data fit its format? (false = hidden on the storefront) */
@@ -59,7 +59,8 @@ export class ContentBlocksService {
         key,
         data: row?.data ?? null,
         isActive: row?.isActive ?? false,
-        valid: row ? CONTENT_BLOCK_SCHEMAS[key].safeParse(row.data).success : true,
+        // A cleared block (data null) is "nothing here", not "broken".
+        valid: !row || row.data === null || CONTENT_BLOCK_SCHEMAS[key].safeParse(row.data).success,
         updatedAt: row?.updatedAt ?? null,
       }
     })
@@ -92,6 +93,22 @@ export class ContentBlocksService {
       where: { key },
       create: { key, data: value, isActive },
       update: { data: value, isActive },
+    })
+    return this.getForAdmin(key)
+  }
+
+  /**
+   * DELETE /admin/content-blocks/:key — empties a block and switches it off
+   * (e.g. "remove the announcement"). A SOFT clear (CLAUDE.md §7): the row is
+   * kept with no content, so the storefront falls back to its default
+   * (for the announcement bar: no bar at all).
+   */
+  async clear(key: string): Promise<AdminContentBlock> {
+    if (!isKnownKey(key)) throw new NotFoundException('Content not found')
+    await this.prisma.contentBlock.upsert({
+      where: { key },
+      create: { key, data: Prisma.JsonNull, isActive: false },
+      update: { data: Prisma.JsonNull, isActive: false },
     })
     return this.getForAdmin(key)
   }

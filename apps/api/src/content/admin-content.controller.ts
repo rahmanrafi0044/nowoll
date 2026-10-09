@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Param,
@@ -49,6 +50,11 @@ export class AdminContentController {
   @Put('content-blocks/:key')
   save(@Param('key') key: string, @Body() dto: SaveContentBlockDto) {
     return this.blocks.save(key, dto.data, dto.isActive)
+  }
+
+  @Delete('content-blocks/:key')
+  clear(@Param('key') key: string) {
+    return this.blocks.clear(key)
   }
 
   // Multer stops reading at 5 MB → 413; the service checks the real file type.
