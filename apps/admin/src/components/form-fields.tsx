@@ -12,6 +12,7 @@ export function TextArea({
   hint,
   maxLength,
   value,
+  className,
   ...props
 }: ComponentPropsWithRef<'textarea'> & { label: string; hint?: string; value: string }) {
   const id = useId()
@@ -25,8 +26,8 @@ export function TextArea({
         value={value}
         maxLength={maxLength}
         aria-describedby={`${id}-hint`}
-        className={`${control} min-h-24 py-2`}
         {...props}
+        className={`${control} min-h-24 py-2 ${className ?? ''}`}
       />
       <p id={`${id}-hint`} className="flex justify-between gap-3 text-xs text-muted-foreground">
         <span>{hint}</span>

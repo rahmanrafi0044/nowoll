@@ -17,6 +17,11 @@ const PARTS = [
     title: 'Announcement bar',
     text: 'The thin strip above the header — e.g. a sale or free-delivery note.',
   },
+  {
+    href: '/admin/content/pages',
+    title: 'Pages',
+    text: 'Privacy, terms, return policy, about, contact, FAQ — written here, shown in the footer.',
+  },
 ]
 
 export default function ContentPage() {

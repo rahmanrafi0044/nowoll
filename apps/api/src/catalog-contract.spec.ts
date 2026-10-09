@@ -4,6 +4,10 @@
 // long before a customer sees a broken page.
 import type {
   AccountOrderDetailView,
+  AdminPageDetail as AdminPageDetailView,
+  AdminPageRow as AdminPageRowView,
+  PageLinkView,
+  PublicPageView,
   AdminReturnView,
   MyReturnView,
   ReturnEligibilityView,
@@ -32,6 +36,7 @@ import type {
   WishlistEntryView,
 } from '@nowoll/types'
 import { expectTypeOf } from 'vitest'
+import type { AdminPageDetail, AdminPageRow, PageLink, PublicPage } from './pages/pages.service.js'
 import type { SavedAddress } from './addresses/addresses.service.js'
 import type { AccountProfile } from './auth/auth.service.js'
 import type { PublicCategoryDetail, PublicCategoryNode } from './categories/categories.service.js'
@@ -109,5 +114,12 @@ describe('API ↔ storefront contract', () => {
     type Init = Awaited<ReturnType<PaymentsService['init']>>
     expectTypeOf<Serialized<Init>>().toEqualTypeOf<PaymentInitView>()
     expectTypeOf<Serialized<PaymentStatusSummary>>().toEqualTypeOf<PaymentStatusView>()
+  })
+
+  it('pages', () => {
+    expectTypeOf<Serialized<PageLink>>().toEqualTypeOf<PageLinkView>()
+    expectTypeOf<Serialized<PublicPage>>().toEqualTypeOf<PublicPageView>()
+    expectTypeOf<Serialized<AdminPageRow>>().toEqualTypeOf<AdminPageRowView>()
+    expectTypeOf<Serialized<AdminPageDetail>>().toEqualTypeOf<AdminPageDetailView>()
   })
 })

@@ -16,6 +16,7 @@ import { ProductsModule } from './products/products.module.js'
 import { StorageModule } from './storage/storage.module.js'
 import { InventoryModule } from './inventory/inventory.module.js'
 import { ContentModule } from './content/content.module.js'
+import { PagesModule } from './pages/pages.module.js'
 import { SubscribersModule } from './subscribers/subscribers.module.js'
 import { DiscountsModule } from './discounts/discounts.module.js'
 import { CartModule } from './cart/cart.module.js'
@@ -51,6 +52,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     ProductsModule,
     InventoryModule,
     ContentModule,
+    PagesModule,
     SubscribersModule,
     DiscountsModule,
     CartModule,
