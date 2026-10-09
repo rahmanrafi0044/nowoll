@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -33,8 +34,16 @@ export class DiscountsController {
 
   @Get()
   @AdminOnly()
+  @Header('Cache-Control', 'no-store')
   list(@Query() query: ListDiscountsQuery) {
     return this.discounts.list(query)
+  }
+
+  @Get(':id')
+  @AdminOnly()
+  @Header('Cache-Control', 'no-store')
+  detail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.discounts.detail(id)
   }
 
   @Post()

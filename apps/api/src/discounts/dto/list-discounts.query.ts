@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer'
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator'
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator'
 import { Trim } from '../../common/validation/transforms.js'
 
 export class ListDiscountsQuery {
@@ -21,4 +21,9 @@ export class ListDiscountsQuery {
   @IsString()
   @MaxLength(30)
   q?: string
+
+  /** ACTIVE | SCHEDULED | EXPIRED | USED_UP | OFF — see discountStatus(). */
+  @IsOptional()
+  @IsIn(['ACTIVE', 'SCHEDULED', 'EXPIRED', 'USED_UP', 'OFF'])
+  status?: 'ACTIVE' | 'SCHEDULED' | 'EXPIRED' | 'USED_UP' | 'OFF'
 }

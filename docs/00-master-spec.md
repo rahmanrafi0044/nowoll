@@ -244,7 +244,8 @@
 │   ├── PATCH  /:variantId/adjust  (admin — {change} or {setTo}, note required; records the staff member)
 │   └── GET    /:variantId/log     (admin — reason, note, who, order number)
 ├── discounts/
-│   ├── GET    /            (admin)
+│   ├── GET    /            (admin — with status ACTIVE|SCHEDULED|EXPIRED|USED_UP|OFF, discount given, sales; ?status= filter)
+│   ├── GET    /:id         (admin — the code + the orders that used it)
 │   ├── POST   /            (admin)
 │   ├── PATCH  /:id         (admin)
 │   ├── DELETE /:id         (admin)

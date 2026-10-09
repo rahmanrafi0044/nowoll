@@ -7,7 +7,9 @@ import {
 } from '@nestjs/common'
 import { type DiscountCode, Prisma } from '@nowoll/database'
 import { DiscountType } from '@nowoll/database/enums'
-import type { Paginated } from '@nowoll/types'
+import type { AdminDiscountDetail, DiscountStatus, Paginated } from '@nowoll/types'
+import { SALE_STATUSES } from '../analytics/analytics.service.js'
+import { displayNumber } from '../orders/order-number.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import { priceCart } from '../pricing/cart-pricing.js'
 import {
@@ -33,6 +35,24 @@ export interface DiscountPreview {
 
 export interface AdminDiscount extends DiscountCode {
   totalDiscounted: Prisma.Decimal // sum of discounts given with this code
+  salesTotal: Prisma.Decimal // totals of SALES (confirmed or later) that used it (step 34)
+  status: DiscountStatus
+}
+
+/**
+ * One status per code, decided in this order (the first that applies):
+ * off → expired → used up → scheduled → active. The list filter
+ * (statusWhere) follows exactly the same order.
+ */
+export function discountStatus(
+  c: Pick<DiscountCode, 'isActive' | 'startsAt' | 'expiresAt' | 'usageLimit' | 'usedCount'>,
+  now = new Date(),
+): DiscountStatus {
+  if (!c.isActive) return 'OFF'
+  if (c.expiresAt && c.expiresAt <= now) return 'EXPIRED'
+  if (c.usageLimit !== null && c.usedCount >= c.usageLimit) return 'USED_UP'
+  if (c.startsAt && c.startsAt > now) return 'SCHEDULED'
+  return 'ACTIVE'
 }
 
 const toDecimal = (n: number) => new Prisma.Decimal(n.toFixed(2))
@@ -162,14 +182,14 @@ export class DiscountsService {
 
   // ── Admin ──────────────────────────────────────────────────────────────
 
-  async list(query: {
-    page: number
-    pageSize: number
-    q?: string
-  }): Promise<Paginated<AdminDiscount>> {
+  async list(
+    query: { page: number; pageSize: number; q?: string; status?: DiscountStatus },
+    now = new Date(),
+  ): Promise<Paginated<AdminDiscount>> {
     const where: Prisma.DiscountCodeWhereInput = {
       deletedAt: null,
       ...(query.q && { code: { contains: query.q.trim().toUpperCase() } }),
+      ...(query.status && this.statusWhere(query.status, now)),
     }
     const [total, codes] = await Promise.all([
       this.prisma.discountCode.count({ where }),
@@ -180,21 +200,88 @@ export class DiscountsService {
         take: query.pageSize,
       }),
     ])
-    const sums = await this.prisma.discountUsage.groupBy({
-      by: ['discountCodeId'],
-      where: { discountCodeId: { in: codes.map((c) => c.id) } },
-      _sum: { amount: true },
-    })
+    const ids = codes.map((c) => c.id)
+    const [sums, sales] = await Promise.all([
+      this.prisma.discountUsage.groupBy({
+        by: ['discountCodeId'],
+        where: { discountCodeId: { in: ids } },
+        _sum: { amount: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['discountCodeId'],
+        where: { discountCodeId: { in: ids }, status: { in: SALE_STATUSES } },
+        _sum: { total: true },
+      }),
+    ])
     const sumById = new Map(sums.map((s) => [s.discountCodeId, s._sum.amount]))
+    const salesById = new Map(sales.map((s) => [s.discountCodeId, s._sum.total]))
     return {
       items: codes.map((c) => ({
         ...c,
         totalDiscounted: sumById.get(c.id) ?? new Prisma.Decimal(0),
+        salesTotal: salesById.get(c.id) ?? new Prisma.Decimal(0),
+        status: discountStatus(c, now),
       })),
       total,
       page: query.page,
       pageSize: query.pageSize,
       totalPages: Math.ceil(total / query.pageSize),
+    }
+  }
+
+  /** GET /discounts/:id — the code (archived ones too) and the orders that used it. */
+  async detail(id: string, now = new Date()): Promise<AdminDiscountDetail> {
+    const c = await this.prisma.discountCode.findUnique({ where: { id } })
+    if (!c) throw new NotFoundException('Discount code not found')
+    const [usages, totals, sales] = await Promise.all([
+      this.prisma.discountUsage.findMany({
+        where: { discountCodeId: id },
+        include: {
+          order: {
+            select: { id: true, orderNumber: true, customerName: true, total: true, status: true },
+          },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        take: 100,
+      }),
+      this.prisma.discountUsage.aggregate({
+        where: { discountCodeId: id },
+        _sum: { amount: true },
+      }),
+      this.prisma.order.aggregate({
+        where: { discountCodeId: id, status: { in: SALE_STATUSES } },
+        _sum: { total: true },
+      }),
+    ])
+    const money = (d: Prisma.Decimal | null | undefined) => (d ?? new Prisma.Decimal(0)).toString()
+    return {
+      id: c.id,
+      code: c.code,
+      description: c.description,
+      type: c.type,
+      value: c.value.toString(),
+      minOrderAmount: c.minOrderAmount?.toString() ?? null,
+      maxDiscountAmount: c.maxDiscountAmount?.toString() ?? null,
+      usageLimit: c.usageLimit,
+      usageLimitPerCustomer: c.usageLimitPerCustomer,
+      usedCount: c.usedCount,
+      startsAt: c.startsAt?.toISOString() ?? null,
+      expiresAt: c.expiresAt?.toISOString() ?? null,
+      isActive: c.isActive,
+      createdAt: c.createdAt.toISOString(),
+      status: discountStatus(c, now),
+      totalDiscounted: money(totals._sum.amount),
+      salesTotal: money(sales._sum.total),
+      usages: usages.map((u) => ({
+        orderId: u.order.id,
+        orderNumber: displayNumber(u.order.orderNumber),
+        customerName: u.order.customerName,
+        email: u.email,
+        amount: u.amount.toString(),
+        orderTotal: u.order.total.toString(),
+        orderStatus: u.order.status,
+        createdAt: u.createdAt.toISOString(),
+      })),
     }
   }
 
@@ -245,6 +332,34 @@ export class DiscountsService {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
+
+  /** The list filter — the same order of checks as discountStatus(). */
+  private statusWhere(status: DiscountStatus, now: Date): Prisma.DiscountCodeWhereInput {
+    const notExpired = { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }
+    // usedCount < usageLimit compares two columns (a "field reference").
+    const usesLeft = {
+      OR: [{ usageLimit: null }, { usedCount: { lt: this.prisma.discountCode.fields.usageLimit } }],
+    }
+    const usedUp = {
+      usageLimit: { not: null },
+      usedCount: { gte: this.prisma.discountCode.fields.usageLimit },
+    }
+    switch (status) {
+      case 'OFF':
+        return { isActive: false }
+      case 'EXPIRED':
+        return { isActive: true, expiresAt: { lte: now } }
+      case 'USED_UP':
+        return { isActive: true, AND: [notExpired, usedUp] }
+      case 'SCHEDULED':
+        return { isActive: true, startsAt: { gt: now }, AND: [notExpired, usesLeft] }
+      case 'ACTIVE':
+        return {
+          isActive: true,
+          AND: [notExpired, usesLeft, { OR: [{ startsAt: null }, { startsAt: { lte: now } }] }],
+        }
+    }
+  }
 
   private findByCode(db: Db, code: string) {
     return db.discountCode.findUnique({ where: { code: normalizeCode(code) } })
