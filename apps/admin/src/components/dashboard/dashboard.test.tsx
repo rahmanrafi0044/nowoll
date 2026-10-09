@@ -115,7 +115,10 @@ describe('Dashboard', () => {
       '/admin/orders?status=CONFIRMED,PROCESSING',
     )
     expect(within(box).queryByRole('link', { name: /payments to check/ })).not.toBeInTheDocument() // 0 waiting
-    expect(within(box).queryByRole('link', { name: /return requests/ })).not.toBeInTheDocument() // page in step 35
+    expect(within(box).getByRole('link', { name: /return requests/ })).toHaveAttribute(
+      'href',
+      '/admin/returns',
+    )
   })
 
   it('needs attention: all zero → "All caught up"', async () => {

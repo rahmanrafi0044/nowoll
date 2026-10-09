@@ -388,6 +388,27 @@ export interface MyReturnView {
   createdAt: string
   approvedAt: string | null
   rejectedAt: string | null
+  /** When the parcel came back (step 35; null before then, and for returns received before step 35). */
+  receivedAt: string | null
+}
+
+/** One refund of a return, as the admin sees it (step 35). */
+export interface AdminRefundView {
+  id: string
+  amount: Money
+  /** PENDING: SSLCommerz hasn't confirmed yet (see `stage`). */
+  status: 'PENDING' | 'PROCESSED' | 'FAILED'
+  /** MANUAL: paid back by hand (bKash / cash). GATEWAY: through SSLCommerz. */
+  method: 'GATEWAY' | 'MANUAL'
+  /** A PENDING refund: SSLCommerz is PROCESSING it (re-checked every 15 min) or gave NO_ANSWER (check its panel, then resolve). */
+  stage: 'PROCESSING' | 'NO_ANSWER' | null
+  /** MANUAL: the bKash TrxID or "cash" note entered with it. */
+  reference: string | null
+  gatewayRefId: string | null
+  /** Why it failed, or the note left when it was resolved by hand. */
+  note: string | null
+  processedAt: string | null
+  createdAt: string
 }
 
 /** GET /returns/eligibility/:orderNumber */
@@ -412,11 +433,8 @@ export interface AdminReturnView extends MyReturnView {
   paymentMethod: string
   suggestedRefund: Money
   maxRefundable: Money
-  refunds: {
-    id: string
-    amount: Money
-    status: string
-    gatewayRefId: string | null
-    createdAt: string
-  }[]
+  refunds: AdminRefundView[]
 }
+
+/** GET /returns (admin) — oldest first: it's a queue. */
+export type AdminReturnList = Paginated<AdminReturnView>

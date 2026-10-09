@@ -673,6 +673,7 @@ model ReturnRequest {
   refundAmount    Decimal?     @map("refund_amount") @db.Decimal(12, 2)
   approvedAt      DateTime?    @map("approved_at")
   rejectedAt      DateTime?    @map("rejected_at")
+  receivedAt      DateTime?    @map("received_at") // the parcel came back (step 35) — set by the "received" step
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 

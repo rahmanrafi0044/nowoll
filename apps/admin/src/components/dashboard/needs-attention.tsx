@@ -2,8 +2,8 @@ import type { AnalyticsSummary } from '@nowoll/types'
 import Link from 'next/link'
 
 // Work waiting for someone right now — the box to check first each morning.
-// Each line opens the matching, already-filtered order list (step 31b);
-// return requests get their link with the returns page (step 35).
+// Each line opens the matching, already-filtered list (orders: step 31b;
+// return requests: the returns page, which opens on "To decide" — step 35).
 export function NeedsAttention({ counts }: { counts: AnalyticsSummary['needsAttention'] }) {
   const rows = [
     {
@@ -21,7 +21,11 @@ export function NeedsAttention({ counts }: { counts: AnalyticsSummary['needsAtte
       text: 'online payments to check by hand',
       href: '/admin/orders?paymentStatus=UNDER_REVIEW',
     },
-    { n: counts.returnRequests, text: 'return requests to approve or reject', href: null },
+    {
+      n: counts.returnRequests,
+      text: 'return requests to approve or reject',
+      href: '/admin/returns',
+    },
   ]
   if (rows.every((r) => r.n === 0))
     return <p className="text-sm text-muted-foreground">All caught up — nothing is waiting.</p>

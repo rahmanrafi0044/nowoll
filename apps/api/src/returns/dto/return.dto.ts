@@ -72,6 +72,13 @@ export class AdminReturnsQuery {
   @IsIn(Object.values(ReturnStatus))
   status?: ReturnStatus
 
+  /** An order number: "NW-10001" or "10001". */
+  @Trim()
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  q?: string
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

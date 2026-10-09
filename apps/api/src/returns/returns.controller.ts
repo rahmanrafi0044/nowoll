@@ -66,12 +66,14 @@ export class ReturnsController {
 
   @Get()
   @AdminOnly()
+  @Header('Cache-Control', 'no-store')
   adminList(@Query() q: AdminReturnsQuery) {
-    return this.returns.adminList(q.status, q.page)
+    return this.returns.adminList(q.status, q.page, q.q)
   }
 
   @Get(':id')
   @AdminOnly()
+  @Header('Cache-Control', 'no-store')
   adminView(@Param('id', ParseUUIDPipe) id: string) {
     return this.returns.adminView(id)
   }
