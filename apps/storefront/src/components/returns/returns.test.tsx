@@ -70,6 +70,7 @@ const aReturn = (over: Partial<MyReturnView> = {}): MyReturnView => ({
   createdAt: '2026-10-06T04:00:00.000Z',
   approvedAt: null,
   rejectedAt: null,
+  receivedAt: null,
   ...over,
 })
 

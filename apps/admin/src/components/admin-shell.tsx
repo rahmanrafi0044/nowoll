@@ -25,6 +25,7 @@ const NAV = [
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/inventory', label: 'Inventory' },
   { href: '/admin/discounts', label: 'Discounts' },
+  { href: '/admin/returns', label: 'Returns' },
 ]
 
 export function AdminShell({ children }: { children: ReactNode }) {

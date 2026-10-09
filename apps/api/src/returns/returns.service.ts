@@ -36,6 +36,7 @@ export interface MyReturn {
   createdAt: Date
   approvedAt: Date | null
   rejectedAt: Date | null
+  receivedAt: Date | null
 }
 
 /** What can still be returned from an order (the order page's "Return items"). */
@@ -65,8 +66,13 @@ export interface AdminReturn extends MyReturn {
   refunds: {
     id: string
     amount: Prisma.Decimal
-    status: string
+    status: 'PENDING' | 'PROCESSED' | 'FAILED'
+    method: 'GATEWAY' | 'MANUAL'
+    stage: 'PROCESSING' | 'NO_ANSWER' | null
+    reference: string | null
     gatewayRefId: string | null
+    note: string | null
+    processedAt: Date | null
     createdAt: Date
   }[]
 }
@@ -176,8 +182,17 @@ export class ReturnsService {
   // ---- Admin ---------------------------------------------------------------
 
   /** Waiting requests first (oldest first, so nothing is forgotten). */
-  async adminList(status: ReturnStatus | undefined, page: number): Promise<Paginated<AdminReturn>> {
-    const where = status ? { status } : {}
+  async adminList(
+    status: ReturnStatus | undefined,
+    page: number,
+    q?: string,
+  ): Promise<Paginated<AdminReturn>> {
+    // q = an order number: "NW-10001", "nw 10001" or "10001" (anything else → no matches).
+    const orderNumber = q ? parseOrderNumber(q) : null
+    const where: Prisma.ReturnRequestWhereInput = {
+      ...(status && { status }),
+      ...(q && { order: { orderNumber: orderNumber ?? -1 } }),
+    }
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.returnRequest.count({ where }),
       this.prisma.returnRequest.findMany({
@@ -222,13 +237,7 @@ export class ReturnsService {
       paymentMethod: r.order.paymentMethod,
       suggestedRefund: Prisma.Decimal.min(suggested, maxRefundable),
       maxRefundable,
-      refunds: r.refunds.map((f) => ({
-        id: f.id,
-        amount: f.amount,
-        status: f.status,
-        gatewayRefId: f.gatewayRefId,
-        createdAt: f.createdAt,
-      })),
+      refunds: r.refunds.map(toAdminRefund),
     }
   }
 
@@ -299,7 +308,10 @@ export class ReturnsService {
           this.logger.warn(`Return ${id}: variant ${item.variantId} is archived — not restocked`)
         }
       }
-      await tx.returnRequest.update({ where: { id }, data: { status: ReturnStatus.RECEIVED } })
+      await tx.returnRequest.update({
+        where: { id },
+        data: { status: ReturnStatus.RECEIVED, receivedAt: new Date() },
+      })
     })
     await this.stock.notifyLowStock(changes)
     return this.adminView(id)
@@ -427,5 +439,48 @@ function toMine(r: FullReturn): MyReturn {
     createdAt: r.createdAt,
     approvedAt: r.approvedAt,
     rejectedAt: r.rejectedAt,
+    receivedAt: r.receivedAt,
+  }
+}
+
+/**
+ * One refund in words the admin page can use (step 35). The details live in
+ * rawResponse: a manual refund is stored as { method: 'MANUAL', reference };
+ * a refund SSLCommerz never answered about as { unknown: true }; a failure or
+ * a by-hand resolution carries a reason / note.
+ */
+function toAdminRefund(f: {
+  id: string
+  amount: Prisma.Decimal
+  status: 'PENDING' | 'PROCESSED' | 'FAILED'
+  gatewayRefId: string | null
+  rawResponse: Prisma.JsonValue
+  processedAt: Date | null
+  createdAt: Date
+}): AdminReturn['refunds'][number] {
+  const raw =
+    f.rawResponse && typeof f.rawResponse === 'object' && !Array.isArray(f.rawResponse)
+      ? (f.rawResponse as Record<string, unknown>)
+      : {}
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null)
+  const manual = raw.method === 'MANUAL'
+  return {
+    id: f.id,
+    amount: f.amount,
+    status: f.status,
+    method: manual ? 'MANUAL' : 'GATEWAY',
+    stage:
+      f.status !== 'PENDING'
+        ? null
+        : raw.unknown === true
+          ? 'NO_ANSWER'
+          : f.gatewayRefId
+            ? 'PROCESSING'
+            : 'NO_ANSWER',
+    reference: manual ? text(raw.reference) : null,
+    gatewayRefId: f.gatewayRefId,
+    note: text(raw.note) ?? (f.status === 'FAILED' ? text(raw.reason) : null),
+    processedAt: f.processedAt,
+    createdAt: f.createdAt,
   }
 }
