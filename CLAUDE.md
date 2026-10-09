@@ -218,6 +218,12 @@ Schema change → `schema.prisma` edit → `prisma migrate dev --name <name>` �
 ### Rule 8 — One feature branch per feature
 Never commit directly to `main`. Every feature = `feature/<name>` branch → PR → merge.
 
+### Rule 9 — Admin-editable, but never the dangerous things
+Storefront content and store rules are editable from the admin panel (see
+`docs/admin-editable.md`). Its **"never admin-editable"** list is binding: secret keys,
+pasted HTML/JavaScript, turning off admin 2FA, and new layouts/features stay
+developer-side — even if asked later. Explain why and offer the safe alternative.
+
 ---
 
 ## 7. DATABASE RULES

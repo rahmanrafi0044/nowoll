@@ -63,18 +63,35 @@
 33. apps/admin: Inventory (stock adjust modal, inventory log, low-stock filter)
 34. apps/admin: Discounts (create/edit/delete codes, usage stats)
 35. apps/admin: Returns (view requests, approve/reject)
-36. apps/admin: Content (homepage sections, announcement bar, static pages, blog posts)
+36. apps/admin: Content — announcement bar; homepage (hero, sections show/hide/rename/order,
+    promo banners, product rows by category/tag, trust badges); static pages incl. FAQ (Markdown)
+    (blog posts moved to step 43)
+36b. apps/admin: Categories (tree, create/edit/archive, photo, order, on/off, size guide, SEO)
 37. apps/admin: Shipping rates (zone-based: Dhaka / Outside Dhaka)
-38. apps/admin: Settings (store info, admin email, VAT rate, low-stock threshold)
+38. apps/admin: Settings — store info, admin email, VAT rate, low-stock threshold, return window;
+    branding (name, tagline, logo, favicon, share image, colours, font); contact + social links;
+    site-wide SEO defaults; shop-page defaults; "thank you" message
+38b. apps/admin: Navigation — main menu (categories + custom links, order) and footer
+     (link columns, about text, copyright, payment-method logos)
+38c. apps/admin: Payment methods on/off + descriptions; COD limit; minimum order amount
+38d. apps/admin: Product page "Delivery and returns" info box
+38e. apps/admin: Staff management (add/remove staff, role; ADMIN only; 2FA always on)
+38f. apps/storefront: Design refresh — explore the live site with Rafi, then improve the look
+     and feel (every admin-editable item keeps working)
 ```
+
+Everything the admin panel can and can't change — with the safety rules — is in
+[docs/admin-editable.md](./admin-editable.md). Its "never admin-editable" list is binding.
 
 ### Phase 6 — Analytics & Marketing
 ```
-39. GA4 + GTM + Meta Pixel (via next/script in storefront layout)
+39. GA4 + GTM + Meta Pixel (via next/script in storefront layout; the IDs are admin settings — validated ID fields, never pasted scripts)
 40. apps/api: Analytics endpoints (revenue summary, revenue chart, top products, top categories)
 41. apps/admin: Analytics dashboard (Recharts line chart, tables)
 42. Newsletter sign-up form → Resend subscriber list or Mailchimp API
 43. Blog section (storefront + admin CRUD)
+43b. apps/admin: Email wording — subject lines, opening paragraphs, email footer/logo (layouts fixed)
+43c. apps/admin + storefront: Redirects (old web address → new one)
 ```
 
 ### Phase 7 — Infrastructure & Polish
