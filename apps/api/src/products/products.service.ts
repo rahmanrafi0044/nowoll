@@ -105,6 +105,7 @@ export class ProductsService {
       categoryId: { in: visibleCategoryIds },
       ...(ranks && { id: { in: [...ranks.keys()] } }),
       ...(query.featured !== undefined && { isFeatured: query.featured }),
+      ...(query.tag && { tags: { has: query.tag } }),
       ...((query.minPrice !== undefined || query.maxPrice !== undefined) && {
         // Filters on the "from" price (decision #6)
         basePrice: {

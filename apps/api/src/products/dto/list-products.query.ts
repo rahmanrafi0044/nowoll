@@ -78,6 +78,13 @@ export class ListProductsQuery {
   @IsBoolean()
   featured?: boolean
 
+  /** One tag, exactly as written on the products (e.g. "eid") — the homepage's product rows (step 36). */
+  @Trim()
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  tag?: string
+
   /** Defaults to "relevance" when searching, otherwise "newest". */
   @IsOptional()
   @IsIn(PRODUCT_SORTS)

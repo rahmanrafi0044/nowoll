@@ -35,6 +35,9 @@ importers:
       '@nowoll/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@nowoll/validation':
+        specifier: workspace:*
+        version: link:../../packages/validation
       next:
         specifier: 16.3.8
         version: 16.3.8(@playwright/test@1.63.0)(@types/node@24.19.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

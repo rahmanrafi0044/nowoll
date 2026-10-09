@@ -24,7 +24,7 @@ const OFFLINE = {
  * never sees them; only the API can read and verify them).
  */
 export async function call<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
 ): Promise<ApiCallResult<T>> {
@@ -34,7 +34,7 @@ export async function call<T>(
       credentials: 'include',
       ...(body instanceof FormData
         ? { body } // the browser sets the multipart Content-Type (with its boundary) itself
-        : (method === 'POST' || method === 'PATCH') && {
+        : (method === 'POST' || method === 'PUT' || method === 'PATCH') && {
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(body ?? {}),
           }),
