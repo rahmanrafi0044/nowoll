@@ -121,6 +121,52 @@ describe('announcement bar', () => {
       false,
     )
   })
+  it('remove from the shop: asks first, re-saves the SAVED words switched off (not half-typed edits)', async () => {
+    mocked.fetchContentBlock.mockResolvedValue(
+      ok(block('announcement_bar', { text: 'Eid sale', href: '/shop' })),
+    )
+    render(<AnnouncementEditor />)
+    fireEvent.change(await screen.findByLabelText('Text'), { target: { value: 'Half-typed' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Remove from the shop' }))
+    const confirm = screen.getByRole('group', { name: 'Confirm removing the announcement' })
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Keep it' }))
+    expect(mocked.saveContentBlock).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove from the shop' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, remove it' }))
+    await waitFor(() =>
+      expect(mocked.saveContentBlock).toHaveBeenCalledWith(
+        'announcement_bar',
+        { text: 'Eid sale', href: '/shop' },
+        false,
+      ),
+    )
+    expect(await screen.findByRole('status')).toHaveTextContent('Removed')
+    expect(screen.getByLabelText('Show it on the shop')).not.toBeChecked()
+    expect(screen.queryByRole('button', { name: 'Remove from the shop' })).toBeNull()
+  })
+
+  it('remove is offered only while the bar is on the shop; Clear empties the boxes without saving', async () => {
+    mocked.fetchContentBlock.mockResolvedValue(
+      ok(block('announcement_bar', { text: 'Old', href: '/shop' }, { isActive: false })),
+    )
+    render(<AnnouncementEditor />)
+    const text = await screen.findByLabelText('Text')
+    expect(screen.queryByRole('button', { name: 'Remove from the shop' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(text).toHaveValue('')
+    expect(screen.getByLabelText('Link (optional)')).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled()
+    expect(mocked.saveContentBlock).not.toHaveBeenCalled()
+  })
+
+  it('switching it on by saving offers Remove straight away', async () => {
+    mocked.fetchContentBlock.mockResolvedValue(ok(block('announcement_bar')))
+    render(<AnnouncementEditor />)
+    fireEvent.change(await screen.findByLabelText('Text'), { target: { value: 'Hello' } })
+    expect(screen.queryByRole('button', { name: 'Remove from the shop' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('button', { name: 'Remove from the shop' })).toBeInTheDocument()
+  })
 })
 
 describe('homepage', () => {
