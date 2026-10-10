@@ -58,6 +58,84 @@ const social = (key: keyof typeof SOCIAL_SITES) =>
       `Use the https:// link of your page on ${SOCIAL_SITES[key].domains[0]}`,
     )
 
+// ── The look (step 38, part 2) ───────────────────────────────────────────
+
+/** Empty, or an https picture link (the API also requires it to be one of OUR uploads). */
+const optionalImage = z
+  .string()
+  .trim()
+  .refine((v) => {
+    if (v === '') return true
+    try {
+      return new URL(v).protocol === 'https:'
+    } catch {
+      return false
+    }
+  }, 'Upload a picture (JPEG, PNG or WebP)')
+
+/** sRGB "relative luminance" (WCAG) of a #rrggbb colour: 0 = black, 1 = white. */
+export function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }) as [number, number, number]
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/** How readable white text is on this colour (WCAG: 4.5 or more for normal text). */
+export const contrastWithWhite = (hex: string) => 1.05 / (luminance(hex) + 0.05)
+
+export const MIN_CONTRAST = 4.5
+
+/**
+ * The brand colour: buttons (white text on it), borders and the keyboard
+ * focus outline. Must be readable with white text — light colours (yellow,
+ * pale pink) are refused. Stored as a checked "#rrggbb", so nothing but a
+ * colour can ever reach the page's styles.
+ */
+const brandColor = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^#[0-9a-f]{6}$/, 'A colour like #1e3a8a')
+  .refine(
+    (v) => contrastWithWhite(v) >= MIN_CONTRAST,
+    'Too light — white text on it would be hard to read. Choose a darker colour.',
+  )
+
+/** Ready-made brand colours — all pass the contrast check. */
+export const BRAND_PRESETS = [
+  { name: 'Black', color: '#111111' },
+  { name: 'Charcoal', color: '#374151' },
+  { name: 'Navy', color: '#1e3a8a' },
+  { name: 'Teal', color: '#0f766e' },
+  { name: 'Forest', color: '#166534' },
+  { name: 'Maroon', color: '#9f1239' },
+  { name: 'Plum', color: '#6b21a8' },
+  { name: 'Brown', color: '#7c2d12' },
+] as const
+
+/** The hover shade: the brand colour mixed 18% towards white. */
+export function brandHover(hex: string): string {
+  return `#${[1, 3, 5]
+    .map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16)
+      return Math.round(c + (255 - c) * 0.18)
+        .toString(16)
+        .padStart(2, '0')
+    })
+    .join('')}`
+}
+
+/** Fonts the shop can use (bundled with the shop at build time — visitors never load from Google). */
+export const FONTS = [
+  { value: 'system', label: 'System (fastest)' },
+  { value: 'inter', label: 'Inter' },
+  { value: 'poppins', label: 'Poppins' },
+  { value: 'hind_siliguri', label: 'Hind Siliguri (Bangla + English)' },
+] as const
+export type FontChoice = (typeof FONTS)[number]['value']
+
 export const SHOP_PAGE_SIZES = [12, 24, 36, 48] as const
 export const SHOP_SORTS = ['newest', 'price_asc', 'price_desc'] as const
 
@@ -99,6 +177,14 @@ export const SETTINGS_SCHEMA = z.object({
   // Google defaults
   seo_title: text(70),
   seo_description: text(160),
+  // The look (step 38, part 2)
+  logo_url: optionalImage,
+  favicon_url: optionalImage,
+  share_image_url: optionalImage,
+  brand_color: brandColor,
+  font: z.enum(['system', 'inter', 'poppins', 'hind_siliguri'], {
+    error: 'Choose one of the fonts on the list',
+  }),
 })
 
 export type StoreSettings = z.output<typeof SETTINGS_SCHEMA>
@@ -128,6 +214,11 @@ export const SETTING_DEFAULTS: StoreSettings = {
   thank_you_message: '',
   seo_title: '',
   seo_description: '',
+  logo_url: '',
+  favicon_url: '',
+  share_image_url: '',
+  brand_color: '#111111',
+  font: 'system',
 }
 
 /** Shown to everyone by GET /settings/public. Never the admin email or internal limits. */
@@ -149,7 +240,15 @@ export const PUBLIC_SETTING_KEYS = [
   'thank_you_message',
   'seo_title',
   'seo_description',
+  'logo_url',
+  'favicon_url',
+  'share_image_url',
+  'brand_color',
+  'font',
 ] as const satisfies readonly SettingKey[]
+
+/** The settings that are pictures (uploaded through Admin → Settings → Look). */
+export const IMAGE_SETTING_KEYS = ['logo_url', 'favicon_url', 'share_image_url'] as const
 export type PublicSettings = Pick<StoreSettings, (typeof PUBLIC_SETTING_KEYS)[number]>
 
 /** Every setting from the stored rows — each missing or broken one falls back to its default. */

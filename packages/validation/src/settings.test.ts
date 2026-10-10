@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BRAND_PRESETS,
+  brandHover,
+  contrastWithWhite,
   isLinkOn,
+  MIN_CONTRAST,
   localPhone,
   publicSettings,
   readSettings,
@@ -87,5 +91,53 @@ describe('store settings', () => {
   it('phone helpers', () => {
     expect(localPhone('+8801712345678')).toBe('01712345678')
     expect(whatsappLink('+8801712345678')).toBe('https://wa.me/8801712345678')
+  })
+})
+
+describe('the look (step 38, part 2)', () => {
+  it('brand colour: a #rrggbb readable with white text; light colours refused', () => {
+    expect(SETTINGS_SCHEMA.shape.brand_color.parse(' #1E3A8A ')).toBe('#1e3a8a')
+    for (const bad of [
+      '#ffff00',
+      '#fbcfe8',
+      '#ffffff',
+      'navy',
+      '#123',
+      'red;}body{display:none',
+      '#1e3a8a;',
+    ])
+      expect(SETTINGS_SCHEMA.shape.brand_color.safeParse(bad).success).toBe(false)
+    expect(contrastWithWhite('#111111')).toBeGreaterThan(18)
+    expect(contrastWithWhite('#ffffff')).toBeCloseTo(1)
+  })
+
+  it('every ready-made colour passes the contrast check', () => {
+    for (const p of BRAND_PRESETS)
+      expect(contrastWithWhite(p.color)).toBeGreaterThanOrEqual(MIN_CONTRAST)
+  })
+
+  it('hover shade: 18% towards white', () => {
+    expect(brandHover('#000000')).toBe('#2e2e2e')
+    expect(brandHover('#111111')).toBe('#3c3c3c')
+  })
+
+  it('pictures: empty or https only; fonts from the list', () => {
+    const shape = SETTINGS_SCHEMA.shape
+    expect(shape.logo_url.safeParse('').success).toBe(true)
+    expect(shape.logo_url.safeParse('https://x.supabase.co/a.png').success).toBe(true)
+    for (const bad of [
+      'http://x.com/a.png',
+      'javascript:alert(1)',
+      'data:image/svg+xml,<svg/>',
+      'a.png',
+    ])
+      expect(shape.logo_url.safeParse(bad).success).toBe(false)
+    expect(shape.font.safeParse('poppins').success).toBe(true)
+    expect(shape.font.safeParse('comic-sans').success).toBe(false)
+  })
+
+  it('the look is public (the shop needs it)', () => {
+    const pub = publicSettings(SETTING_DEFAULTS)
+    expect(pub).toMatchObject({ brand_color: '#111111', font: 'system', logo_url: '' })
   })
 })

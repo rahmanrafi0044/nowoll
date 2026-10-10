@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
+import { afterEach, vi } from 'vitest'
 
 // Unmount rendered components and clear storage between tests so they can't affect each other.
 afterEach(() => {
@@ -23,3 +23,10 @@ if (typeof HTMLDialogElement !== 'undefined') {
     this.removeAttribute('open')
   }
 }
+
+// next/font only works inside the Next.js compiler — in tests, a stand-in
+// that gives each font its CSS variable class (no files are downloaded).
+vi.mock('next/font/google', () => {
+  const font = (name: string) => () => ({ className: name, variable: `font-${name}`, style: {} })
+  return { Inter: font('inter'), Poppins: font('poppins'), Hind_Siliguri: font('hind-siliguri') }
+})

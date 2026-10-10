@@ -10,7 +10,7 @@ import {
   Text,
 } from '@react-email/components'
 import { type ReactNode, useContext } from 'react'
-import { BRAND, StoreContext } from './brand.js'
+import { BRAND, safeColor, StoreContext } from './brand.js'
 
 const c = BRAND.colors
 
@@ -96,12 +96,13 @@ export function P({ children, muted = false }: { children: ReactNode; muted?: bo
 }
 
 export function CallToAction({ href, children }: { href: string; children: ReactNode }) {
+  const store = useContext(StoreContext)
   return (
     <Section style={{ margin: '24px 0' }}>
       <Button
         href={href}
         style={{
-          backgroundColor: c.brand,
+          backgroundColor: safeColor(store.color),
           color: c.brandForeground,
           fontSize: '15px',
           fontWeight: 600,

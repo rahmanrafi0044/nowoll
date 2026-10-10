@@ -33,8 +33,8 @@
 | # | What | Status |
 |---|---|---|
 | 1 | Store name and tagline — used by the header, footer, page titles, invoices and emails | ✅ (step 38) |
-| 2 | Logo (header), favicon, social-share image (Facebook / WhatsApp preview) | 🛠 38 (part 2) |
-| 3 | Brand colours (buttons, links, accents) and the font — from a safe, readable list (contrast checked) | 🛠 38 (part 2) |
+| 2 | Logo (header), favicon, social-share image (Facebook / WhatsApp preview) | ✅ (step 38) |
+| 3 | Brand colours (buttons, links, accents) and the font — from a safe, readable list (contrast checked) | ✅ (step 38) |
 | 4 | Contact details: email, phone, address, WhatsApp number, opening hours — shown in the footer and on invoices (the Contact page is your own text) | ✅ (step 38) |
 | 5 | Social media links: Facebook, Instagram, TikTok, YouTube | ✅ (step 38) |
 
@@ -98,7 +98,7 @@
 | # | What | Status |
 |---|---|---|
 | 30 | Google title / description per product, category, page | ✅ (steps 30, 36, 36b) |
-| 31 | Site-wide Google title / description and share image | ✅ title and description (step 38) · 🛠 share image (38, part 2) |
+| 31 | Site-wide Google title / description and share image | ✅ (step 38) |
 | 32 | Google Analytics and Meta Pixel **IDs** (validated ID fields; the scripts themselves are added by code) | 🛠 39 |
 | 33 | Redirects: an old web address sends visitors to the new one | 🛠 43c |
 

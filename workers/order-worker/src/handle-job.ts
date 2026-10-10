@@ -91,6 +91,7 @@ async function send(deps: Deps, job: OrderJob, to: string, content: EmailContent
   const email = await renderEmail(content, {
     name: settings.store_name,
     tagline: settings.store_tagline,
+    color: settings.brand_color,
   })
   const replyTo = settings.store_email || null
   const result = await deps.sender.send({

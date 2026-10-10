@@ -3,7 +3,11 @@
 // falls back to its default instead of breaking a page.
 import type { NestExpressApplication } from '@nestjs/platform-express'
 import request from 'supertest'
+import sharp from 'sharp'
+import { IMAGE_STORAGE } from '../src/storage/image-storage.js'
 import { createTestApp } from './utils/app.js'
+import { jpegWithGps, png } from './utils/images.js'
+import type { MemoryImageStorage } from './utils/memory-image-storage.js'
 import { resetDatabase, testPrisma } from './utils/test-db.js'
 
 const db = testPrisma()
@@ -96,6 +100,73 @@ describe('settings (step 38)', () => {
     expect(await settings.vatRate()).toBe(5)
     expect(await settings.returnWindowDays()).toBe(0)
     expect((await settings.storeInfo()).address).toBe('Dhanmondi, Dhaka')
+  })
+
+  describe('the look (step 38, part 2)', () => {
+    const upload = (kind: string, file: Buffer, name = 'pic.png') =>
+      http().post(`/api/v1/admin/settings/images?kind=${kind}`).attach('file', file, name)
+    const stored = async (url: string) => {
+      const storage = app.get<MemoryImageStorage>(IMAGE_STORAGE)
+      const path = url.split('/product-images/')[1]!
+      return sharp(storage.files.get(path)!.data).metadata()
+    }
+
+    it('favicon: cropped to a 512×512 PNG; share image: 1200×630; logo keeps its shape', async () => {
+      const fav = (await upload('favicon', await png(800, 600)).expect(201)).body.data.url
+      expect(fav).toMatch(/\/branding\/favicon-[0-9a-f-]{36}\.png$/)
+      expect(await stored(fav)).toMatchObject({ width: 512, height: 512, format: 'png' })
+
+      const share = (await upload('share', await jpegWithGps(2400, 1600), 'a.jpg').expect(201)).body
+        .data.url
+      const meta = await stored(share)
+      expect(meta).toMatchObject({ width: 1200, height: 630, format: 'jpeg' })
+      expect(meta.exif).toBeUndefined() // hidden data (GPS) gone
+
+      const logo = (await upload('logo', await png(1200, 300)).expect(201)).body.data.url
+      expect(await stored(logo)).toMatchObject({ width: 600, height: 150, hasAlpha: true })
+    })
+
+    it('refused: too small, not an image (an SVG), no file, unknown kind', async () => {
+      const small = await upload('favicon', await png(32, 32)).expect(400)
+      expect(small.body.message).toMatch(/at least 64×64 pixels — this one is 32×32/)
+      await upload('share', await png(500, 300)).expect(400)
+      await upload(
+        'logo',
+        Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'),
+        'logo.svg',
+      ).expect(415)
+      await http().post('/api/v1/admin/settings/images?kind=logo').expect(400)
+      await upload('banner', await png(800, 600)).expect(400)
+    })
+
+    it('pictures can only be our own uploads; colours must be readable; fonts from the list', async () => {
+      const own = (await upload('logo', await png(400, 100)).expect(201)).body.data.url
+      await save({ logo_url: own, brand_color: '#1E3A8A', font: 'poppins' }).expect(200)
+      expect((await http().get('/api/v1/settings/public')).body.data).toMatchObject({
+        logo_url: own,
+        brand_color: '#1e3a8a',
+        font: 'poppins',
+      })
+      const r = await save({ favicon_url: 'https://evil.example/favicon.png' }).expect(400)
+      expect(r.body.details.join(' ')).toMatch(/favicon_url: Upload the picture here/)
+      // A real upload address, but a product photo — not a brand picture.
+      await save({ share_image_url: own.replace('/branding/', '/products/') }).expect(400)
+      await save({ brand_color: '#ffff00' }).expect(400) // too light for white text
+      await save({ font: 'comic-sans' }).expect(400)
+      await save({ logo_url: '' }).expect(200) // removing is always fine
+    })
+
+    it('admin-only', async () => {
+      const outsider = await createTestApp({ asAdmin: false })
+      try {
+        await request(outsider.getHttpServer())
+          .post('/api/v1/admin/settings/images?kind=logo')
+          .attach('file', await png(400, 100), 'a.png')
+          .expect(401)
+      } finally {
+        await outsider.close()
+      }
+    })
   })
 
   it('admin-only (the public part stays open)', async () => {

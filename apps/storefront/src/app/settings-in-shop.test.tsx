@@ -86,3 +86,58 @@ describe('site-wide Google defaults', () => {
     })
   })
 })
+
+describe('the look (step 38, part 2)', () => {
+  it('theme: the brand colour (with its hover shade) and font as CSS variables; defaults → nothing', async () => {
+    const { themeCss } = await import('@/lib/theme')
+    expect(themeCss({ brand_color: '#1e3a8a', font: 'hind_siliguri' })).toBe(
+      ":root{--color-brand:#1e3a8a;--color-brand-hover:#475d9f;--font-sans:var(--font-hind-siliguri), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Bengali', sans-serif}",
+    )
+    expect(themeCss({ brand_color: '#111111', font: 'system' })).toBe('')
+  })
+
+  it('theme: anything that isn’t a checked colour or a listed font never reaches the CSS', async () => {
+    const { themeCss } = await import('@/lib/theme')
+    expect(themeCss({ brand_color: 'red;}body{display:none', font: 'system' })).toBe('')
+    expect(themeCss({ brand_color: '#ffff00', font: 'system' })).toBe('') // too light
+    expect(themeCss({ brand_color: '#111111', font: 'x;}' as 'system' })).toBe('')
+  })
+
+  it('header: the logo picture with the store name as its text, else the name', async () => {
+    const { SiteHeader } = await import('@/components/site-header')
+    const { unmount } = render(
+      <SiteHeader
+        categories={[]}
+        storeName="Nowoll BD"
+        logoUrl="https://x.supabase.co/branding/logo.png"
+      />,
+    )
+    expect(screen.getByRole('img', { name: 'Nowoll BD' })).toBeInTheDocument()
+    unmount()
+    render(<SiteHeader categories={[]} storeName="Nowoll BD" logoUrl="" />)
+    expect(screen.queryByRole('img')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Nowoll BD' })).toBeInTheDocument()
+  })
+
+  it('favicon and share image in the page data; none when not set', async () => {
+    responses.set(
+      '/settings/public',
+      settings({
+        favicon_url: 'https://x.supabase.co/branding/favicon.png',
+        share_image_url: 'https://x.supabase.co/branding/share.jpg',
+      }),
+    )
+    const meta = await generateMetadata()
+    expect(meta.icons).toEqual({
+      icon: [{ url: 'https://x.supabase.co/branding/favicon.png', type: 'image/png' }],
+      apple: 'https://x.supabase.co/branding/favicon.png',
+    })
+    expect(meta.openGraph).toMatchObject({
+      images: [{ url: 'https://x.supabase.co/branding/share.jpg', width: 1200, height: 630 }],
+    })
+    responses.clear()
+    const plain = await generateMetadata()
+    expect(plain.icons).toBeUndefined()
+    expect(plain.openGraph).not.toHaveProperty('images')
+  })
+})
