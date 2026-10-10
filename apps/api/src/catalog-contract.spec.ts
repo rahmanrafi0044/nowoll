@@ -4,6 +4,7 @@
 // long before a customer sees a broken page.
 import type {
   AccountOrderDetailView,
+  AdminShippingZone as AdminShippingZoneView,
   AdminArchivedCategory as AdminArchivedCategoryView,
   AdminCategoryNode as AdminCategoryNodeView,
   AdminPageDetail as AdminPageDetailView,
@@ -60,7 +61,7 @@ import type { PaymentsService, PaymentStatusSummary } from './payments/payments.
 import type { CartQuote } from './pricing/cart-pricing.js'
 import type { AdminReturn, MyReturn, ReturnEligibility } from './returns/returns.service.js'
 import type { AdminReview, MyReview, ProductReviews } from './reviews/reviews.service.js'
-import type { ShippingRate } from './shipping/shipping.service.js'
+import type { AdminShippingZone, ShippingRate } from './shipping/shipping.service.js'
 import type { WishlistEntry } from './wishlist/wishlist.service.js'
 import type { PublicVariant } from './products/product-view.js'
 import type { ProductCard, ProductDetail, ProductFacets } from './products/products.service.js'
@@ -133,5 +134,9 @@ describe('API ↔ storefront contract', () => {
   it('admin categories', () => {
     expectTypeOf<Serialized<AdminCategoryNode>>().toEqualTypeOf<AdminCategoryNodeView>()
     expectTypeOf<Serialized<AdminArchivedCategory>>().toEqualTypeOf<AdminArchivedCategoryView>()
+  })
+
+  it('admin shipping', () => {
+    expectTypeOf<Serialized<AdminShippingZone>>().toEqualTypeOf<AdminShippingZoneView>()
   })
 })
