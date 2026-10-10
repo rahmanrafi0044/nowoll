@@ -22,6 +22,16 @@ const PARTS = [
     title: 'Pages',
     text: 'Privacy, terms, return policy, about, contact, FAQ — written here, shown in the footer.',
   },
+  {
+    href: '/admin/content/menu',
+    title: 'Menu',
+    text: 'The links in the shop’s header: categories in your order, plus your own links like “Sale”.',
+  },
+  {
+    href: '/admin/content/footer',
+    title: 'Footer',
+    text: 'About text, link columns, payment badges and the copyright line.',
+  },
 ]
 
 export default function ContentPage() {

@@ -1,11 +1,19 @@
 import type { PageLinkView } from '@nowoll/types'
-import { localPhone, type PublicSettings, SOCIAL_SITES, whatsappLink } from '@nowoll/validation'
-import Link from 'next/link'
+import {
+  type Footer,
+  localPhone,
+  type PublicSettings,
+  SOCIAL_SITES,
+  whatsappLink,
+} from '@nowoll/validation'
+import { copyrightLine, footerColumns, paymentBadges } from '@/lib/navigation'
+import { NavAnchor } from './nav-link'
 
-// The footer: the store's name and tagline, its contact details and social
-// links (Admin → Settings, step 38), order tracking and the published pages
-// (Admin → Content → Pages). Only what's filled in is shown.
-// Editing the menu itself: step 38b.
+// The footer: the store's name, tagline, about text and social links; its
+// contact details (Admin → Settings, step 38); link columns, payment badges
+// and the copyright line (Admin → Content → Footer, step 38b) — plus, unless
+// switched off, "Track your order" and the published pages. Only what's
+// filled in is shown.
 
 type SocialKey = keyof typeof SOCIAL_SITES
 
@@ -22,26 +30,31 @@ const ICON: Record<SocialKey, string> = {
 export function SiteFooter({
   pages,
   settings: s,
+  footer,
 }: {
   pages: PageLinkView[]
   settings: PublicSettings
+  footer: Footer
 }) {
-  const links = [
-    { href: '/orders/track', label: 'Track your order' },
-    ...pages.map((p) => ({ href: `/${p.slug}`, label: p.title })),
-  ]
+  const columns = footerColumns(footer, pages)
+  const badges = paymentBadges(footer.payments)
   const socials = (Object.keys(SOCIAL_SITES) as SocialKey[]).filter((k) => s[k])
   const hasContact =
     s.store_phone || s.store_whatsapp || s.store_email || s.store_address || s.store_hours
 
   return (
     <footer className="border-t border-border">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-3">
           <div>
             <p className="text-lg font-semibold">{s.store_name}</p>
             {s.store_tagline && <p className="text-sm text-muted-foreground">{s.store_tagline}</p>}
           </div>
+          {footer.about && (
+            <p className="max-w-xs text-sm whitespace-pre-line text-muted-foreground">
+              {footer.about}
+            </p>
+          )}
           {socials.length > 0 && (
             <ul aria-label="Follow us" className="flex gap-3">
               {socials.map((k) => (
@@ -109,20 +122,35 @@ export function SiteFooter({
             </ul>
           </section>
         )}
-        <nav aria-label="Footer">
-          <ul className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-            {links.map((l) => (
-              <li key={l.href}>
-                <Link href={l.href} className="text-muted-foreground hover:text-foreground">
-                  {l.label}
-                </Link>
+        {columns.map((col) => (
+          <nav key={col.key} aria-label={col.title ?? 'Footer'} className="text-sm">
+            {col.title && <p className="mb-2 font-semibold">{col.title}</p>}
+            <ul className="flex flex-col gap-2">
+              {col.links.map((l) => (
+                <li key={l.key}>
+                  <NavAnchor link={l} className="text-muted-foreground hover:text-foreground" />
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))}
+      </div>
+      {badges.length > 0 && (
+        <div className="mx-auto max-w-7xl px-4 pb-6">
+          <ul aria-label="We accept" className="flex flex-wrap gap-2">
+            {badges.map((b) => (
+              <li
+                key={b.key}
+                className="rounded-control border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground"
+              >
+                {b.label}
               </li>
             ))}
           </ul>
-        </nav>
-      </div>
+        </div>
+      )}
       <p className="border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} {s.store_name}. All prices in BDT (৳).
+        {copyrightLine(footer, s.store_name, new Date().getFullYear())}
       </p>
     </footer>
   )

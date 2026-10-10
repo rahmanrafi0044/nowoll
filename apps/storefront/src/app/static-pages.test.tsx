@@ -1,6 +1,11 @@
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { publicSettings, RESERVED_PAGE_SLUGS, SETTING_DEFAULTS } from '@nowoll/validation'
+import {
+  footerSchema,
+  publicSettings,
+  RESERVED_PAGE_SLUGS,
+  SETTING_DEFAULTS,
+} from '@nowoll/validation'
 import { render, screen, within } from '@testing-library/react'
 import { SiteFooter } from '@/components/site-footer'
 import { renderServer } from '@/test-utils/render-server'
@@ -98,6 +103,7 @@ describe('footer', () => {
           { slug: 'faq', title: 'FAQ' },
         ]}
         settings={publicSettings(SETTING_DEFAULTS)}
+        footer={footerSchema.parse({})}
       />,
     )
     const nav = within(screen.getByRole('navigation', { name: 'Footer' }))

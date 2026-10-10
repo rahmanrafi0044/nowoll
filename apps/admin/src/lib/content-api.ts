@@ -2,7 +2,12 @@ import { call } from '@/lib/api'
 
 // Storefront content in the admin panel (step 36) — apps/api/src/content.
 
-export type ContentKey = 'announcement_bar' | 'homepage_hero' | 'homepage_layout'
+export type ContentKey =
+  | 'announcement_bar'
+  | 'homepage_hero'
+  | 'homepage_layout'
+  | 'main_menu' // step 38b
+  | 'footer' // step 38b
 
 export interface AdminContentBlock {
   key: ContentKey

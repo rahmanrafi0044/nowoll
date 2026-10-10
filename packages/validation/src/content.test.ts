@@ -5,6 +5,8 @@ import {
   homepageHeroSchema,
   homepageLayoutSchema,
   readHomepageLayout,
+  footerSchema,
+  mainMenuSchema,
 } from './content.js'
 
 describe('homepageHeroSchema', () => {
@@ -143,5 +145,68 @@ describe('homepage layout (step 36)', () => {
       'new_arrivals',
       'newsletter',
     ])
+  })
+})
+
+describe('main menu and footer (step 38b)', () => {
+  const cat = '0f8fad5b-d9cb-469f-a165-70867728950e'
+
+  it('menu: shop all, categories by id (optional label), custom links', () => {
+    const m = mainMenuSchema.parse({
+      items: [
+        { id: 'a', kind: 'shop_all' },
+        { id: 'b', kind: 'category', categoryId: cat, label: ' Eid Panjabi ' },
+        { id: 'c', kind: 'link', label: 'Sale', href: '/shop?tag=sale' },
+      ],
+    })
+    expect(m.items).toEqual([
+      { id: 'a', kind: 'shop_all', label: null },
+      { id: 'b', kind: 'category', categoryId: cat, label: 'Eid Panjabi' },
+      { id: 'c', kind: 'link', label: 'Sale', href: '/shop?tag=sale' },
+    ])
+  })
+
+  it('menu refused: javascript: links, unknown kinds (no drop-downs / HTML), >12 items, same ids', () => {
+    const bad = (items: unknown[]) => mainMenuSchema.safeParse({ items }).success
+    expect(bad([{ id: 'a', kind: 'link', label: 'x', href: 'javascript:alert(1)' }])).toBe(false)
+    expect(bad([{ id: 'a', kind: 'link', label: 'x', href: '//evil.example' }])).toBe(false)
+    expect(bad([{ id: 'a', kind: 'dropdown', label: 'x', items: [] }])).toBe(false)
+    expect(bad([{ id: 'a', kind: 'html', html: '<script>' }])).toBe(false)
+    expect(bad([{ id: 'a', kind: 'category', categoryId: 'men' }])).toBe(false)
+    expect(bad(Array.from({ length: 13 }, (_, i) => ({ id: `s${i}`, kind: 'shop_all' })))).toBe(
+      false,
+    )
+    expect(
+      bad([
+        { id: 'a', kind: 'shop_all' },
+        { id: 'a', kind: 'shop_all' },
+      ]),
+    ).toBe(false)
+  })
+
+  it('footer: defaults are today’s footer; limits; payment badges from the fixed list', () => {
+    expect(footerSchema.parse({})).toEqual({
+      about: '',
+      columns: [],
+      autoPages: true,
+      payments: [],
+      copyright: '',
+    })
+    const ok = (f: object) => footerSchema.safeParse(f).success
+    expect(ok({ payments: ['cod', 'bkash', 'visa'] })).toBe(true)
+    expect(ok({ payments: ['paypal'] })).toBe(false)
+    expect(ok({ payments: ['cod', 'cod'] })).toBe(false)
+    expect(ok({ about: 'x'.repeat(301) })).toBe(false)
+    expect(ok({ columns: [{ id: 'c', title: 'Help', links: [] }] })).toBe(false)
+    const col = (i: number) => ({
+      id: `c${i}`,
+      title: 'Help',
+      links: [{ label: 'FAQ', href: '/faq' }],
+    })
+    expect(ok({ columns: [col(1), col(2), col(3)] })).toBe(true)
+    expect(ok({ columns: [col(1), col(2), col(3), col(4)] })).toBe(false)
+    expect(
+      ok({ columns: [{ id: 'c', title: 'Help', links: [{ label: 'x', href: 'javascript:x' }] }] }),
+    ).toBe(false)
   })
 })

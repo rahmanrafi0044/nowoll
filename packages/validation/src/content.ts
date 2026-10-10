@@ -130,11 +130,81 @@ export function readHomepageLayout(data: unknown): HomepageLayout {
   return { sections }
 }
 
+// ── Main menu and footer (step 38b) ──────────────────────────────────────
+
+const itemId = z.string().trim().min(1).max(40)
+const menuLabel = z.string().trim().min(1, 'Write a label').max(30, 'At most 30 letters')
+
+/**
+ * The header menu (desktop and the phone ☰ menu): an ordered, FLAT list —
+ * no drop-downs (a new layout = developer-side, docs/admin-editable.md).
+ * Categories are remembered by id, so renaming one or changing its address
+ * keeps the menu right; a hidden or archived one simply drops out.
+ */
+export const menuItemSchema = z.discriminatedUnion('kind', [
+  z.object({ id: itemId, kind: z.literal('shop_all'), label: menuLabel.nullable().default(null) }),
+  z.object({
+    id: itemId,
+    kind: z.literal('category'),
+    categoryId: z.uuid('Choose a category'),
+    label: menuLabel.nullable().default(null),
+  }),
+  z.object({ id: itemId, kind: z.literal('link'), label: menuLabel, href: linkSchema }),
+])
+
+export const mainMenuSchema = z
+  .object({ items: z.array(menuItemSchema).max(12, 'At most 12 menu items') })
+  .refine((m) => new Set(m.items.map((i) => i.id)).size === m.items.length, {
+    message: 'Each menu item needs its own id',
+  })
+
+/** Payment-method badges the footer may show — a fixed list (text badges, no outside files). */
+export const PAYMENT_BADGES = [
+  { key: 'cod', label: 'Cash on delivery' },
+  { key: 'bkash', label: 'bKash' },
+  { key: 'nagad', label: 'Nagad' },
+  { key: 'rocket', label: 'Rocket' },
+  { key: 'upay', label: 'Upay' },
+  { key: 'visa', label: 'VISA' },
+  { key: 'mastercard', label: 'Mastercard' },
+  { key: 'amex', label: 'American Express' },
+] as const
+export type PaymentBadge = (typeof PAYMENT_BADGES)[number]['key']
+const PAYMENT_BADGE_KEYS = PAYMENT_BADGES.map((b) => b.key) as [PaymentBadge, ...PaymentBadge[]]
+
+export const footerSchema = z.object({
+  /** A few plain-text lines under the store name. */
+  about: z.string().trim().max(300, 'About text: at most 300 letters').default(''),
+  columns: z
+    .array(
+      z.object({
+        id: itemId,
+        title: z.string().trim().min(1, 'Write a column title').max(40),
+        links: z
+          .array(z.object({ label: menuLabel.max(40), href: linkSchema }))
+          .min(1, 'A column needs at least one link')
+          .max(8, 'At most 8 links per column'),
+      }),
+    )
+    .max(3, 'At most 3 columns')
+    .default([]),
+  /** List published pages (Admin → Content → Pages) automatically — today's footer. */
+  autoPages: z.boolean().default(true),
+  payments: z
+    .array(z.enum(PAYMENT_BADGE_KEYS))
+    .refine((p) => new Set(p).size === p.length, 'Each payment badge once')
+    .default([]),
+  /** "{year}" becomes the current year. Empty = "© 2026 <store>. All prices in BDT (৳)." */
+  copyright: z.string().trim().max(120, 'Copyright: at most 120 letters').default(''),
+})
+
 /** Every block the storefront may read, by key. Unknown keys are not served. */
 export const CONTENT_BLOCK_SCHEMAS = {
   announcement_bar: announcementBarSchema,
   homepage_hero: homepageHeroSchema,
   homepage_layout: homepageLayoutSchema,
+  main_menu: mainMenuSchema,
+  footer: footerSchema,
 } as const
 
 export type ContentBlockKey = keyof typeof CONTENT_BLOCK_SCHEMAS
@@ -143,3 +213,6 @@ export type HomepageHero = z.output<typeof homepageHeroSchema>
 export type HomepageSection = z.output<typeof homepageSectionSchema>
 export type HomepageLayout = z.output<typeof homepageLayoutSchema>
 export type TrustBadgeIcon = (typeof TRUST_BADGE_ICONS)[number]
+export type MenuItem = z.output<typeof menuItemSchema>
+export type MainMenu = z.output<typeof mainMenuSchema>
+export type Footer = z.output<typeof footerSchema>

@@ -10,6 +10,7 @@ import { SiteHeader } from '@/components/site-header'
 import { apiGet } from '@/lib/api'
 import { publicEnv } from '@/lib/env'
 import { fontVariables } from '@/lib/fonts'
+import { menuLinks, readFooter, readMenu } from '@/lib/navigation'
 import { getSettings, siteTitle } from '@/lib/settings'
 import { themeCss } from '@/lib/theme'
 import './globals.css'
@@ -52,12 +53,17 @@ export const viewport: Viewport = {
 // The header, announcement bar and footer appear on every page, so their data
 // is loaded here. The requests run in parallel and are cached for 60 seconds.
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const [categories, announcement, pages, settings] = await Promise.all([
+  const [categories, announcement, pages, settings, menuBlock, footerBlock] = await Promise.all([
     apiGet<CategoryNode[]>('/categories'),
     apiGet<{ data: AnnouncementBarData }>('/content-blocks/announcement_bar'),
     apiGet<PageLinkView[]>('/pages'),
     getSettings(),
+    apiGet<{ data: unknown }>('/content-blocks/main_menu'),
+    apiGet<{ data: unknown }>('/content-blocks/footer'),
   ])
+  // Admin → Content → Menu / Footer (step 38b); nothing saved → the standard ones.
+  const links = menuLinks(readMenu(menuBlock?.data), categories ?? [])
+  const footer = readFooter(footerBlock?.data)
   const theme = themeCss(settings)
 
   return (
@@ -67,13 +73,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         {theme && <style>{theme}</style>}
         <CartHydrator />
         {announcement && <AnnouncementBar data={announcement.data} />}
-        <SiteHeader
-          categories={categories ?? []}
-          storeName={settings.store_name}
-          logoUrl={settings.logo_url}
-        />
+        <SiteHeader links={links} storeName={settings.store_name} logoUrl={settings.logo_url} />
         <main className="flex-1">{children}</main>
-        <SiteFooter pages={pages ?? []} settings={settings} />
+        <SiteFooter pages={pages ?? []} settings={settings} footer={footer} />
         <CartDrawer />
       </body>
     </html>

@@ -1,4 +1,4 @@
-import { publicSettings, SETTING_DEFAULTS } from '@nowoll/validation'
+import { footerSchema, publicSettings, SETTING_DEFAULTS } from '@nowoll/validation'
 import { render, screen, within } from '@testing-library/react'
 import { SiteFooter } from '@/components/site-footer'
 import { generateMetadata } from './layout'
@@ -18,6 +18,7 @@ describe('footer', () => {
     render(
       <SiteFooter
         pages={[]}
+        footer={footerSchema.parse({})}
         settings={settings({
           store_name: 'Nowoll BD',
           store_tagline: 'fresh every week',
@@ -55,7 +56,13 @@ describe('footer', () => {
   })
 
   it('nothing filled in → no contact block, no social icons (nothing empty is shown)', () => {
-    render(<SiteFooter pages={[]} settings={settings({ store_tagline: '' })} />)
+    render(
+      <SiteFooter
+        pages={[]}
+        footer={footerSchema.parse({})}
+        settings={settings({ store_tagline: '' })}
+      />,
+    )
     expect(screen.queryByRole('region', { name: 'Contact us' })).toBeNull()
     expect(screen.queryByRole('list', { name: 'Follow us' })).toBeNull()
     expect(screen.getByText(/© \d{4} Nowoll\./)).toBeInTheDocument()
@@ -107,14 +114,14 @@ describe('the look (step 38, part 2)', () => {
     const { SiteHeader } = await import('@/components/site-header')
     const { unmount } = render(
       <SiteHeader
-        categories={[]}
+        links={[]}
         storeName="Nowoll BD"
         logoUrl="https://x.supabase.co/branding/logo.png"
       />,
     )
     expect(screen.getByRole('img', { name: 'Nowoll BD' })).toBeInTheDocument()
     unmount()
-    render(<SiteHeader categories={[]} storeName="Nowoll BD" logoUrl="" />)
+    render(<SiteHeader links={[]} storeName="Nowoll BD" logoUrl="" />)
     expect(screen.queryByRole('img')).toBeNull()
     expect(screen.getByRole('link', { name: 'Nowoll BD' })).toBeInTheDocument()
   })
