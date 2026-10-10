@@ -1,14 +1,16 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common'
 import type { Prisma } from '@nowoll/database'
 import {
   type PublicSettings,
   publicSettings,
   readSettings,
+  IMAGE_SETTING_KEYS,
   SETTING_KEYS,
   SETTINGS_SCHEMA,
   type StoreSettings,
 } from '@nowoll/validation'
 import { PrismaService } from '../prisma/prisma.service.js'
+import { BrandImagesService } from './brand-images.service.js'
 
 // Reads admin-configurable business rules from the `settings` table
 // (CLAUDE.md Rule 6). Admin → Settings edits them (step 38, part 1).
@@ -16,7 +18,11 @@ import { PrismaService } from '../prisma/prisma.service.js'
 export class SettingsService {
   private readonly logger = new Logger(SettingsService.name)
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Optional so plain unit tests can build the service without it.
+    @Optional() private readonly brandImages?: BrandImagesService,
+  ) {}
 
   /**
    * Store-wide low-stock threshold (a variant's own threshold overrides it).
@@ -141,6 +147,20 @@ export class SettingsService {
         code: 'INVALID_SETTINGS',
         details: parsed.error.issues.map((i) =>
           i.path.length ? `${i.path.join(' › ')}: ${i.message}` : i.message,
+        ),
+      })
+    // Pictures may only be OUR uploads (Admin → Settings → Look) — never a
+    // link to someone else's site, which could change or track visitors.
+    const foreign = IMAGE_SETTING_KEYS.filter((k) => {
+      const v = parsed.data[k]
+      return typeof v === 'string' && v !== '' && !this.brandImages?.ownImageUrl(v)
+    })
+    if (foreign.length > 0)
+      throw new BadRequestException({
+        message: 'Some settings need fixing — see the list.',
+        code: 'INVALID_SETTINGS',
+        details: foreign.map(
+          (k) => `${k}: Upload the picture here — links to other sites aren’t allowed`,
         ),
       })
     const entries = Object.entries(parsed.data) as [string, Prisma.InputJsonValue][]

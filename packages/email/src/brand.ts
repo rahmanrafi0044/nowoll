@@ -22,9 +22,15 @@ export const BRAND = {
 export interface StoreBrand {
   name: string
   tagline: string
+  /** Button colour (Admin → Settings → Look). A checked #rrggbb readable with white text. */
+  color?: string
 }
 
 export const DEFAULT_STORE: StoreBrand = { name: BRAND.name, tagline: BRAND.tagline }
+
+/** Only a plain #rrggbb ever reaches an email's styles; anything else → the default. */
+export const safeColor = (color: string | undefined) =>
+  color && /^#[0-9a-f]{6}$/i.test(color) ? color : BRAND.colors.brand
 
 /**
  * CONTEXT (React): renderEmail() puts the current store name here once, and

@@ -182,3 +182,21 @@ describe('the store’s name comes from Admin → Settings (step 38)', () => {
     expect(email.html).toContain('&lt;b&gt;Shop&lt;/b&gt;')
   })
 })
+
+describe('the brand colour (step 38, part 2)', () => {
+  it('buttons use it; anything but a plain #rrggbb falls back to black', async () => {
+    const blue = await renderEmail(EXAMPLES.welcome!, {
+      name: 'Nowoll',
+      tagline: '',
+      color: '#1e3a8a',
+    })
+    expect(blue.html).toMatch(/background-color:#1e3a8a/i)
+    const bad = await renderEmail(EXAMPLES.welcome!, {
+      name: 'Nowoll',
+      tagline: '',
+      color: 'red;background:url(https://evil.example)',
+    })
+    expect(bad.html).not.toContain('evil.example')
+    expect(bad.html).toMatch(/background-color:#111111/i)
+  })
+})

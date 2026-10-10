@@ -14,11 +14,17 @@ export function ImageField({
   url,
   onChange,
   required = false,
+  upload = uploadContentImage,
+  hint,
 }: {
   label: string
   url: string | null
   onChange: (url: string | null) => void
   required?: boolean
+  /** Where the file goes (default: the homepage pictures upload). */
+  upload?: typeof uploadContentImage
+  /** Extra advice under the field, e.g. the best size. */
+  hint?: string
 }) {
   const id = useId()
   const [busy, setBusy] = useState(false)
@@ -31,7 +37,7 @@ export function ImageField({
     if (p) return setProblem(p)
     setBusy(true)
     setProblem(null)
-    const r = await uploadContentImage(file)
+    const r = await upload(file)
     setBusy(false)
     setInputKey((k) => k + 1)
     if (!r.ok) return setProblem(r.message)
@@ -71,7 +77,7 @@ export function ImageField({
       <span id={`${id}-hint`} className="text-xs text-muted-foreground">
         {busy
           ? 'Uploading…'
-          : `JPEG, PNG or WebP, up to 5 MB.${url ? ' Choosing a file replaces the picture.' : ''}`}
+          : `JPEG, PNG or WebP, up to 5 MB.${hint ? ` ${hint}` : ''}${url ? ' Choosing a file replaces the picture.' : ''}`}
       </span>
       {problem && (
         <p role="alert" className="text-sm text-danger">

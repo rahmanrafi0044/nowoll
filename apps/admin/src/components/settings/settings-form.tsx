@@ -2,7 +2,11 @@
 
 import { Button, Input } from '@nowoll/ui'
 import {
+  BRAND_PRESETS,
+  contrastWithWhite,
+  FONTS,
   localPhone,
+  MIN_CONTRAST,
   SETTINGS_SCHEMA,
   type SettingKey,
   SHOP_PAGE_SIZES,
@@ -10,10 +14,12 @@ import {
   type StoreSettings,
 } from '@nowoll/validation'
 import { type ReactNode, useEffect, useState } from 'react'
+import { ImageField } from '@/components/content/fields'
 import { Panel } from '@/components/dashboard/panel'
 import { useLoad } from '@/components/dashboard/use-load'
 import { SelectField, TextArea } from '@/components/form-fields'
-import { fetchSettings, saveSettings } from '@/lib/settings-api'
+import { PREVIEW_FONT } from '@/lib/fonts'
+import { fetchSettings, saveSettings, uploadBrandImage } from '@/lib/settings-api'
 
 // ============================================================================
 // Admin → Settings (step 38, part 1): the shop's details and business rules,
@@ -44,6 +50,11 @@ const LABEL: Record<SettingKey, string> = {
   thank_you_message: 'Thank-you message',
   seo_title: 'Google title',
   seo_description: 'Google description',
+  logo_url: 'Logo',
+  favicon_url: 'Favicon',
+  share_image_url: 'Share image',
+  brand_color: 'Brand colour',
+  font: 'Font',
 }
 
 const NUMBER_KEYS = new Set<SettingKey>([
@@ -240,6 +251,58 @@ export function SettingsForm({ initial }: { initial: StoreSettings }) {
       </Section>
 
       <Section
+        title="Look"
+        note="How the shop looks. The admin panel keeps its own black-and-white look. Upload, then Save settings."
+      >
+        <div className="grid gap-4 sm:col-span-2 lg:grid-cols-3">
+          <ImageField
+            label={LABEL.logo_url}
+            url={form.logo_url || null}
+            onChange={(u) => set('logo_url')(u ?? '')}
+            upload={(f) => uploadBrandImage('logo', f)}
+            hint="In the header, up to 40 px tall. A PNG with a see-through background looks best."
+          />
+          <ImageField
+            label={LABEL.favicon_url}
+            url={form.favicon_url || null}
+            onChange={(u) => set('favicon_url')(u ?? '')}
+            upload={(f) => uploadBrandImage('favicon', f)}
+            hint="The browser-tab icon. Cropped to a square; at least 64×64."
+          />
+          <ImageField
+            label={LABEL.share_image_url}
+            url={form.share_image_url || null}
+            onChange={(u) => set('share_image_url')(u ?? '')}
+            upload={(f) => uploadBrandImage('share', f)}
+            hint="Facebook / WhatsApp link preview. Cropped to 1200×630; at least 600×315."
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <BrandColour value={form.brand_color} onChange={set('brand_color')} />
+        </div>
+        <div className="flex flex-col gap-3 sm:col-span-2">
+          <SelectField
+            label={LABEL.font}
+            value={form.font}
+            onChange={(e) => set('font')(e.target.value)}
+          >
+            {FONTS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </SelectField>
+          <p
+            aria-label="Font preview"
+            className="rounded-control border border-border p-3 text-lg"
+            style={{ fontFamily: PREVIEW_FONT[form.font] ?? PREVIEW_FONT.system }}
+          >
+            New Eid panjabi — ঈদের নতুন পাঞ্জাবি · ৳2,490
+          </p>
+        </div>
+      </Section>
+
+      <Section
         title="Google"
         note="For the homepage and any page without its own. Empty = name and tagline."
       >
@@ -283,5 +346,84 @@ function Section({ title, note, children }: { title: string; note: string; child
       <p className="mb-4 text-sm text-muted-foreground">{note}</p>
       <div className="grid gap-4 sm:grid-cols-2">{children}</div>
     </section>
+  )
+}
+
+/** Ready-made colours or your own — with the contrast check and a live preview. */
+function BrandColour({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const hex = value.trim().toLowerCase()
+  const valid = /^#[0-9a-f]{6}$/.test(hex)
+  const ratio = valid ? contrastWithWhite(hex) : null
+  const readable = ratio !== null && ratio >= MIN_CONTRAST
+  return (
+    <fieldset className="flex flex-col gap-3">
+      <legend className="mb-1 text-sm font-medium">{LABEL.brand_color}</legend>
+      <div role="group" aria-label="Ready-made colours" className="flex flex-wrap gap-2">
+        {BRAND_PRESETS.map((p) => (
+          <button
+            key={p.color}
+            type="button"
+            aria-pressed={hex === p.color}
+            onClick={() => onChange(p.color)}
+            className={`flex items-center gap-2 rounded-control border px-2.5 py-1.5 text-sm ${hex === p.color ? 'border-foreground font-semibold' : 'border-border'}`}
+          >
+            <span
+              aria-hidden="true"
+              className="size-4 rounded-full"
+              style={{ backgroundColor: p.color }}
+            />
+            {p.name}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
+          Pick your own
+          <input
+            type="color"
+            value={valid ? hex : '#111111'}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-11 w-16 cursor-pointer rounded-control border border-border-strong bg-surface"
+          />
+        </label>
+        <div className="w-40">
+          <Input
+            label="Colour code"
+            value={value}
+            maxLength={7}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      </div>
+      <p className={`text-sm ${readable ? 'text-success' : 'text-danger'}`}>
+        {!valid
+          ? 'A colour code looks like #1e3a8a.'
+          : readable
+            ? `Readable: white text on it has ${ratio!.toFixed(1)}:1 contrast (4.5 or more needed). ✓`
+            : `Too light: white text on it has only ${ratio!.toFixed(1)}:1 contrast (4.5 or more needed). Choose a darker colour.`}
+      </p>
+      {readable && (
+        <div
+          aria-label="Colour preview"
+          className="flex flex-wrap items-center gap-4 rounded-control border border-border p-4"
+        >
+          <span
+            className="rounded-control px-5 py-2.5 text-sm font-medium text-white"
+            style={{ backgroundColor: hex }}
+          >
+            Add to bag
+          </span>
+          <span className="rounded-control border-2 px-4 py-2 text-sm" style={{ borderColor: hex }}>
+            Selected size: M
+          </span>
+          <span
+            className="rounded-control px-3 py-2 text-sm"
+            style={{ outline: `2px solid ${hex}`, outlineOffset: '2px' }}
+          >
+            Keyboard focus
+          </span>
+        </div>
+      )}
+    </fieldset>
   )
 }
