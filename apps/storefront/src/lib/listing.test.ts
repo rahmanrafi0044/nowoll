@@ -122,3 +122,17 @@ describe('featured and tag (homepage "View all" links, step 36)', () => {
     expect(parseListingParams({ featured: 'yes' }).featured).toBeUndefined()
   })
 })
+
+describe('shop-page defaults from Admin → Settings (step 38)', () => {
+  it('products per page and the default sort; a picked sort or a search wins', () => {
+    const d = { pageSize: 36, sort: 'price_asc' as const }
+    expect(toApiQuery(parseListingParams({}), undefined, d)).toBe(
+      'sort=price_asc&page=1&pageSize=36',
+    )
+    expect(toApiQuery(parseListingParams({ sort: 'newest' }), undefined, d)).toContain(
+      'sort=newest',
+    )
+    expect(toApiQuery(parseListingParams({ q: 'shirt' }), undefined, d)).not.toContain('sort=')
+    expect(toApiQuery(parseListingParams({}))).toBe('page=1&pageSize=24') // no settings → today's
+  })
+})

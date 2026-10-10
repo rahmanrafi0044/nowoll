@@ -58,7 +58,7 @@ export function LoginForm({ next }: { next: string | null }) {
         {sending ? 'Signing in…' : 'Sign in'}
       </Button>
       <p className="text-sm text-muted-foreground">
-        New to Nowoll?{' '}
+        New here?{' '}
         <Link
           href={next ? `/register?next=${encodeURIComponent(target)}` : '/register'}
           className="font-medium text-foreground underline underline-offset-4"

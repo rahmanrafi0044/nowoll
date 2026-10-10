@@ -6,7 +6,12 @@ import { absoluteUrl } from '@/lib/json-ld'
  * results — and the star rating, once there's at least one approved review
  * (Google ignores or flags an aggregateRating without real reviews).
  */
-export function productJsonLd(product: ProductDetailView, reviews: ProductReviewsView | null) {
+export function productJsonLd(
+  product: ProductDetailView,
+  reviews: ProductReviewsView | null,
+  /** The brand Google shows: the store's name (Admin → Settings). */
+  brand: string,
+) {
   const prices = product.variants.map((v) => Number(v.price))
   const inStock = product.variants.some((v) => v.inStock)
   return {
@@ -15,7 +20,7 @@ export function productJsonLd(product: ProductDetailView, reviews: ProductReview
     name: product.name,
     description: product.shortDescription ?? product.description ?? undefined,
     image: product.images.map((i) => absoluteUrl(i.url)),
-    brand: { '@type': 'Brand', name: 'Nowoll' },
+    brand: { '@type': 'Brand', name: brand },
     offers: {
       '@type': 'AggregateOffer',
       priceCurrency: 'BDT',

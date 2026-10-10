@@ -14,7 +14,14 @@ import { OrderNotFound, PaymentConfirmation } from './payment-confirmation'
  * and online payment. Online orders get the live payment status on top
  * ("Confirming… → Paid ✓"); both get the full receipt below.
  */
-export function CheckoutSuccess({ orderId }: { orderId: string | null }) {
+export function CheckoutSuccess({
+  orderId,
+  thankYouMessage = '',
+}: {
+  orderId: string | null
+  /** The shop's own words (Admin → Settings → After ordering). Empty = none. */
+  thankYouMessage?: string
+}) {
   const [receipt, setReceipt] = useState<OrderReceiptView | null>(null)
   const [problem, setProblem] = useState<'NOT_FOUND' | string | null>(null)
 
@@ -46,6 +53,9 @@ export function CheckoutSuccess({ orderId }: { orderId: string | null }) {
         <PaymentConfirmation orderId={receipt.orderId} />
       ) : (
         <CashOnDeliveryPlaced receipt={receipt} />
+      )}
+      {thankYouMessage && receipt.status !== 'CANCELLED' && (
+        <p className="text-center whitespace-pre-line text-muted-foreground">{thankYouMessage}</p>
       )}
       <ReceiptDetails receipt={receipt} />
     </div>

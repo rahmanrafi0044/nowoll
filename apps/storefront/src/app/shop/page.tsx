@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { ListingPage } from '@/components/listing/listing-page'
 import { canonicalFor, parseListingParams } from '@/lib/listing'
+import { getSettings } from '@/lib/settings'
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> }
 
@@ -10,8 +11,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const params = parseListingParams(await searchParams)
   return {
     title: params.q ? `Search: ${params.q}` : 'Shop all',
-    description:
-      'Shop all Nowoll clothing — shirts, panjabi, kurti and more, delivered across Bangladesh.',
+    description: `Shop all ${(await getSettings()).store_name} clothing — shirts, panjabi, kurti and more, delivered across Bangladesh.`,
     alternates: { canonical: canonicalFor('/shop', params.page) },
     // Search result pages are endless and thin — keep them out of Google, but let it follow the links.
     ...(params.q && { robots: { index: false, follow: true } }),

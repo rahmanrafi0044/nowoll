@@ -6,6 +6,7 @@ import { ListingPage } from '@/components/listing/listing-page'
 import { apiGet } from '@/lib/api'
 import { breadcrumbJsonLd, JsonLd } from '@/lib/json-ld'
 import { canonicalFor, parseListingParams } from '@/lib/listing'
+import { getSettings } from '@/lib/settings'
 
 type Props = {
   params: Promise<{ categorySlug: string }>
@@ -26,7 +27,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return {
     title: category.seoTitle ?? category.name,
     description:
-      category.seoDescription ?? category.description ?? `Shop ${category.name} at Nowoll.`,
+      category.seoDescription ??
+      category.description ??
+      `Shop ${category.name} at ${(await getSettings()).store_name}.`,
     // Every filtered/sorted version points Google at the plain category page (CLAUDE.md §13).
     alternates: { canonical: canonicalFor(`/shop/${category.slug}`, listing.page) },
     openGraph: category.imageUrl

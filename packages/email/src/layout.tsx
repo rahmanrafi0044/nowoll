@@ -9,8 +9,8 @@ import {
   Section,
   Text,
 } from '@react-email/components'
-import type { ReactNode } from 'react'
-import { BRAND } from './brand.js'
+import { type ReactNode, useContext } from 'react'
+import { BRAND, StoreContext } from './brand.js'
 
 const c = BRAND.colors
 
@@ -24,6 +24,7 @@ export function Layout({
   children: ReactNode
   footer?: ReactNode
 }) {
+  const store = useContext(StoreContext)
   return (
     <Html lang="en">
       <Head />
@@ -54,16 +55,16 @@ export function Layout({
               color: c.foreground,
             }}
           >
-            {BRAND.name}
+            {store.name}
           </Text>
           <Text style={{ fontSize: '13px', color: c.muted, margin: '0 0 24px' }}>
-            {BRAND.tagline}
+            {store.tagline || '\u00a0'}
           </Text>
           {children}
           <Hr style={{ borderColor: c.border, margin: '32px 0 16px' }} />
           <Text style={{ fontSize: '12px', color: c.muted, margin: 0 }}>
             {footer ??
-              `You're receiving this because you shopped at ${BRAND.name}. Reply to this email if you need help.`}
+              `You're receiving this because you shopped at ${store.name}. Reply to this email if you need help.`}
           </Text>
         </Container>
       </Body>

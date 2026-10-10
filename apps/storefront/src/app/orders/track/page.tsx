@@ -9,7 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Track your order',
     description:
-      'Check where your Nowoll order is — enter your order number and the email or mobile number you used at checkout.',
+      'Check where your order is — enter your order number and the email or mobile number you used at checkout.',
     alternates: { canonical: '/orders/track' },
   }
 }

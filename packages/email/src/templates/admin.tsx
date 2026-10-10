@@ -24,10 +24,7 @@ export function lowStockEmail(d: { items: LowStockLine[]; inventoryUrl: string }
         ? `Low stock: ${first.productName} (${first.variantLabel}) — ${first.stock} left`
         : `Low stock: ${n} items`,
     element: (
-      <Layout
-        preview="Time to restock."
-        footer={`Sent to the ${BRAND.name} admin email (Admin → Settings).`}
-      >
+      <Layout preview="Time to restock." footer="Sent to the admin email set in Admin → Settings.">
         <Heading>Low stock</Heading>
         <P>{n === 1 ? 'This item has' : 'These items have'} reached the low-stock level:</P>
         <Section>

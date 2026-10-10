@@ -22,9 +22,9 @@ export default function GlobalError({
       <body
         style={{ fontFamily: 'system-ui, sans-serif', textAlign: 'center', padding: '6rem 1rem' }}
       >
-        <title>Something went wrong | Nowoll</title>
+        <title>Something went wrong</title>
         <h1>Something went wrong</h1>
-        <p>Sorry — Nowoll didn’t load properly. Please try again.</p>
+        <p>Sorry — the shop didn’t load properly. Please try again.</p>
         <button type="button" onClick={() => retry()}>
           Try again
         </button>

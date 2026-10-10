@@ -1,6 +1,6 @@
 import { Section } from '@react-email/components'
 import type { ReactNode } from 'react'
-import { BRAND } from '../brand.js'
+import { StoreName } from '../brand.js'
 import { formatBdt, formatDate, type Money } from '../format.js'
 import { CallToAction, Heading, Layout, Note, P } from '../layout.js'
 import type { EmailContent } from '../render.js'
@@ -16,9 +16,9 @@ type Link = { url: string; label: string }
 export function welcomeEmail(d: { name: string | null; shopUrl: string }): EmailContent {
   return {
     tag: 'welcome',
-    subject: `Welcome to ${BRAND.name}`,
+    subject: (store) => `Welcome to ${store.name}`,
     element: (
-      <Layout preview={`Your ${BRAND.name} account is ready.`}>
+      <Layout preview="Your account is ready.">
         <Heading>Welcome, {firstName(d.name)}!</Heading>
         <P>
           Your account is ready. Your orders, saved addresses and wishlist now live in one place,
@@ -269,7 +269,7 @@ export function newsletterConfirmEmail(d: {
 }): EmailContent {
   return {
     tag: 'newsletter-confirm',
-    subject: `Confirm your ${BRAND.name} newsletter subscription`,
+    subject: (store) => `Confirm your ${store.name} newsletter subscription`,
     element: (
       <Layout
         preview="One click to confirm."
@@ -282,8 +282,8 @@ export function newsletterConfirmEmail(d: {
       >
         <Heading>One click to confirm</Heading>
         <P>
-          Please confirm you&apos;d like new arrivals and offers from {BRAND.name}. We email at most
-          a few times a month.
+          Please confirm you&apos;d like new arrivals and offers from <StoreName />. We email at
+          most a few times a month.
         </P>
         <CallToAction href={d.confirmUrl}>Yes, subscribe me</CallToAction>
       </Layout>

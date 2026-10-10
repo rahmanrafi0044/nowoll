@@ -1,9 +1,11 @@
 import { render } from '@react-email/components'
-import type { ReactElement } from 'react'
+import { createElement, type ReactElement } from 'react'
+import { DEFAULT_STORE, type StoreBrand, StoreContext } from './brand.js'
 
 /** A template's output before rendering: the subject and the email itself. */
 export interface EmailContent {
-  subject: string
+  /** A function when the subject names the store (it comes from Admin → Settings). */
+  subject: string | ((store: StoreBrand) => string)
   element: ReactElement
   /** A label for Resend's dashboard and our logs, e.g. "order-confirmation". */
   tag: string
@@ -22,10 +24,12 @@ export interface RenderedEmail {
  * plain text. Everything a customer typed is ESCAPED by React: a name like
  * "<script>" shows as text, it never becomes HTML.
  */
-export async function renderEmail(content: EmailContent): Promise<RenderedEmail> {
-  const [html, text] = await Promise.all([
-    render(content.element),
-    render(content.element, { plainText: true }),
-  ])
-  return { subject: content.subject, html, text, tag: content.tag }
+export async function renderEmail(
+  content: EmailContent,
+  store: StoreBrand = DEFAULT_STORE,
+): Promise<RenderedEmail> {
+  const element = createElement(StoreContext.Provider, { value: store }, content.element)
+  const [html, text] = await Promise.all([render(element), render(element, { plainText: true })])
+  const subject = typeof content.subject === 'function' ? content.subject(store) : content.subject
+  return { subject, html, text, tag: content.tag }
 }

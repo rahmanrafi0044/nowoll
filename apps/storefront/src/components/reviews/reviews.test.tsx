@@ -102,7 +102,7 @@ describe('structured data for Google', () => {
   } as unknown as ProductDetailView
 
   it('star rating only when there are approved reviews', () => {
-    expect(productJsonLd(product, null)).not.toHaveProperty('aggregateRating')
+    expect(productJsonLd(product, null, 'Nowoll')).not.toHaveProperty('aggregateRating')
     expect(
       productJsonLd(
         product,
@@ -114,9 +114,10 @@ describe('structured data for Google', () => {
           },
           items: [],
         }),
+        'Nowoll',
       ),
     ).not.toHaveProperty('aggregateRating')
-    const ld = productJsonLd(product, page()) as Record<string, unknown>
+    const ld = productJsonLd(product, page(), 'Nowoll') as Record<string, unknown>
     expect(ld.aggregateRating).toEqual({
       '@type': 'AggregateRating',
       ratingValue: 4.3,

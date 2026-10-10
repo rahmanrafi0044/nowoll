@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { RESERVED_PAGE_SLUGS } from '@nowoll/validation'
+import { publicSettings, RESERVED_PAGE_SLUGS, SETTING_DEFAULTS } from '@nowoll/validation'
 import { render, screen, within } from '@testing-library/react'
 import { SiteFooter } from '@/components/site-footer'
 import { renderServer } from '@/test-utils/render-server'
@@ -97,6 +97,7 @@ describe('footer', () => {
           { slug: 'privacy', title: 'Privacy policy' },
           { slug: 'faq', title: 'FAQ' },
         ]}
+        settings={publicSettings(SETTING_DEFAULTS)}
       />,
     )
     const nav = within(screen.getByRole('navigation', { name: 'Footer' }))

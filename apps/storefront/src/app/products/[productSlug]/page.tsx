@@ -15,6 +15,7 @@ import { ProductReviews } from '@/components/reviews/product-reviews'
 import { apiGet } from '@/lib/api'
 import { absoluteUrl, breadcrumbJsonLd, JsonLd } from '@/lib/json-ld'
 import { productJsonLd } from '@/lib/product-json-ld'
+import { getSettings } from '@/lib/settings'
 
 type Props = { params: Promise<{ productSlug: string }> }
 
@@ -73,11 +74,12 @@ export default async function ProductPage({ params }: Props) {
   // Approved reviews (step 24) — refreshed with the page (ISR, 60 s). If the
   // reviews can't be loaded, the product page still works without them.
   const reviews = await apiGet<ProductReviewsView>(`/reviews/product/${product.id}`)
+  const settings = await getSettings()
 
   return (
     // Extra bottom padding on phones so the sticky "Add to bag" bar never covers content.
     <div className="mx-auto max-w-7xl px-4 py-8 pb-28 md:pb-12">
-      <JsonLd data={productJsonLd(product, reviews)} />
+      <JsonLd data={productJsonLd(product, reviews, settings.store_name)} />
       <JsonLd
         data={breadcrumbJsonLd(product.breadcrumb, {
           name: product.name,

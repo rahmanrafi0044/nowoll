@@ -158,3 +158,27 @@ function exampleConfirmation() {
     link,
   }
 }
+
+describe('the store’s name comes from Admin → Settings (step 38)', () => {
+  it('subject, header and body use it; "Nowoll" when none is given', async () => {
+    const store = { name: 'Nowoll BD', tagline: 'fresh every week' }
+    const welcome = await renderEmail(EXAMPLES.welcome!, store)
+    expect(welcome.subject).toBe('Welcome to Nowoll BD')
+    expect(welcome.html).toContain('Nowoll BD')
+    expect(welcome.html).toContain('fresh every week')
+    expect(welcome.html).not.toContain('always new')
+    expect(welcome.html).not.toMatch(/>\s*Nowoll\s*</) // the header shows the saved name, not the old one
+    const news = await renderEmail(EXAMPLES.newsletterConfirm!, store)
+    expect(news.subject).toBe('Confirm your Nowoll BD newsletter subscription')
+    expect(news.text).toContain('offers from Nowoll BD')
+    const plain = await renderEmail(EXAMPLES.welcome!)
+    expect(plain.subject).toBe('Welcome to Nowoll')
+    expect(plain.html).toContain('always new')
+  })
+
+  it('a store name with HTML in it is escaped, never HTML', async () => {
+    const email = await renderEmail(EXAMPLES.welcome!, { name: '<b>Shop</b>', tagline: '' })
+    expect(email.html).not.toContain('<b>Shop</b>')
+    expect(email.html).toContain('&lt;b&gt;Shop&lt;/b&gt;')
+  })
+})

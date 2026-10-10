@@ -158,7 +158,7 @@ describe('forgot / reset password', () => {
     type('Email', 'Someone@Example.com')
     fireEvent.click(screen.getByRole('button', { name: 'Send reset link' }))
     expect(await screen.findByRole('status')).toHaveTextContent(
-      "If someone@example.com has a Nowoll account, we've sent it a link",
+      "If someone@example.com has an account, we've sent it a link",
     )
   })
 
