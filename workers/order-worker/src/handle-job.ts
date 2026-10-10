@@ -8,6 +8,7 @@ import {
   renderEmail,
 } from '@nowoll/email'
 import type { OrderJobName, OrderJobs } from '@nowoll/queues'
+import { readSettings, type StoreSettings } from '@nowoll/validation'
 import { UnrecoverableError } from 'bullmq'
 import { loadReceipt } from './order-email-data.js'
 
@@ -67,10 +68,12 @@ export async function handleOrderJob(job: OrderJob, deps: Deps): Promise<string>
     case 'low-stock-alert': {
       const { alerts } = job.data as OrderJobs['low-stock-alert']
       if (alerts.length === 0) return 'skipped: nothing low'
+      // Admin → Settings decides where alerts go; the server's EMAIL_ADMIN if it's empty.
+      const settings = await storeSettings(deps.db)
       return send(
         deps,
         job,
-        deps.adminEmail,
+        settings.admin_notification_email || deps.adminEmail,
         lowStockEmail({
           items: alerts,
           inventoryUrl: `${deps.adminUrl.replace(/\/+$/, '')}/inventory`,
@@ -83,8 +86,13 @@ export async function handleOrderJob(job: OrderJob, deps: Deps): Promise<string>
 }
 
 async function send(deps: Deps, job: OrderJob, to: string, content: EmailContent): Promise<string> {
-  const email = await renderEmail(content)
-  const replyTo = await storeEmail(deps.db)
+  // The store's name, tagline and reply-to address come from Admin → Settings (step 38).
+  const settings = await storeSettings(deps.db)
+  const email = await renderEmail(content, {
+    name: settings.store_name,
+    tagline: settings.store_tagline,
+  })
+  const replyTo = settings.store_email || null
   const result = await deps.sender.send({
     to,
     subject: email.subject,
@@ -99,8 +107,7 @@ async function send(deps: Deps, job: OrderJob, to: string, content: EmailContent
   throw new UnrecoverableError(result.reason)
 }
 
-/** Replies go to the store's public email (Admin → Settings), if one is set. */
-async function storeEmail(db: PrismaClient): Promise<string | null> {
-  const row = await db.setting.findUnique({ where: { key: 'store_email' } })
-  return typeof row?.value === 'string' && row.value.includes('@') ? row.value : null
+/** The store's settings (a missing or broken one is its default — readSettings). */
+async function storeSettings(db: PrismaClient): Promise<StoreSettings> {
+  return readSettings(await db.setting.findMany())
 }

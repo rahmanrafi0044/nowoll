@@ -118,6 +118,24 @@ describe('confirmation page (CheckoutSuccess)', () => {
     await waitFor(() => expect(useCheckoutStore.getState().payment).toBeNull()) // this checkout is finished
   })
 
+  it('the shop’s own thank-you message (Admin → Settings) — not on a cancelled order', async () => {
+    answer = () => ok(receipt())
+    const { unmount } = render(
+      <CheckoutSuccess
+        orderId={ORDER}
+        thankYouMessage={'Thanks for supporting a small shop!\nEid Mubarak.'}
+      />,
+    )
+    expect(await screen.findByText(/Thanks for supporting a small shop!/)).toHaveTextContent(
+      'Eid Mubarak.',
+    )
+    unmount()
+    answer = () => ok(receipt({ status: 'CANCELLED' }))
+    render(<CheckoutSuccess orderId={ORDER} thankYouMessage="Thanks!" />)
+    await screen.findByRole('heading', { name: 'This order was cancelled' })
+    expect(screen.queryByText('Thanks!')).toBeNull()
+  })
+
   it('online payment: the live payment status on top of the receipt', async () => {
     answer = (url) =>
       url.endsWith('/receipt')

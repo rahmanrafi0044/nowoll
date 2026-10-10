@@ -32,8 +32,8 @@ export function ForgotPasswordForm() {
       <div role="status" className="flex flex-col gap-3">
         {/* The same words whether or not the email has an account (privacy). */}
         <p>
-          If <strong>{email.trim().toLowerCase()}</strong> has a Nowoll account, we&apos;ve sent it
-          a link to choose a new password. It may take a few minutes — check your spam folder too.
+          If <strong>{email.trim().toLowerCase()}</strong> has an account, we&apos;ve sent it a link
+          to choose a new password. It may take a few minutes — check your spam folder too.
         </p>
         <Link href="/login" className="font-medium underline underline-offset-4">
           Back to sign in

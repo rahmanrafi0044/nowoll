@@ -13,6 +13,7 @@ export const SORTS = [
 ] as const
 export type SortValue = (typeof SORTS)[number]['value'] | 'relevance'
 
+/** Used when no setting is given (Admin → Settings → Shop page decides, step 38). */
 export const PAGE_SIZE = 24
 
 export interface ListingParams {
@@ -66,8 +67,16 @@ export function parseListingParams(raw: RawSearchParams): ListingParams {
   }
 }
 
-/** The query string the API understands for this listing. */
-export function toApiQuery(params: ListingParams, category?: string): string {
+/**
+ * The query string the API understands for this listing. `defaults` come from
+ * Admin → Settings: products per page, and the sort used when the customer
+ * hasn't picked one (a search keeps "best match").
+ */
+export function toApiQuery(
+  params: ListingParams,
+  category?: string,
+  defaults: { pageSize: number; sort?: SortValue } = { pageSize: PAGE_SIZE },
+): string {
   const qs = new URLSearchParams()
   if (category) qs.set('category', category)
   if (params.q) qs.set('q', params.q)
@@ -78,9 +87,10 @@ export function toApiQuery(params: ListingParams, category?: string): string {
   if (params.inStock) qs.set('inStock', 'true')
   if (params.featured) qs.set('featured', 'true')
   if (params.tag) qs.set('tag', params.tag)
-  if (params.sort) qs.set('sort', params.sort)
+  const sort = params.sort ?? (params.q ? undefined : defaults.sort)
+  if (sort) qs.set('sort', sort)
   qs.set('page', String(params.page))
-  qs.set('pageSize', String(PAGE_SIZE))
+  qs.set('pageSize', String(defaults.pageSize))
   return qs.toString()
 }
 

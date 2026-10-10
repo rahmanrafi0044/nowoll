@@ -5,6 +5,7 @@ import {
   type HomepageSection,
   readHomepageLayout,
 } from '@nowoll/validation'
+import type { PublicSettings } from '@nowoll/validation'
 import type { Metadata } from 'next'
 import { CategoryGrid } from '@/components/home/category-grid'
 import { Hero } from '@/components/home/hero'
@@ -14,6 +15,7 @@ import { PromoBanners } from '@/components/home/promo-banners'
 import { TrustBadges } from '@/components/home/trust-badges'
 import { apiGet } from '@/lib/api'
 import { publicEnv } from '@/lib/env'
+import { getSettings, siteTitle } from '@/lib/settings'
 import { JsonLd } from '@/lib/json-ld'
 
 // ISR: Next.js serves a ready-made page and rebuilds it in the background at
@@ -21,9 +23,11 @@ import { JsonLd } from '@/lib/json-ld'
 export const revalidate = 60
 
 export async function generateMetadata(): Promise<Metadata> {
+  const s = await getSettings() // Admin → Settings → Google defaults (step 38)
   return {
-    title: { absolute: 'Nowoll — always new' },
+    title: { absolute: s.seo_title || siteTitle(s) },
     description:
+      s.seo_description ||
       'Everyday clothing for Bangladesh — shirts, panjabi, kurti and more, delivered nationwide.',
     alternates: { canonical: '/' },
   }
@@ -65,10 +69,11 @@ function viewAllHref(s: Section): string {
 // ============================================================================
 export default async function HomePage() {
   // The layout, hero and categories at the same time…
-  const [layoutBlock, hero, categories] = await Promise.all([
+  const [layoutBlock, hero, categories, settings] = await Promise.all([
     apiGet<{ data: unknown }>('/content-blocks/homepage_layout'),
     apiGet<{ data: HomepageHero }>('/content-blocks/homepage_hero'),
     apiGet<CategoryNode[]>('/categories'),
+    getSettings(),
   ])
   const layout = layoutBlock ? readHomepageLayout(layoutBlock.data) : DEFAULT_HOMEPAGE_LAYOUT
   const sections = layout.sections.filter((s) => s.visible)
@@ -87,7 +92,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <OrganizationJsonLd />
+      <OrganizationJsonLd s={settings} />
       {sections.map((s, i) => {
         switch (s.type) {
           case 'hero':
@@ -134,15 +139,21 @@ export default async function HomePage() {
 }
 
 /** Organization structured data: tells Google who the store is (CLAUDE.md §13). */
-function OrganizationJsonLd() {
+function OrganizationJsonLd({ s }: { s: PublicSettings }) {
+  const sameAs = [s.social_facebook, s.social_instagram, s.social_tiktok, s.social_youtube].filter(
+    Boolean,
+  )
   return (
     <JsonLd
       data={{
         '@context': 'https://schema.org',
         '@type': 'Organization',
-        name: 'Nowoll',
-        slogan: 'always new',
+        name: s.store_name,
+        ...(s.store_tagline && { slogan: s.store_tagline }),
         url: publicEnv.siteUrl,
+        ...(s.store_email && { email: s.store_email }),
+        ...(s.store_phone && { telephone: s.store_phone }),
+        ...(sameAs.length > 0 && { sameAs }), // the shop's social pages
       }}
     />
   )

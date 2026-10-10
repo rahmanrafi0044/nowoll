@@ -100,7 +100,7 @@ describe('/shop', () => {
 
   it('pagination links keep the filters', async () => {
     responses.set(
-      '/products?size=M&page=2&pageSize=24',
+      '/products?size=M&sort=newest&page=2&pageSize=24',
       page([card('A')], { page: 2, totalPages: 3, total: 50 }),
     )
     await renderServer(ShopPage({ searchParams: sp({ size: 'M', page: '2' }) }))

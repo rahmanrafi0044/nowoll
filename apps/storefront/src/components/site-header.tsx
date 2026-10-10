@@ -6,14 +6,21 @@ import { MobileMenu } from './mobile-menu'
 
 // Top-level categories as the main navigation. On phones they move into
 // the ☰ menu (MobileMenu); on tablets/desktop they're shown inline.
-export function SiteHeader({ categories }: { categories: CategoryNode[] }) {
+export function SiteHeader({
+  categories,
+  storeName,
+}: {
+  categories: CategoryNode[]
+  /** From Admin → Settings (step 38). */
+  storeName: string
+}) {
   return (
     <header className="relative border-b border-border bg-surface">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4">
         <div className="flex items-center gap-2">
           <MobileMenu categories={categories} />
           <Link href="/" className="text-xl font-semibold tracking-tight">
-            Nowoll
+            {storeName}
           </Link>
         </div>
         <nav aria-label="Main" className="hidden md:block">

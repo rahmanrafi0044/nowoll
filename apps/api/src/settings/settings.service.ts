@@ -1,9 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import type { Prisma } from '@nowoll/database'
+import {
+  type PublicSettings,
+  publicSettings,
+  readSettings,
+  SETTING_KEYS,
+  SETTINGS_SCHEMA,
+  type StoreSettings,
+} from '@nowoll/validation'
 import { PrismaService } from '../prisma/prisma.service.js'
 
 // Reads admin-configurable business rules from the `settings` table
-// (CLAUDE.md Rule 6). Phase 5 step 38 adds the admin endpoints to edit them.
+// (CLAUDE.md Rule 6). Admin → Settings edits them (step 38, part 1).
 @Injectable()
 export class SettingsService {
   private readonly logger = new Logger(SettingsService.name)
@@ -85,9 +93,9 @@ export class SettingsService {
   }
 
   /**
-   * The shop's own details (invoices, step 31b). Missing or empty settings
-   * come back as null, so an invoice simply leaves the line out; the name
-   * falls back to "Nowoll".
+   * The shop's own details (invoices, step 31b). Empty settings come back as
+   * null, so an invoice simply leaves the line out; the name falls back to
+   * "Nowoll" (SETTING_DEFAULTS).
    */
   async storeInfo(): Promise<{
     name: string
@@ -96,18 +104,55 @@ export class SettingsService {
     phone: string | null
     email: string | null
   }> {
-    const keys = ['store_name', 'store_tagline', 'store_address', 'store_phone', 'store_email']
-    const rows = await this.prisma.setting.findMany({ where: { key: { in: keys } } })
-    const text = (key: string) => {
-      const value = rows.find((r) => r.key === key)?.value
-      return typeof value === 'string' && value.trim() ? value.trim() : null
-    }
+    const s = await this.all()
     return {
-      name: text('store_name') ?? 'Nowoll',
-      tagline: text('store_tagline'),
-      address: text('store_address'),
-      phone: text('store_phone'),
-      email: text('store_email'),
+      name: s.store_name,
+      tagline: s.store_tagline || null,
+      address: s.store_address || null,
+      phone: s.store_phone || null,
+      email: s.store_email || null,
     }
+  }
+
+  // ── Admin → Settings (step 38, part 1) ─────────────────────────────────
+
+  /** Every setting; a missing or broken one is its default (see readSettings). */
+  async all(): Promise<StoreSettings> {
+    return readSettings(
+      await this.prisma.setting.findMany({ where: { key: { in: SETTING_KEYS } } }),
+    )
+  }
+
+  /** GET /settings/public — what the shop shows (never the admin email or internal limits). */
+  async public(): Promise<PublicSettings> {
+    return publicSettings(await this.all())
+  }
+
+  /**
+   * PATCH /admin/settings — only the settings sent change. Every value is
+   * checked by the shared SETTINGS_SCHEMA; unknown keys are refused (the
+   * currency, for example, stays developer-side). One transaction.
+   */
+  async update(values: Record<string, unknown>): Promise<StoreSettings> {
+    const parsed = SETTINGS_SCHEMA.partial().strict().safeParse(values)
+    if (!parsed.success)
+      throw new BadRequestException({
+        message: 'Some settings need fixing — see the list.',
+        code: 'INVALID_SETTINGS',
+        details: parsed.error.issues.map((i) =>
+          i.path.length ? `${i.path.join(' › ')}: ${i.message}` : i.message,
+        ),
+      })
+    const entries = Object.entries(parsed.data) as [string, Prisma.InputJsonValue][]
+    await this.prisma.$transaction(
+      entries.map(([key, value]) =>
+        this.prisma.setting.upsert({
+          where: { key },
+          create: { key, value },
+          update: { value },
+        }),
+      ),
+    )
+    return this.all()
   }
 }

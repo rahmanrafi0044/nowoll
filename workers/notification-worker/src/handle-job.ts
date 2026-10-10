@@ -13,6 +13,7 @@ import {
   welcomeEmail,
 } from '@nowoll/email'
 import type { NotificationJobName, NotificationJobs } from '@nowoll/queues'
+import { readSettings } from '@nowoll/validation'
 import { UnrecoverableError } from 'bullmq'
 
 export interface Deps {
@@ -175,15 +176,20 @@ async function send(
   to: string,
   content: EmailContent,
 ): Promise<string> {
-  const email = await renderEmail(content)
-  const replyTo = await setting(deps.db, 'store_email')
+  // The store's name, tagline and reply-to address come from Admin → Settings (step 38).
+  const settings = readSettings(await deps.db.setting.findMany())
+  const email = await renderEmail(content, {
+    name: settings.store_name,
+    tagline: settings.store_tagline,
+  })
+  const replyTo = settings.store_email
   const result = await deps.sender.send({
     to,
     subject: email.subject,
     html: email.html,
     text: email.text,
     tag: email.tag,
-    ...(typeof replyTo === 'string' && replyTo.includes('@') && { replyTo }),
+    ...(replyTo && { replyTo }),
     ...(job.id && { idempotencyKey: job.id }),
   })
   if (result.ok) return `sent ${email.tag} (${result.id ?? 'no id'})`
@@ -191,11 +197,7 @@ async function send(
   throw new UnrecoverableError(result.reason)
 }
 
-const setting = async (db: PrismaClient, key: string) =>
-  (await db.setting.findUnique({ where: { key } }))?.value
-
-/** Same rule as the API's SettingsService.returnWindowDays (0–90, else 7). */
+/** Same rule as the API (0–90, else 7) — the shared readSettings. */
 async function returnWindowDays(db: PrismaClient): Promise<number> {
-  const v = await setting(db, 'return_window_days')
-  return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 90 ? v : 7
+  return readSettings(await db.setting.findMany()).return_window_days
 }

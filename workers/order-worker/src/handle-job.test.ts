@@ -99,6 +99,37 @@ describe('low-stock-alert', () => {
     })
     expect(sender.sent[0]!.html).toContain('href="https://admin.nowoll.com/inventory"')
   })
+
+  it('goes to the admin email set in Admin → Settings when there is one (step 38)', async () => {
+    await db.setting.create({
+      data: { key: 'admin_notification_email', value: 'stock@nowoll.com' },
+    })
+    const alert = {
+      variantId: 'v1',
+      sku: 'OXF-M',
+      productName: 'Oxford Shirt',
+      variantLabel: 'M / Blue',
+      stock: 2,
+      threshold: 5,
+    }
+    await handleOrderJob({ name: 'low-stock-alert', data: { alerts: [alert] } }, deps)
+    expect(sender.sent[0]!.to).toBe('stock@nowoll.com')
+  })
+})
+
+describe('the store’s name from Admin → Settings (step 38)', () => {
+  it('emails carry the saved name and tagline', async () => {
+    await db.setting.createMany({
+      data: [
+        { key: 'store_name', value: 'Nowoll BD' },
+        { key: 'store_tagline', value: 'fresh every week' },
+      ],
+    })
+    const order = await makeOrder()
+    await handleOrderJob({ name: 'order-confirmation', data: { orderId: order.id } }, deps)
+    expect(sender.sent[0]!.html).toContain('Nowoll BD')
+    expect(sender.sent[0]!.html).toContain('fresh every week')
+  })
 })
 
 describe('retry rules', () => {

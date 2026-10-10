@@ -8,6 +8,7 @@ import type {
 import Link from 'next/link'
 import { ProductCard } from '@/components/product-card'
 import { apiGet } from '@/lib/api'
+import { getSettings } from '@/lib/settings'
 import { formatBdt } from '@/lib/format'
 import {
   hasActiveFilters,
@@ -49,13 +50,15 @@ export async function ListingPage({
     ...(category && { category }),
     ...(params.q && { q: params.q }),
   }).toString()
+  const settings = await getSettings()
+  const defaults = { pageSize: settings.shop_page_size, sort: settings.shop_default_sort }
   const [result, facets] = await Promise.all([
-    apiGet<Paginated<ProductCardView>>(`/products?${toApiQuery(params, category)}`),
+    apiGet<Paginated<ProductCardView>>(`/products?${toApiQuery(params, category, defaults)}`),
     apiGet<ProductFacetsView>(`/products/facets${facetQuery ? `?${facetQuery}` : ''}`),
   ])
   const products = result?.items ?? []
   const total = result?.total ?? 0
-  const sort = params.sort ?? (params.q ? 'relevance' : 'newest')
+  const sort = params.sort ?? (params.q ? 'relevance' : settings.shop_default_sort)
   const sortChoices: { value: SortValue; label: string }[] = [
     ...(params.q ? [{ value: 'relevance' as const, label: 'Best match' }] : []),
     ...SORTS,

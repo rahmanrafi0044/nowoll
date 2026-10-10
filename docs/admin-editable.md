@@ -32,11 +32,11 @@
 ### A. Store identity and branding
 | # | What | Status |
 |---|---|---|
-| 1 | Store name and tagline — used by the header, footer, page titles and emails (today "Nowoll" is written in the code) | 🛠 38 |
-| 2 | Logo (header), favicon, social-share image (Facebook / WhatsApp preview) | 🛠 38 |
-| 3 | Brand colours (buttons, links, accents) and the font — from a safe, readable list (contrast checked) | 🛠 38 |
-| 4 | Contact details: email, phone, address, WhatsApp number, opening hours — shown in the footer and contact page | 🛠 38 |
-| 5 | Social media links: Facebook, Instagram, TikTok, YouTube | 🛠 38 |
+| 1 | Store name and tagline — used by the header, footer, page titles, invoices and emails | ✅ (step 38) |
+| 2 | Logo (header), favicon, social-share image (Facebook / WhatsApp preview) | 🛠 38 (part 2) |
+| 3 | Brand colours (buttons, links, accents) and the font — from a safe, readable list (contrast checked) | 🛠 38 (part 2) |
+| 4 | Contact details: email, phone, address, WhatsApp number, opening hours — shown in the footer and on invoices (the Contact page is your own text) | ✅ (step 38) |
+| 5 | Social media links: Facebook, Instagram, TikTok, YouTube | ✅ (step 38) |
 
 ### B. Header and navigation
 | # | What | Status |
@@ -59,7 +59,7 @@
 |---|---|---|
 | 14 | Products, variants, photos, bulk actions, CSV | ✅ (step 30) |
 | 15 | Categories: create, edit, archive, photo, order, on/off | ✅ (step 36b) |
-| 16 | Shop page defaults: products per page, default sort | 🛠 38 |
+| 16 | Shop page defaults: products per page, default sort | ✅ (step 38) |
 
 ### E. Product page
 | # | What | Status |
@@ -86,8 +86,8 @@
 | 24 | Delivery zones, rates, free-delivery minimum | ✅ (step 37) |
 | 25 | Payment methods on / off (cash on delivery, online) and their descriptions | 🛠 38c |
 | 26 | Cash-on-delivery limit (e.g. none above ৳10,000) and a minimum order amount | 🛠 38c |
-| 27 | The "thank you" message after ordering | 🛠 38 |
-| 28 | VAT rate, return window, low-stock limit, unpaid-order timeout, admin email | 🛠 38 |
+| 27 | The "thank you" message after ordering | ✅ (step 38) |
+| 28 | VAT rate, return window, low-stock limit, unpaid-order timeout, admin email | ✅ (step 38) |
 
 ### I. Emails
 | # | What | Status |
@@ -98,7 +98,7 @@
 | # | What | Status |
 |---|---|---|
 | 30 | Google title / description per product, category, page | ✅ (steps 30, 36, 36b) |
-| 31 | Site-wide Google title / description and share image | 🛠 38 |
+| 31 | Site-wide Google title / description and share image | ✅ title and description (step 38) · 🛠 share image (38, part 2) |
 | 32 | Google Analytics and Meta Pixel **IDs** (validated ID fields; the scripts themselves are added by code) | 🛠 39 |
 | 33 | Redirects: an old web address sends visitors to the new one | 🛠 43c |
 
