@@ -5,6 +5,7 @@ import type {
   ProductDetailView,
   ProductReviewsView,
 } from '@nowoll/types'
+import { Markdown } from '@nowoll/ui'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -133,9 +134,9 @@ export default async function ProductPage({ params }: Props) {
             <h2 id="size-guide-title" className="text-lg font-semibold">
               Size guide
             </h2>
-            <p className="mt-2 whitespace-pre-line font-mono text-sm text-muted-foreground">
-              {sizeGuide}
-            </p>
+            {/* Markdown since step 36b — a real table (Size | Chest | Length), written in
+                Admin → Categories with a live preview. Same safe renderer as the pages. */}
+            <Markdown className="mt-2 text-sm">{sizeGuide}</Markdown>
           </section>
         )}
         <ProductReviews productId={product.id} initial={reviews} />

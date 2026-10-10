@@ -12,6 +12,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  ValidateIf,
   MaxLength,
   Min,
 } from 'class-validator'
@@ -75,4 +76,9 @@ export class BulkProductsDto {
   @ArrayUnique()
   @IsUUID('all', { each: true })
   ids!: string[]
+
+  /** Only for "move": where the products go. Refused with any other action. */
+  @ValidateIf((o: BulkProductsDto) => o.action === 'move' || o.categoryId !== undefined)
+  @IsUUID('all', { message: 'Choose the category to move the products to' })
+  categoryId?: string
 }

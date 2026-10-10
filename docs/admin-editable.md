@@ -58,14 +58,14 @@
 | # | What | Status |
 |---|---|---|
 | 14 | Products, variants, photos, bulk actions, CSV | ✅ (step 30) |
-| 15 | Categories: create, edit, archive, photo, order, on/off | 🛠 36b |
+| 15 | Categories: create, edit, archive, photo, order, on/off | ✅ (step 36b) |
 | 16 | Shop page defaults: products per page, default sort | 🛠 38 |
 
 ### E. Product page
 | # | What | Status |
 |---|---|---|
 | 17 | "Delivery and returns" info box | 🛠 38d |
-| 18 | Size guide per category | 🛠 36b |
+| 18 | Size guide per category | ✅ (step 36b) |
 
 ### F. Footer
 | # | What | Status |
@@ -97,7 +97,7 @@
 ### J. SEO and marketing
 | # | What | Status |
 |---|---|---|
-| 30 | Google title / description per product, category, page | ✅ products, pages · 🛠 categories (36b) |
+| 30 | Google title / description per product, category, page | ✅ (steps 30, 36, 36b) |
 | 31 | Site-wide Google title / description and share image | 🛠 38 |
 | 32 | Google Analytics and Meta Pixel **IDs** (validated ID fields; the scripts themselves are added by code) | 🛠 39 |
 | 33 | Redirects: an old web address sends visitors to the new one | 🛠 43c |

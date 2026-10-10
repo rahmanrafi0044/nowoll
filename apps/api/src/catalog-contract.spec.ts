@@ -4,6 +4,8 @@
 // long before a customer sees a broken page.
 import type {
   AccountOrderDetailView,
+  AdminArchivedCategory as AdminArchivedCategoryView,
+  AdminCategoryNode as AdminCategoryNodeView,
   AdminPageDetail as AdminPageDetailView,
   AdminPageRow as AdminPageRowView,
   PageLinkView,
@@ -39,7 +41,12 @@ import { expectTypeOf } from 'vitest'
 import type { AdminPageDetail, AdminPageRow, PageLink, PublicPage } from './pages/pages.service.js'
 import type { SavedAddress } from './addresses/addresses.service.js'
 import type { AccountProfile } from './auth/auth.service.js'
-import type { PublicCategoryDetail, PublicCategoryNode } from './categories/categories.service.js'
+import type {
+  AdminArchivedCategory,
+  AdminCategoryNode,
+  PublicCategoryDetail,
+  PublicCategoryNode,
+} from './categories/categories.service.js'
 import type { DiscountPreview } from './discounts/discounts.service.js'
 import type { CheckoutQuote } from './checkout/checkout.service.js'
 import type {
@@ -121,5 +128,10 @@ describe('API ↔ storefront contract', () => {
     expectTypeOf<Serialized<PublicPage>>().toEqualTypeOf<PublicPageView>()
     expectTypeOf<Serialized<AdminPageRow>>().toEqualTypeOf<AdminPageRowView>()
     expectTypeOf<Serialized<AdminPageDetail>>().toEqualTypeOf<AdminPageDetailView>()
+  })
+
+  it('admin categories', () => {
+    expectTypeOf<Serialized<AdminCategoryNode>>().toEqualTypeOf<AdminCategoryNodeView>()
+    expectTypeOf<Serialized<AdminArchivedCategory>>().toEqualTypeOf<AdminArchivedCategoryView>()
   })
 })

@@ -53,6 +53,7 @@ const DONE: Record<BulkProductAction, string> = {
   feature: 'featured',
   unfeature: 'unfeatured',
   archive: 'archived',
+  move: 'moved',
 }
 
 export function ProductList({ filters }: { filters: ProductFilters }) {
@@ -86,10 +87,10 @@ export function ProductList({ filters }: { filters: ProductFilters }) {
     router.push(query ? `/admin/products?${query}` : '/admin/products')
   }
 
-  async function runBulk(action: BulkProductAction) {
+  async function runBulk(action: BulkProductAction, categoryId?: string) {
     setBusy(true)
     setOutcome(null)
-    const r = await bulkProducts(action, [...selected])
+    const r = await bulkProducts(action, [...selected], categoryId)
     setBusy(false)
     if (!r.ok) return setOutcome({ error: r.message })
     setOutcome(r.data)
@@ -143,6 +144,7 @@ export function ProductList({ filters }: { filters: ProductFilters }) {
         <BulkBar
           count={selected.size}
           busy={busy}
+          categories={categories.state.status === 'ok' ? categories.state.data : []}
           onAction={runBulk}
           onClear={() => setSelected(new Set())}
         />

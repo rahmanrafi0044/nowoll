@@ -39,6 +39,7 @@ export const BULK_PRODUCT_ACTIONS = [
   'feature',
   'unfeature',
   'archive', // soft delete — hidden everywhere, kept for order history
+  'move', // → another category (needs categoryId) — e.g. before archiving a category
 ] as const
 export type BulkProductAction = (typeof BULK_PRODUCT_ACTIONS)[number]
 

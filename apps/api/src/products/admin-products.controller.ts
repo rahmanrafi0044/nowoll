@@ -35,6 +35,6 @@ export class AdminProductsController {
   @Post('bulk')
   @HttpCode(200)
   bulk(@Body() dto: BulkProductsDto) {
-    return this.adminProducts.bulk(dto.action, dto.ids)
+    return this.adminProducts.bulk(dto.action, dto.ids, dto.categoryId)
   }
 }

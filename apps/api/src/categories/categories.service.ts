@@ -34,6 +34,31 @@ export interface PublicCategoryNode extends PublicCategory {
   children: PublicCategoryNode[]
 }
 
+/** Admin → Categories (step 36b): every category, hidden ones included. */
+export interface AdminCategoryNode {
+  id: string
+  name: string
+  slug: string
+  parentId: string | null
+  description: string | null
+  imageUrl: string | null
+  imageAlt: string | null
+  sizeGuide: string | null
+  seoTitle: string | null
+  seoDescription: string | null
+  isActive: boolean
+  sortOrder: number
+  productCount: number
+  children: AdminCategoryNode[]
+}
+
+export interface AdminArchivedCategory {
+  id: string
+  name: string
+  slug: string
+  archivedAt: Date
+}
+
 export interface PublicCategoryDetail extends PublicCategory {
   sizeGuide: string | null
   breadcrumb: Pick<PublicCategory, 'id' | 'name' | 'slug'>[] // top level → direct parent
@@ -71,12 +96,16 @@ export class CategoriesService {
     return buildTree(visibleCategories(rows)).map(toPublicNode)
   }
 
-  /** GET /categories/:slug — one visible category with breadcrumb and subcategories. */
-  async findBySlug(slug: string): Promise<PublicCategoryDetail> {
+  /**
+   * GET /categories/:slug — one visible category with breadcrumb and
+   * subcategories, or null. Hidden, archived and unknown all look the same to
+   * customers. null (200), not 404: Next.js only caches 200 answers, so a 404
+   * would keep a hidden category's page showing on the shop (step 36 lesson).
+   */
+  async findBySlug(slug: string): Promise<PublicCategoryDetail | null> {
     const visible = visibleCategories(await this.loadAll())
     const category = visible.find((c) => c.slug === slug)
-    // Hidden, archived and non-existent all look the same to customers: 404.
-    if (!category) throw new NotFoundException('Category not found')
+    if (!category) return null
 
     return {
       ...toPublic(category),
@@ -129,6 +158,89 @@ export class CategoriesService {
   }
 
   // ── Admin ──────────────────────────────────────────────────────────────
+
+  /** GET /admin/categories — the whole tree, hidden categories included, with product counts. */
+  async adminTree(): Promise<AdminCategoryNode[]> {
+    const [rows, counts] = await Promise.all([
+      this.loadAll(),
+      this.prisma.product.groupBy({
+        by: ['categoryId'],
+        where: { deletedAt: null },
+        _count: { _all: true },
+      }),
+    ])
+    const count = new Map(counts.map((c) => [c.categoryId, c._count._all]))
+    const toNode = (n: TreeNode<Category>): AdminCategoryNode => ({
+      id: n.id,
+      name: n.name,
+      slug: n.slug,
+      parentId: n.parentId,
+      description: n.description,
+      imageUrl: n.imageUrl,
+      imageAlt: n.imageAlt,
+      sizeGuide: n.sizeGuide,
+      seoTitle: n.seoTitle,
+      seoDescription: n.seoDescription,
+      isActive: n.isActive,
+      sortOrder: n.sortOrder,
+      productCount: count.get(n.id) ?? 0,
+      children: n.children.map(toNode),
+    })
+    return buildTree(rows).map(toNode)
+  }
+
+  /** GET /admin/categories?archived=1 — archived categories, newest first. */
+  async archived(): Promise<AdminArchivedCategory[]> {
+    const rows = await this.prisma.category.findMany({
+      where: { deletedAt: { not: null } },
+      select: { id: true, name: true, slug: true, deletedAt: true },
+      orderBy: { deletedAt: 'desc' },
+    })
+    return rows.map((r) => ({ id: r.id, name: r.name, slug: r.slug, archivedAt: r.deletedAt! }))
+  }
+
+  /**
+   * POST /admin/categories/:id/restore — brings an archived category back,
+   * HIDDEN (so it never appears on the shop by surprise). If its parent is
+   * archived too, it comes back at the top level.
+   */
+  async restore(id: string): Promise<Category> {
+    const category = await this.prisma.category.findFirst({
+      where: { id, deletedAt: { not: null } },
+    })
+    if (!category) throw new NotFoundException('Archived category not found')
+    const parentAlive =
+      category.parentId !== null &&
+      (await this.prisma.category.count({ where: { id: category.parentId, deletedAt: null } })) > 0
+    return this.prisma.category.update({
+      where: { id },
+      data: { deletedAt: null, isActive: false, parentId: parentAlive ? category.parentId : null },
+    })
+  }
+
+  /**
+   * PATCH /admin/categories/order — the new order of ONE group of sister
+   * categories (same parent). The list must be exactly that group, so a
+   * stale page can't scramble the order. One transaction: all or nothing.
+   */
+  async reorder(parentId: string | null, ids: string[]): Promise<{ ids: string[] }> {
+    const siblings = await this.prisma.category.findMany({
+      where: { parentId, deletedAt: null },
+      select: { id: true },
+    })
+    const current = new Set(siblings.map((s) => s.id))
+    if (ids.length !== current.size || !ids.every((id) => current.has(id)))
+      throw new ConflictException(
+        'The categories changed since this page was loaded. Reload and try again.',
+      )
+    // Steps of 10 leave room between neighbours.
+    await this.prisma.$transaction(
+      ids.map((id, i) =>
+        this.prisma.category.update({ where: { id }, data: { sortOrder: (i + 1) * 10 } }),
+      ),
+    )
+    return { ids }
+  }
 
   async create(dto: CreateCategoryDto): Promise<Category> {
     if (dto.parentId) await this.assertParentUsable(dto.parentId)

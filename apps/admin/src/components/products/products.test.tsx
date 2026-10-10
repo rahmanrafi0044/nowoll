@@ -115,7 +115,7 @@ describe('ProductList', () => {
     const status = await screen.findByRole('status')
     expect(status).toHaveTextContent('1 product published.')
     expect(status).toHaveTextContent('Draft Panjabi — A published product needs an image.')
-    expect(mocked.bulkProducts).toHaveBeenCalledWith('publish', ['p1', 'p2'])
+    expect(mocked.bulkProducts).toHaveBeenCalledWith('publish', ['p1', 'p2'], undefined)
     await waitFor(() => expect(mocked.fetchProducts).toHaveBeenCalledTimes(2)) // reloaded
     expect(screen.getByLabelText('Select Draft Panjabi')).toBeChecked()
     expect(screen.getByLabelText('Select Oxford Shirt')).not.toBeChecked()
@@ -132,7 +132,34 @@ describe('ProductList', () => {
     expect(mocked.bulkProducts).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
     fireEvent.click(screen.getByRole('button', { name: 'Archive 1 product' }))
-    await waitFor(() => expect(mocked.bulkProducts).toHaveBeenCalledWith('archive', ['p1']))
+    await waitFor(() =>
+      expect(mocked.bulkProducts).toHaveBeenCalledWith('archive', ['p1'], undefined),
+    )
+  })
+
+  it('move to category (step 36b): pick the category first, hidden ones labelled; then moved', async () => {
+    mocked.fetchCategories.mockResolvedValue(
+      ok([
+        { id: 'c1', name: 'Men', children: [{ id: 'c2', name: 'Shirts', children: [] }] },
+        { id: 'c9', name: 'Old stock', isActive: false, children: [] },
+      ]),
+    )
+    mocked.bulkProducts.mockResolvedValue(
+      ok({ action: 'move' as const, succeeded: ['p1', 'p2'], failed: [] }),
+    )
+    render(<ProductList filters={{}} />)
+    fireEvent.click(await screen.findByLabelText('Select all products on this page'))
+    fireEvent.click(screen.getByRole('button', { name: 'Move to category…' }))
+    const bar = screen.getByRole('toolbar', { name: 'Actions for the selected products' })
+    const select = within(bar).getByLabelText('Move 2 products to')
+    expect(within(select).getByRole('option', { name: 'Old stock (hidden)' })).toBeInTheDocument()
+    expect(within(bar).getByRole('button', { name: 'Move' })).toBeDisabled() // choose first
+    fireEvent.change(select, { target: { value: 'c2' } })
+    fireEvent.click(within(bar).getByRole('button', { name: 'Move' }))
+    await waitFor(() =>
+      expect(mocked.bulkProducts).toHaveBeenCalledWith('move', ['p1', 'p2'], 'c2'),
+    )
+    expect(await screen.findByRole('status')).toHaveTextContent('2 products moved.')
   })
 
   it('new filters → nothing stays ticked', async () => {

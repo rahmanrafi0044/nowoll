@@ -215,8 +215,20 @@ export class ProductsService {
   }
 
   /** GET /products/:slug — everything the product page needs. */
-  async findBySlug(slug: string): Promise<ProductDetail> {
-    const product = await this.findVisible({ slug })
+  /**
+   * GET /products/:slug — or null when customers can't see it (draft,
+   * archived, hidden category, unknown). null (200), not 404: Next.js only
+   * caches 200 answers, so a 404 would keep an archived product's page
+   * showing on the shop (step 36 lesson).
+   */
+  async findBySlug(slug: string): Promise<ProductDetail | null> {
+    let product: ProductWithRelations
+    try {
+      product = await this.findVisible({ slug })
+    } catch (error) {
+      if (error instanceof NotFoundException) return null
+      throw error
+    }
     return {
       ...this.toCard(product),
       description: product.description,

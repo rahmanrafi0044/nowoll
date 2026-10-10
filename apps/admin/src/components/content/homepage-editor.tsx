@@ -4,14 +4,14 @@ import type { ReactNode } from 'react'
 import { Panel } from '@/components/dashboard/panel'
 import { useLoad } from '@/components/dashboard/use-load'
 import { fetchContentBlocks } from '@/lib/content-api'
-import { fetchCategories } from '@/lib/products-api'
+import { fetchShopCategories } from '@/lib/products-api'
 import { HeroEditor } from './hero-editor'
 import { LayoutEditor } from './layout-editor'
 
 /** Admin → Content → Homepage (step 36): the hero, then the list of sections. */
 export function HomepageEditor() {
   const { state, retry, refresh } = useLoad(fetchContentBlocks)
-  const categories = useLoad(fetchCategories)
+  const categories = useLoad(fetchShopCategories)
   return (
     <Panel title="Homepage" state={state} retry={retry} className="border-0 bg-transparent p-0">
       {(blocks) => {
