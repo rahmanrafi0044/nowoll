@@ -122,11 +122,13 @@ export class SettingsService {
 
   // ── Admin → Settings (step 38, part 1) ─────────────────────────────────
 
-  /** Every setting; a missing or broken one is its default (see readSettings). */
-  async all(): Promise<StoreSettings> {
-    return readSettings(
-      await this.prisma.setting.findMany({ where: { key: { in: SETTING_KEYS } } }),
-    )
+  /**
+   * Every setting; a missing or broken one is its default (see readSettings).
+   * Pass `db` from INSIDE a transaction (the checkout quote during "Place
+   * order") — the same pool-deadlock reason as lowStockThreshold above.
+   */
+  async all(db: Prisma.TransactionClient | PrismaService = this.prisma): Promise<StoreSettings> {
+    return readSettings(await db.setting.findMany({ where: { key: { in: SETTING_KEYS } } }))
   }
 
   /** GET /settings/public — what the shop shows (never the admin email or internal limits). */
