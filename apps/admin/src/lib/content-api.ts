@@ -8,6 +8,7 @@ export type ContentKey =
   | 'homepage_layout'
   | 'main_menu' // step 38b
   | 'footer' // step 38b
+  | 'product_info' // step 38d
 
 export interface AdminContentBlock {
   key: ContentKey

@@ -160,7 +160,11 @@ describe('payments (step 38c)', () => {
     expect(ok({ payment_cod_enabled: 'no' })).toBe(false)
   })
 
-  it('not public (the checkout gets the options from the quote instead)', () => {
-    expect(publicSettings(SETTING_DEFAULTS)).not.toHaveProperty('cod_max_total')
+  it('only the COD switch and limit are public (the product info box shows them, step 38d)', () => {
+    const pub = publicSettings(SETTING_DEFAULTS)
+    expect(pub).toHaveProperty('cod_max_total', 0)
+    expect(pub).toHaveProperty('payment_cod_enabled', true)
+    expect(pub).not.toHaveProperty('min_order_amount')
+    expect(pub).not.toHaveProperty('payment_online_enabled')
   })
 })

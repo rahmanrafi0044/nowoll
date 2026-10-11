@@ -143,6 +143,7 @@ describe('admin content (step 36)', () => {
         'homepage_hero',
         'homepage_layout',
         'main_menu',
+        'product_info',
       ])
       expect(blocks.find((b: { key: string }) => b.key === 'homepage_hero')).toMatchObject({
         data: null,
@@ -204,6 +205,29 @@ describe('admin content (step 36)', () => {
       expect(served).not.toHaveProperty('unknown')
       expect(served.about).toBe('<script>') // shown as text by React, never as HTML
     })
+  })
+
+  it('product info box (step 38d): defaults filled in, served once switched on; javascript: refused', async () => {
+    const r = await save('product_info', {
+      lines: ['100% cotton'],
+      link: { label: 'Return policy', href: '/return-policy' },
+    }).expect(200)
+    expect(r.body.data.data).toEqual({
+      title: 'Delivery and returns',
+      showDelivery: true,
+      showReturns: true,
+      showCod: true,
+      lines: ['100% cotton'],
+      link: { label: 'Return policy', href: '/return-policy' },
+    })
+    expect(
+      (await http().get('/api/v1/content-blocks/product_info').expect(200)).body.data.data.lines,
+    ).toEqual(['100% cotton'])
+    await save('product_info', { link: { label: 'x', href: 'javascript:alert(1)' } }).expect(400)
+    await save('product_info', {}, false).expect(200)
+    expect(
+      (await http().get('/api/v1/content-blocks/product_info').expect(200)).body.data,
+    ).toBeNull() // off → hidden
   })
 
   describe('picture upload', () => {

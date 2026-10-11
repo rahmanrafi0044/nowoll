@@ -4,12 +4,15 @@ import type {
   ProductCardView,
   ProductDetailView,
   ProductReviewsView,
+  ShippingRateView,
 } from '@nowoll/types'
 import { Markdown } from '@nowoll/ui'
+import { productInfoLines, productInfoSchema } from '@nowoll/validation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
+import { ProductInfoBox } from '@/components/product/product-info-box'
 import { ProductView } from '@/components/product/product-view'
 import { ProductReviews } from '@/components/reviews/product-reviews'
 import { apiGet } from '@/lib/api'
@@ -74,7 +77,14 @@ export default async function ProductPage({ params }: Props) {
   // Approved reviews (step 24) — refreshed with the page (ISR, 60 s). If the
   // reviews can't be loaded, the product page still works without them.
   const reviews = await apiGet<ProductReviewsView>(`/reviews/product/${product.id}`)
-  const settings = await getSettings()
+  // The "Delivery and returns" box (Admin → Content → Product info, step 38d):
+  // off until saved; its automatic lines follow the live fees and rules.
+  const [settings, infoBlock, zones] = await Promise.all([
+    getSettings(),
+    apiGet<{ data: unknown }>('/content-blocks/product_info'),
+    apiGet<ShippingRateView[]>('/shipping/rates'),
+  ])
+  const info = infoBlock ? productInfoSchema.safeParse(infoBlock.data) : null
 
   return (
     // Extra bottom padding on phones so the sticky "Add to bag" bar never covers content.
@@ -118,6 +128,12 @@ export default async function ProductPage({ params }: Props) {
           </div>
         }
       >
+        {info?.success && (
+          <ProductInfoBox
+            info={info.data}
+            lines={productInfoLines(info.data, zones ?? [], settings)}
+          />
+        )}
         {product.description && (
           <section aria-labelledby="details" className="border-t border-border pt-6">
             <h2 id="details" className="text-lg font-semibold">
