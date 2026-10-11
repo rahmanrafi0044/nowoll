@@ -185,6 +185,34 @@ export const SETTINGS_SCHEMA = z.object({
   font: z.enum(['system', 'inter', 'poppins', 'hind_siliguri'], {
     error: 'Choose one of the fonts on the list',
   }),
+  // Payments (step 38c). At least one method stays on (checked by the API
+  // against the saved values, since a save may change only one of them).
+  payment_cod_enabled: z.boolean(),
+  payment_online_enabled: z.boolean(),
+  payment_cod_description: text(120),
+  payment_online_description: text(120),
+  /** Biggest order (amount to pay) that may be cash on delivery. 0 = no limit. */
+  cod_max_total: z
+    .number()
+    .refine(
+      (v) => v === 0 || (v >= 100 && v <= 1_000_000),
+      'Cash-on-delivery limit: ৳100 – ৳10,00,000, or 0 for none',
+    )
+    .refine(
+      (v) => Number.isInteger(v * 100) || Math.abs(Math.round(v * 100) - v * 100) < 1e-9,
+      'At most 2 decimals',
+    ),
+  /** Smallest order (products after any discount, not delivery). 0 = none. */
+  min_order_amount: z
+    .number()
+    .refine(
+      (v) => v === 0 || (v >= 1 && v <= 100_000),
+      'Minimum order: ৳1 – ৳1,00,000, or 0 for none',
+    )
+    .refine(
+      (v) => Number.isInteger(v * 100) || Math.abs(Math.round(v * 100) - v * 100) < 1e-9,
+      'At most 2 decimals',
+    ),
 })
 
 export type StoreSettings = z.output<typeof SETTINGS_SCHEMA>
@@ -219,6 +247,12 @@ export const SETTING_DEFAULTS: StoreSettings = {
   share_image_url: '',
   brand_color: '#111111',
   font: 'system',
+  payment_cod_enabled: true,
+  payment_online_enabled: true,
+  payment_cod_description: '',
+  payment_online_description: '',
+  cod_max_total: 0,
+  min_order_amount: 0,
 }
 
 /** Shown to everyone by GET /settings/public. Never the admin email or internal limits. */

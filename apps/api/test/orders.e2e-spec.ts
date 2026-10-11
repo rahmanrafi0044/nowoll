@@ -112,4 +112,41 @@ describe('POST /orders', () => {
     expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000')
     expect(res.headers['access-control-allow-headers']).toMatch(/idempotency-key/i)
   })
+
+  describe('payment methods and the minimum order (step 38c)', () => {
+    const rule = (key: string, value: unknown) =>
+      db.setting.create({ data: { key, value: value as never } })
+
+    it('cash on delivery switched off → refused with the reason; nothing reserved', async () => {
+      await rule('payment_cod_enabled', false)
+      const res = await place(await body()).expect(422)
+      expect(res.body).toMatchObject({ error: 'COD_OFF' })
+      expect(await db.order.count()).toBe(0)
+    })
+
+    it('over the cash-on-delivery limit → refused (the full amount to pay counts); at the limit → fine', async () => {
+      await rule('cod_max_total', 1549)
+      const over = await place(await body()).expect(422)
+      expect(over.body.error).toBe('COD_LIMIT')
+      expect(over.body.message).toMatch(/up to ৳1,549/)
+      await db.setting.update({ where: { key: 'cod_max_total' }, data: { value: 1550 } })
+      await place(await body()).expect(201)
+    })
+
+    it('below the minimum order (products after discount, not delivery) → refused with how much is missing', async () => {
+      await rule('min_order_amount', 1500) // products ৳1,490 + delivery ৳60
+      const res = await place(await body()).expect(422)
+      expect(res.body).toMatchObject({ error: 'BELOW_MINIMUM_ORDER' })
+      expect(res.body.message).toMatch(/add ৳10 more/)
+      await db.setting.update({ where: { key: 'min_order_amount' }, data: { value: 1490 } })
+      await place(await body()).expect(201)
+    })
+
+    it('online switched off → online refused; cash on delivery still works', async () => {
+      await rule('payment_online_enabled', false)
+      const res = await place(await body({ paymentMethod: 'SSLCOMMERZ' })).expect(422)
+      expect(res.body.error).toBe('ONLINE_PAYMENT_UNAVAILABLE')
+      await place(await body()).expect(201)
+    })
+  })
 })

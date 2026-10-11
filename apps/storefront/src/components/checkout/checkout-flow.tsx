@@ -113,7 +113,7 @@ export function CheckoutFlow() {
           <ShippingStep quote={quoteState.quote} />
         </StepSection>
         <StepSection step="payment" title="Payment" summary={payment && paymentLabel(payment)}>
-          <PaymentStep total={quoteState.quote?.totals.total ?? null} />
+          <PaymentStep options={quoteState.quote?.payment.options ?? null} />
         </StepSection>
         <StepSection step="review" title="Review and place order">
           <ReviewStep quote={quoteState.quote} quoteLoading={quoteState.loading} />

@@ -87,6 +87,11 @@ export class PaymentsService {
     @Inject(ORDER_NOTIFIER) private readonly notifier: OrderNotifier,
   ) {}
 
+  /** Are the SSLCommerz keys on the server? (Developer-side — Admin → Settings shows a warning if not.) */
+  onlineConfigured(): boolean {
+    return this.config.onlineEnabled
+  }
+
   /** Why an order of this total can't be paid online right now — or null if it can. */
   onlinePaymentProblem(total: string): { code: string; message: string } | null {
     if (!this.config.onlineEnabled)

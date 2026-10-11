@@ -15,3 +15,7 @@ export function uploadBrandImage(kind: 'logo' | 'favicon' | 'share', file: File)
   form.append('file', file)
   return call<{ url: string }>('POST', `/admin/settings/images?kind=${kind}`, form)
 }
+
+/** Are the SSLCommerz keys on the server? (Adding them is developer-side — never the keys themselves.) */
+export const fetchPaymentStatus = () =>
+  call<{ onlineConfigured: boolean }>('GET', '/admin/payments/status')

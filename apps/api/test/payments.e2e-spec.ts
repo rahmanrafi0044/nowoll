@@ -60,6 +60,12 @@ describe('/payment', () => {
     return { orderId, tranId: gateway.created.at(-1)!.transactionId }
   }
 
+  it('switching online payment off (step 38c) doesn’t strand an order already placed: it can still be paid', async () => {
+    const orderId = await placeOnlineOrder()
+    await testPrisma().setting.create({ data: { key: 'payment_online_enabled', value: false } })
+    await http().post('/api/v1/payment/sslcommerz/init').send({ orderId }).expect(200)
+  })
+
   describe('POST /payment/sslcommerz/init', () => {
     it('200 with the SSLCommerz page to send the customer to', async () => {
       const orderId = await placeOnlineOrder()

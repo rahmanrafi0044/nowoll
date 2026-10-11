@@ -169,6 +169,21 @@ describe('settings (step 38)', () => {
     })
   })
 
+  it('payments (step 38c): at least one method stays on — judged on the saved result', async () => {
+    await save({ payment_cod_enabled: false }).expect(200)
+    const r = await save({ payment_online_enabled: false }).expect(400)
+    expect(r.body.details.join(' ')).toMatch(/at least one payment method/)
+    await save({ payment_online_enabled: false, payment_cod_enabled: true }).expect(200) // swap in one save
+    await save({ cod_max_total: 10_000, min_order_amount: 500 }).expect(200)
+    await save({ cod_max_total: 50 }).expect(400)
+  })
+
+  it('payment status: whether online payment is set up on the server (never the keys)', async () => {
+    const r = (await http().get('/api/v1/admin/payments/status').expect(200)).body.data
+    expect(Object.keys(r)).toEqual(['onlineConfigured'])
+    expect(typeof r.onlineConfigured).toBe('boolean')
+  })
+
   it('admin-only (the public part stays open)', async () => {
     const outsider = await createTestApp({ asAdmin: false })
     try {
@@ -178,6 +193,7 @@ describe('settings (step 38)', () => {
         .patch('/api/v1/admin/settings')
         .send({ values: { store_name: 'x' } })
         .expect(401)
+      await h().get('/api/v1/admin/payments/status').expect(401)
       await h().get('/api/v1/settings/public').expect(200)
     } finally {
       await outsider.close()

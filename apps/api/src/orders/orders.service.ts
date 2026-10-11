@@ -26,6 +26,7 @@ import { PrismaService } from '../prisma/prisma.service.js'
 import type { CreateOrderDto } from './dto/create-order.dto.js'
 import { displayNumber } from './order-number.js'
 import { ORDER_NOTIFIER, type OrderNotifier } from './order-notifier.js'
+import { minimumOrderProblem } from '../checkout/payment-rules.js'
 
 export interface PlacedOrder {
   orderId: string
@@ -125,12 +126,15 @@ export class OrdersService {
             })
           }
 
-          // 2b. "Pay online" must actually be possible for this total (step 20) —
-          //     otherwise the order would hold stock for a payment that can't happen.
-          if (dto.paymentMethod === PaymentMethod.SSLCOMMERZ) {
-            const problem = this.payments.onlinePaymentProblem(totals.total.toString())
-            if (problem) throw new UnprocessableEntityException(problem)
-          }
+          // 2b. The minimum order and the chosen payment method — the SAME rules
+          //     the checkout showed (payment-rules.ts, step 38c), checked again
+          //     here so a hand-made request can't skip them. "Pay online" must
+          //     also really be possible, or the order would hold stock for a
+          //     payment that can't happen (step 20).
+          const below = minimumOrderProblem(quote.payment)
+          if (below) throw new UnprocessableEntityException(below)
+          const option = quote.payment.options.find((o) => o.method === dto.paymentMethod)
+          if (option?.problem) throw new UnprocessableEntityException(option.problem)
 
           // 3. The order, with COPIES of names, prices and address (they stay correct forever).
           const order = await tx.order.create({

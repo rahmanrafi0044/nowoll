@@ -116,6 +116,33 @@ describe('checkout API', () => {
     expect(res.body.data.totals.total).toBe('1550')
   })
 
+  it('payment options and the minimum order are part of the quote (step 38c)', async () => {
+    await seedZones()
+    const plain = (await quote({ items: await bag(), district: 'Dhaka' }).expect(200)).body.data
+    expect(plain.payment).toEqual({
+      options: [
+        expect.objectContaining({ method: 'SSLCOMMERZ', available: true, problem: null }),
+        expect.objectContaining({ method: 'COD', available: true, problem: null }),
+      ],
+      minimumOrder: null,
+    })
+    await db.setting.createMany({
+      data: [
+        { key: 'cod_max_total', value: 1000 },
+        { key: 'min_order_amount', value: 2000 },
+        { key: 'payment_cod_description', value: 'Pay when it arrives' },
+      ],
+    })
+    const ruled = (await quote({ items: await bag(), district: 'Dhaka' }).expect(200)).body.data
+    expect(ruled.payment.options[1]).toMatchObject({
+      method: 'COD',
+      available: false,
+      description: 'Pay when it arrives',
+      problem: { code: 'COD_LIMIT' },
+    })
+    expect(ruled.payment.minimumOrder).toEqual({ amount: '2000', shortBy: '510' })
+  })
+
   it('refuses unavailable items and unknown districts', async () => {
     await seedZones()
     const gone = await quote({

@@ -19,7 +19,12 @@ import { Panel } from '@/components/dashboard/panel'
 import { useLoad } from '@/components/dashboard/use-load'
 import { SelectField, TextArea } from '@/components/form-fields'
 import { PREVIEW_FONT } from '@/lib/fonts'
-import { fetchSettings, saveSettings, uploadBrandImage } from '@/lib/settings-api'
+import {
+  fetchPaymentStatus,
+  fetchSettings,
+  saveSettings,
+  uploadBrandImage,
+} from '@/lib/settings-api'
 
 // ============================================================================
 // Admin → Settings (step 38, part 1): the shop's details and business rules,
@@ -55,6 +60,12 @@ const LABEL: Record<SettingKey, string> = {
   share_image_url: 'Share image',
   brand_color: 'Brand colour',
   font: 'Font',
+  payment_cod_enabled: 'Cash on delivery',
+  payment_online_enabled: 'Online payment (SSLCommerz)',
+  payment_cod_description: 'Cash on delivery: description',
+  payment_online_description: 'Online payment: description',
+  cod_max_total: 'Cash-on-delivery limit (৳)',
+  min_order_amount: 'Minimum order (৳)',
 }
 
 const NUMBER_KEYS = new Set<SettingKey>([
@@ -63,7 +74,12 @@ const NUMBER_KEYS = new Set<SettingKey>([
   'low_stock_threshold',
   'payment_timeout_minutes',
   'shop_page_size',
+  'cod_max_total',
+  'min_order_amount',
 ])
+/** Number boxes where empty means "none" (stored as 0) — step 38c. */
+const ZERO_IF_EMPTY = new Set<SettingKey>(['cod_max_total', 'min_order_amount'])
+const BOOLEAN_KEYS = new Set<SettingKey>(['payment_cod_enabled', 'payment_online_enabled'])
 const PHONE_KEYS = new Set<SettingKey>(['store_phone', 'store_whatsapp'])
 
 type Form = Record<SettingKey, string>
@@ -73,6 +89,7 @@ function toForm(s: StoreSettings): Form {
   return Object.fromEntries(
     (Object.keys(LABEL) as SettingKey[]).map((k) => {
       const v = s[k]
+      if (ZERO_IF_EMPTY.has(k) && v === 0) return [k, '']
       return [k, PHONE_KEYS.has(k) && typeof v === 'string' ? localPhone(v) : String(v)]
     }),
   ) as Form
@@ -120,9 +137,22 @@ export function SettingsForm({ initial }: { initial: StoreSettings }) {
     const values = Object.fromEntries(
       changed.map((k) => [
         k,
-        NUMBER_KEYS.has(k) ? (form[k].trim() === '' ? NaN : Number(form[k])) : form[k],
+        BOOLEAN_KEYS.has(k)
+          ? form[k] === 'true'
+          : NUMBER_KEYS.has(k)
+            ? form[k].trim() === ''
+              ? ZERO_IF_EMPTY.has(k)
+                ? 0
+                : NaN
+              : Number(form[k])
+            : form[k],
       ]),
     )
+    if (form.payment_cod_enabled !== 'true' && form.payment_online_enabled !== 'true')
+      return setProblem({
+        message: 'Some settings need fixing:',
+        details: ['Payments: keep at least one way to pay switched on'],
+      })
     const check = SETTINGS_SCHEMA.partial().strict().safeParse(values)
     if (!check.success)
       return setProblem({
@@ -303,6 +333,31 @@ export function SettingsForm({ initial }: { initial: StoreSettings }) {
       </Section>
 
       <Section
+        title="Payments"
+        note="Which ways to pay checkout offers. Changes apply to new checkouts — past orders are untouched."
+      >
+        <PaymentSwitches form={form} set={set} />
+        {text('payment_cod_description', {
+          maxLength: 120,
+          placeholder: 'Pay the courier when your parcel arrives',
+          hint: 'Shown at checkout. Empty = the standard wording.',
+        })}
+        {text('payment_online_description', {
+          maxLength: 120,
+          placeholder: 'Card, bKash, Nagad or Rocket — on SSLCommerz’s secure page',
+          hint: 'Shown at checkout. Empty = the standard wording.',
+        })}
+        {text('cod_max_total', {
+          placeholder: 'No limit',
+          hint: 'Bigger orders (the amount the courier collects) must pay online. Empty = no limit.',
+        })}
+        {text('min_order_amount', {
+          placeholder: 'None',
+          hint: 'Products after any discount, not delivery. Empty = no minimum.',
+        })}
+      </Section>
+
+      <Section
         title="Google"
         note="For the homepage and any page without its own. Empty = name and tagline."
       >
@@ -425,5 +480,41 @@ function BrandColour({ value, onChange }: { value: string; onChange: (v: string)
         </div>
       )}
     </fieldset>
+  )
+}
+
+/** The two on/off switches — and a warning when online payment isn't set up on the server. */
+function PaymentSwitches({
+  form,
+  set,
+}: {
+  form: Form
+  set: (k: SettingKey) => (v: string) => void
+}) {
+  const status = useLoad(fetchPaymentStatus)
+  const notSetUp =
+    form.payment_online_enabled === 'true' &&
+    status.state.status === 'ok' &&
+    !status.state.data.onlineConfigured
+  return (
+    <div className="flex flex-col gap-2 sm:col-span-2">
+      {(['payment_cod_enabled', 'payment_online_enabled'] as const).map((k) => (
+        <label key={k} className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={form[k] === 'true'}
+            onChange={(e) => set(k)(String(e.target.checked))}
+          />
+          {LABEL[k]} — offered at checkout
+        </label>
+      ))}
+      {notSetUp && (
+        <p role="note" className="rounded-control bg-warning-soft p-3 text-sm text-warning">
+          Online payment isn’t set up on the server yet, so customers won’t see it. Adding the
+          SSLCommerz keys is a developer task (they’re secret — never entered here).
+        </p>
+      )}
+    </div>
   )
 }

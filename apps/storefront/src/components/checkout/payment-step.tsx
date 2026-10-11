@@ -1,33 +1,42 @@
 'use client'
 
-import { canPayOnline } from '@nowoll/payments/money'
+import type { CheckoutQuoteView } from '@nowoll/types'
 import { Button } from '@nowoll/ui'
 import { useState } from 'react'
 import { type PaymentChoice, useCheckoutStore } from '@/stores/checkout-store'
 
-const OPTIONS: { value: PaymentChoice; title: string; detail: string }[] = [
+type Option = CheckoutQuoteView['payment']['options'][number]
+
+// Used while the quote is still loading (both open) and for labels elsewhere.
+const STANDARD: Option[] = [
   {
-    value: 'SSLCOMMERZ',
+    method: 'SSLCOMMERZ',
     title: 'Pay online',
-    detail: 'Card, bKash, Nagad or Rocket — on SSLCommerz’s secure page',
+    description: 'Card, bKash, Nagad or Rocket — on SSLCommerz’s secure page',
+    available: true,
+    problem: null,
   },
   {
-    value: 'COD',
+    method: 'COD',
     title: 'Cash on delivery',
-    detail: 'Pay the courier when your parcel arrives',
+    description: 'Pay the courier when your parcel arrives',
+    available: true,
+    problem: null,
   },
 ]
 
-export const paymentLabel = (p: PaymentChoice) => OPTIONS.find((o) => o.value === p)!.title
+export const paymentLabel = (p: PaymentChoice) => STANDARD.find((o) => o.method === p)!.title
 
 /**
- * Online payment works for totals from ৳10 to ৳5,00,000 (SSLCommerz's limits —
- * the SAME rule the API enforces, from @nowoll/payments). While the total is
- * still loading, both options stay open.
+ * The ways to pay THIS order — decided by the API (step 38c): which methods
+ * the shop has switched on, the cash-on-delivery limit, and SSLCommerz's
+ * ৳10 – ৳5,00,000. The SAME rules are checked again when the order is
+ * placed. An option that can't be used is greyed out with the reason.
  */
-export function PaymentStep({ total }: { total: string | null }) {
-  const onlineOk = total === null || canPayOnline(total)
-  const isAvailable = (p: PaymentChoice | null) => p === 'COD' || (p === 'SSLCOMMERZ' && onlineOk)
+export function PaymentStep({ options }: { options: Option[] | null }) {
+  const shown = options ?? STANDARD
+  const isAvailable = (p: PaymentChoice | null) =>
+    p !== null && shown.some((o) => o.method === p && o.available)
   const saved = useCheckoutStore((s) => s.payment)
   const setPayment = useCheckoutStore((s) => s.setPayment)
   const complete = useCheckoutStore((s) => s.complete)
@@ -40,26 +49,26 @@ export function PaymentStep({ total }: { total: string | null }) {
       <fieldset aria-describedby={error ? 'payment-error' : undefined}>
         <legend className="sr-only">Payment method</legend>
         <div className="flex flex-col gap-3">
-          {OPTIONS.map((o) => {
-            const available = isAvailable(o.value)
+          {shown.map((o) => {
+            const available = o.available
             return (
               <label
-                key={o.value}
+                key={o.method}
                 className={`flex items-start gap-3 rounded-control border border-border-strong p-4 has-[:checked]:border-brand ${available ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
               >
                 <input
                   type="radio"
                   name="payment"
-                  value={o.value}
-                  checked={selected === o.value}
+                  value={o.method}
+                  checked={selected === o.method}
                   disabled={!available}
-                  onChange={() => setChoice(o.value)}
+                  onChange={() => setChoice(o.method)}
                   className="mt-1 size-4 accent-brand"
                 />
                 <span>
                   <span className="block font-medium">{o.title}</span>
                   <span className="block text-sm text-muted-foreground">
-                    {available ? o.detail : 'Available for orders from ৳10 to ৳5,00,000'}
+                    {available ? o.description : o.problem?.message}
                   </span>
                 </span>
               </label>

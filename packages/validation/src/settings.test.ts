@@ -141,3 +141,26 @@ describe('the look (step 38, part 2)', () => {
     expect(pub).toMatchObject({ brand_color: '#111111', font: 'system', logo_url: '' })
   })
 })
+
+describe('payments (step 38c)', () => {
+  const ok = (patch: object) => SETTINGS_SCHEMA.partial().strict().safeParse(patch).success
+  it('switches, descriptions, limits (0 = none)', () => {
+    expect(
+      ok({ payment_cod_enabled: false, payment_online_description: 'Card, bKash, Nagad' }),
+    ).toBe(true)
+    expect(ok({ cod_max_total: 0 })).toBe(true)
+    expect(ok({ cod_max_total: 10_000 })).toBe(true)
+    expect(ok({ cod_max_total: 50 })).toBe(false)
+    expect(ok({ cod_max_total: 1_000_001 })).toBe(false)
+    expect(ok({ min_order_amount: 500 })).toBe(true)
+    expect(ok({ min_order_amount: 0.5 })).toBe(false)
+    expect(ok({ min_order_amount: 100_001 })).toBe(false)
+    expect(ok({ min_order_amount: 99.999 })).toBe(false)
+    expect(ok({ payment_cod_description: 'x'.repeat(121) })).toBe(false)
+    expect(ok({ payment_cod_enabled: 'no' })).toBe(false)
+  })
+
+  it('not public (the checkout gets the options from the quote instead)', () => {
+    expect(publicSettings(SETTING_DEFAULTS)).not.toHaveProperty('cod_max_total')
+  })
+})

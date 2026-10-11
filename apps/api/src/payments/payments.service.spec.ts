@@ -23,7 +23,14 @@ import { paidValId, PaymentsService } from './payments.service.js'
 const prisma = testPrisma() as unknown as PrismaService
 const discounts = new DiscountsService(prisma)
 const settings = new SettingsService(prisma)
-const checkout = new CheckoutService(prisma, discounts, new ShippingService(prisma), settings)
+const checkout = new CheckoutService(
+  prisma,
+  discounts,
+  new ShippingService(prisma),
+  settings,
+  // Only asked whether online payment is set up on the server (step 38c).
+  { onlineConfigured: () => true } as unknown as PaymentsService,
+)
 const { stock } = makeStockService(prisma)
 
 let gateway: FakePaymentGateway
@@ -218,7 +225,23 @@ describe('placing an online order', () => {
       },
       new RecordingOrderNotifier(),
     )
-    const strictOrders = new OrdersService(prisma, checkout, discounts, stock, offline, notifier)
+    // The checkout decides which payment methods are possible (step 38c), so it
+    // gets the same "not set up" payments service.
+    const offlineCheckout = new CheckoutService(
+      prisma,
+      discounts,
+      new ShippingService(prisma),
+      settings,
+      offline,
+    )
+    const strictOrders = new OrdersService(
+      prisma,
+      offlineCheckout,
+      discounts,
+      stock,
+      offline,
+      notifier,
+    )
     const v = await shirt(5)
     await expect(strictOrders.create(dto(v.id), randomUUID())).rejects.toMatchObject({
       response: { code: 'ONLINE_PAYMENT_UNAVAILABLE' },

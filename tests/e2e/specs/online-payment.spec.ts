@@ -1,21 +1,22 @@
 // Online payment while SSLCommerz isn't set up (as in these tests, and in
-// development): the customer is told, and can switch to cash on delivery.
+// development). Since step 38c the API says so in the checkout summary, so
+// "Pay online" is greyed out WITH the reason before the customer picks it —
+// and they pay cash on delivery instead.
 // Real SSLCommerz pages are tested by hand in the sandbox (docs/integrations/sslcommerz.md).
 import { addShirtToBag, checkoutToReview, orderNumberOnConfirmation } from '../support/flows.js'
 import { expect, test } from '../support/test.js'
 
-test('"Pay online" not available → choose another way to pay → order placed', async ({ page }) => {
+test('"Pay online" not set up → greyed out with the reason → cash on delivery → order placed', async ({
+  page,
+}) => {
   await addShirtToBag(page)
   await page.getByRole('dialog').getByRole('link', { name: 'Checkout' }).click()
-  await checkoutToReview(page, 'Pay online')
-  await page.getByRole('button', { name: 'Place order and pay' }).click()
-
-  await expect(
-    page.getByRole('alert').filter({ hasText: "Online payment isn't available right now" }),
-  ).toBeVisible()
-  await page.getByRole('button', { name: 'Choose another way to pay' }).click()
-  await page.getByRole('radio', { name: /Cash on delivery/ }).check()
-  await page.getByRole('button', { name: 'Review order' }).click()
+  await checkoutToReview(page, 'Cash on delivery', {
+    beforeChoosing: async () => {
+      await expect(page.getByRole('radio', { name: /Pay online/ })).toBeDisabled()
+      await expect(page.getByText("Online payment isn't available right now")).toBeVisible()
+    },
+  })
   await page.getByRole('button', { name: 'Place order', exact: true }).click()
 
   await orderNumberOnConfirmation(page)

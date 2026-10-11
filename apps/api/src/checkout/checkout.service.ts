@@ -8,6 +8,8 @@ import { SettingsService } from '../settings/settings.service.js'
 import { type ShippingRate, ShippingService } from '../shipping/shipping.service.js'
 import type { CheckoutQuoteDto } from './dto/checkout-quote.dto.js'
 import { computeTotals, type Totals } from './totals.js'
+import { PaymentsService } from '../payments/payments.service.js'
+import { type PaymentRules, paymentRules } from './payment-rules.js'
 
 type Db = Prisma.TransactionClient | PrismaService
 const ZERO = new Prisma.Decimal(0)
@@ -18,6 +20,8 @@ export interface CheckoutQuote {
   discount: { code: string; amount: Prisma.Decimal } | null
   discountProblem: DiscountRefusal | null // the code was given but can't be used (shown, not fatal)
   shipping: ShippingRate | null // null until a district is chosen
+  /** Which payment methods this order may use, and the minimum order (step 38c). */
+  payment: PaymentRules
 }
 
 @Injectable()
@@ -27,6 +31,7 @@ export class CheckoutService {
     private readonly discounts: DiscountsService,
     private readonly shipping: ShippingService,
     private readonly settings: SettingsService,
+    private readonly payments: PaymentsService,
   ) {}
 
   /**
@@ -55,6 +60,12 @@ export class CheckoutService {
       freeShippingThreshold: shipping?.freeShippingThreshold ?? null,
       vatRate,
     })
-    return { lines, totals, discount, discountProblem, shipping }
+    const payment = paymentRules({
+      total: totals.total,
+      afterDiscount: totals.afterDiscount,
+      settings: await this.settings.all(),
+      onlineConfigured: this.payments.onlineConfigured(),
+    })
+    return { lines, totals, discount, discountProblem, shipping, payment }
   }
 }

@@ -7,6 +7,7 @@ import {
   paymentsConfigFrom,
   sslCommerzFromConfig,
 } from './payment-gateway.js'
+import { AdminPaymentsController } from './admin-payments.controller.js'
 import { PaymentsController } from './payments.controller.js'
 import { PaymentsService } from './payments.service.js'
 
@@ -14,7 +15,7 @@ import { PaymentsService } from './payments.service.js'
 // need the orders module — the dependency only goes one way: orders → payments.
 @Module({
   imports: [SettingsModule],
-  controllers: [PaymentsController],
+  controllers: [PaymentsController, AdminPaymentsController],
   providers: [
     PaymentsService,
     // FACTORY PROVIDER: builds the SSLCommerz adapter from the validated env.
