@@ -104,7 +104,11 @@ export function ReviewStep({
         return setProblem({ message: result.message, action: 'BAG' })
       case 'ONLINE_PAYMENT_UNAVAILABLE':
       case 'ONLINE_PAYMENT_AMOUNT':
+      case 'COD_OFF':
+      case 'COD_LIMIT':
         return setProblem({ message: result.message, action: 'PAYMENT' })
+      case 'BELOW_MINIMUM_ORDER':
+        return setProblem({ message: result.message, action: 'BAG' })
       default:
         if (result.error?.startsWith('DISCOUNT_'))
           return setProblem({ message: result.message, action: 'REMOVE_CODE' })
@@ -118,6 +122,8 @@ export function ReviewStep({
     }
   }
   const estimate = quote?.shipping ? deliveryEstimate(quote.shipping) : null
+  const min = quote?.payment.minimumOrder
+  const minimum = min && Number(min.shortBy) > 0 ? min : null
 
   const rows: {
     label: string
@@ -181,6 +187,17 @@ export function ReviewStep({
         </p>
       )}
 
+      {minimum && (
+        // The shop's minimum order (Admin → Settings → Payments, step 38c).
+        <p className="rounded-control bg-warning-soft p-3 text-sm text-warning">
+          The minimum order is {formatBdt(minimum.amount)} (products, after any discount) — add{' '}
+          {formatBdt(minimum.shortBy)} more.{' '}
+          <Link href="/cart" className="font-medium underline underline-offset-4">
+            Back to your bag
+          </Link>
+        </p>
+      )}
+
       {problem && (
         <div
           role="alert"
@@ -219,7 +236,12 @@ export function ReviewStep({
         </div>
       )}
 
-      <Button size="lg" fullWidth onClick={submit} disabled={!!sending || quoteLoading || !quote}>
+      <Button
+        size="lg"
+        fullWidth
+        onClick={submit}
+        disabled={!!sending || quoteLoading || !quote || minimum !== null}
+      >
         {sending === 'payment'
           ? 'Opening the payment page…'
           : sending

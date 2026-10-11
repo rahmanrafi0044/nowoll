@@ -84,8 +84,8 @@
 | # | What | Status |
 |---|---|---|
 | 24 | Delivery zones, rates, free-delivery minimum | ✅ (step 37) |
-| 25 | Payment methods on / off (cash on delivery, online) and their descriptions | 🛠 38c |
-| 26 | Cash-on-delivery limit (e.g. none above ৳10,000) and a minimum order amount | 🛠 38c |
+| 25 | Payment methods on / off (cash on delivery, online) and their descriptions | ✅ (step 38c) |
+| 26 | Cash-on-delivery limit (e.g. none above ৳10,000) and a minimum order amount | ✅ (step 38c) |
 | 27 | The "thank you" message after ordering | ✅ (step 38) |
 | 28 | VAT rate, return window, low-stock limit, unpaid-order timeout, admin email | ✅ (step 38) |
 

@@ -31,7 +31,12 @@ export async function addShirtToBag(page: Page, size: keyof typeof SHIRT.sizes =
 }
 
 /** Fills contact → address → delivery → payment, up to the review step. */
-export async function checkoutToReview(page: Page, payment: 'Cash on delivery' | 'Pay online') {
+export async function checkoutToReview(
+  page: Page,
+  payment: 'Cash on delivery' | 'Pay online',
+  /** Checks to run on the payment step before choosing (e.g. an option greyed out). */
+  options: { beforeChoosing?: () => Promise<void> } = {},
+) {
   await expect(page.getByRole('heading', { name: 'Checkout' })).toBeVisible()
   await page.getByLabel('Full name').fill(CUSTOMER.fullName)
   await page.getByLabel('Email').fill(CUSTOMER.email)
@@ -49,6 +54,7 @@ export async function checkoutToReview(page: Page, payment: 'Cash on delivery' |
   await page.getByRole('button', { name: 'Continue to delivery' }).click()
 
   await page.getByRole('button', { name: 'Continue to payment' }).click()
+  await options.beforeChoosing?.()
   await page.getByRole('radio', { name: new RegExp(payment) }).check()
   await page.getByRole('button', { name: 'Review order' }).click()
   await expect(page.getByRole('region', { name: /Review and place order/ })).toBeVisible()

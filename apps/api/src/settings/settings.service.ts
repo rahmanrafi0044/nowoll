@@ -163,6 +163,18 @@ export class SettingsService {
           (k) => `${k}: Upload the picture here — links to other sites aren’t allowed`,
         ),
       })
+    // At least one way to pay must stay on (step 38c) — judged on the result,
+    // since a save may change only one of the two switches.
+    const current = await this.all()
+    const merged = { ...current, ...parsed.data }
+    if (!merged.payment_cod_enabled && !merged.payment_online_enabled)
+      throw new BadRequestException({
+        message: 'Some settings need fixing — see the list.',
+        code: 'INVALID_SETTINGS',
+        details: [
+          'payment_cod_enabled: Keep at least one payment method on — customers need a way to pay',
+        ],
+      })
     const entries = Object.entries(parsed.data) as [string, Prisma.InputJsonValue][]
     await this.prisma.$transaction(
       entries.map(([key, value]) =>

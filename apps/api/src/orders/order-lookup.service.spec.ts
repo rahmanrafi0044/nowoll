@@ -5,6 +5,7 @@ import { makePaymentsService, makeStockService } from '../../test/utils/services
 import { resetDatabase, testPrisma } from '../../test/utils/test-db.js'
 import { CheckoutService } from '../checkout/checkout.service.js'
 import { DiscountsService } from '../discounts/discounts.service.js'
+import type { PaymentsService } from '../payments/payments.service.js'
 import type { PrismaService } from '../prisma/prisma.service.js'
 import { SettingsService } from '../settings/settings.service.js'
 import { ShippingService } from '../shipping/shipping.service.js'
@@ -15,7 +16,14 @@ import { OrdersService } from './orders.service.js'
 const prisma = testPrisma() as unknown as PrismaService
 const discounts = new DiscountsService(prisma)
 const settings = new SettingsService(prisma)
-const checkout = new CheckoutService(prisma, discounts, new ShippingService(prisma), settings)
+const checkout = new CheckoutService(
+  prisma,
+  discounts,
+  new ShippingService(prisma),
+  settings,
+  // Only asked whether online payment is set up on the server (step 38c).
+  { onlineConfigured: () => true } as unknown as PaymentsService,
+)
 const { stock } = makeStockService(prisma)
 const { payments } = makePaymentsService(prisma)
 const orders = new OrdersService(prisma, checkout, discounts, stock, payments, {

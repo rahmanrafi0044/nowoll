@@ -7,6 +7,27 @@ import { PaymentStep } from './payment-step'
 
 // Fake POST /checkout/quote: Dhaka → ৳60, elsewhere ৳120; VAT from `vatRate`.
 let vatRate = 0
+/** What the fake API says about payment (step 38c); null = today's: both on, no minimum. */
+let paymentRules: unknown = null
+const BOTH_ON = {
+  options: [
+    {
+      method: 'SSLCOMMERZ',
+      title: 'Pay online',
+      description: 'Card, bKash, Nagad or Rocket — on SSLCommerz’s secure page',
+      available: true,
+      problem: null,
+    },
+    {
+      method: 'COD',
+      title: 'Cash on delivery',
+      description: 'Pay the courier when your parcel arrives',
+      available: true,
+      problem: null,
+    },
+  ],
+  minimumOrder: null,
+}
 let failWith: { status: number; error: string; message: string } | null = null
 const quoteBodies: { district?: string; email?: string; discountCode?: string }[] = []
 type OrderCall = { body: Record<string, unknown>; key: string }
@@ -99,6 +120,7 @@ function fakeApi(url: string, init: RequestInit) {
           },
           discount: null,
           discountProblem: null,
+          payment: paymentRules ?? BOTH_ON,
           shipping: zone && {
             id: 'z',
             code: 'Z',
@@ -118,6 +140,7 @@ function fakeApi(url: string, init: RequestInit) {
 
 beforeEach(async () => {
   vatRate = 0
+  paymentRules = null
   failWith = null
   quoteBodies.length = 0
   orderCalls.length = 0
@@ -331,6 +354,24 @@ describe('placing the order', () => {
   const fail = (status: number, error: string, message: string) => () =>
     Promise.resolve(new Response(JSON.stringify({ success: false, error, message }), { status }))
 
+  it('refused by the shop’s payment rules (step 38c): cash-on-delivery limit → another way to pay; minimum → the bag', async () => {
+    const place = await toReview()
+    orderAnswer = fail(
+      422,
+      'COD_LIMIT',
+      'Cash on delivery is available for orders up to ৳1,000. Please pay online.',
+    )
+    place()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/up to ৳1,000/)
+    expect(screen.getByRole('button', { name: 'Choose another way to pay' })).toBeVisible()
+    orderAnswer = fail(422, 'BELOW_MINIMUM_ORDER', 'The minimum order is ৳2,000 — add ৳510 more.')
+    place()
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/minimum order is ৳2,000/),
+    )
+    expect(screen.getByRole('link', { name: 'Review your bag' })).toHaveAttribute('href', '/cart')
+  })
+
   it('a retry after a network error sends the SAME key (no double order possible)', async () => {
     const place = await toReview()
     orderAnswer = () => Promise.reject(new Error('offline'))
@@ -441,15 +482,47 @@ describe('placing the order', () => {
   })
 })
 
-describe('PaymentStep — SSLCommerz amount limits', () => {
-  it('offers online payment only for totals from ৳10 to ৳5,00,000', () => {
-    const { rerender } = render(<PaymentStep total="1550" />)
+describe('PaymentStep — the options come from the API (step 38c)', () => {
+  it('an option the shop can’t offer for this order is greyed out with the reason; the admin’s wording shows', () => {
+    render(
+      <PaymentStep
+        options={[
+          { ...BOTH_ON.options[0]!, description: 'bKash or card' } as never,
+          {
+            ...BOTH_ON.options[1]!,
+            available: false,
+            problem: {
+              code: 'COD_LIMIT',
+              message: 'Cash on delivery is available for orders up to ৳10,000. Please pay online.',
+            },
+          } as never,
+        ]}
+      />,
+    )
     expect(screen.getByRole('radio', { name: /Pay online/ })).toBeEnabled()
-    rerender(<PaymentStep total="500000.01" />)
-    expect(screen.getByRole('radio', { name: /Pay online/ })).toBeDisabled()
-    expect(screen.getByText('Available for orders from ৳10 to ৳5,00,000')).toBeVisible()
-    rerender(<PaymentStep total={null} />) // still loading: don't take the option away
+    expect(screen.getByText('bKash or card')).toBeVisible()
+    expect(screen.getByRole('radio', { name: /Cash on delivery/ })).toBeDisabled()
+    expect(screen.getByText(/available for orders up to ৳10,000/)).toBeVisible()
+  })
+
+  it('while the summary is still loading, both options stay open', () => {
+    render(<PaymentStep options={null} />)
     expect(screen.getByRole('radio', { name: /Pay online/ })).toBeEnabled()
+    expect(screen.getByRole('radio', { name: /Cash on delivery/ })).toBeEnabled()
+  })
+
+  it('below the shop’s minimum order: the review says how much is missing and Place order is off', async () => {
+    paymentRules = { ...BOTH_ON, minimumOrder: { amount: '1500', shortBy: '10' } }
+    render(<CheckoutFlow />)
+    await screen.findByRole('button', { name: 'Continue to address' })
+    await fillContact()
+    await fillAddress()
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }))
+    fireEvent.click(screen.getByRole('radio', { name: /Cash on delivery/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
+    const review = within(step(/Review and place order/))
+    expect(await review.findByText(/The minimum order is ৳1,500/)).toHaveTextContent('add ৳10 more')
+    expect(review.getByRole('button', { name: 'Place order' })).toBeDisabled()
   })
 })
 

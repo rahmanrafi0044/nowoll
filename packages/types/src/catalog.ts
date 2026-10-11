@@ -161,6 +161,21 @@ export interface CheckoutQuoteView {
   discount: { code: string; amount: Money } | null
   discountProblem: DiscountProblemView | null
   shipping: ShippingRateView | null
+  /** Which payment methods this order may use, and the minimum order (step 38c). */
+  payment: {
+    options: {
+      method: 'SSLCOMMERZ' | 'COD'
+      title: string
+      description: string
+      available: boolean
+      problem: {
+        code: 'COD_OFF' | 'COD_LIMIT' | 'ONLINE_PAYMENT_UNAVAILABLE' | 'ONLINE_PAYMENT_AMOUNT'
+        message: string
+      } | null
+    }[]
+    /** null = no minimum; shortBy "0" = big enough. */
+    minimumOrder: { amount: Money; shortBy: Money } | null
+  }
 }
 
 /** Why a discount code can't be used (same codes as the API's 422 errors). */
