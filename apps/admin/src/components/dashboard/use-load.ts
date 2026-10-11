@@ -21,6 +21,9 @@ export function useLoad<T>(load: () => Promise<ApiCallResult<T>>) {
     void load().then((r) => {
       if (!live) return
       if (r.ok) return setState({ status: 'ok', data: r.data })
+      // ADMIN only (step 38e): a STAFF member opened an admin page — say so, don't sign them out.
+      if (r.status === 403 && r.error === 'ADMIN_ONLY')
+        return setState({ status: 'error', message: r.message })
       // The session ran out (or access was removed) while the page was open → sign in again.
       if (r.status === 401 || r.status === 403) {
         const params = new URLSearchParams({ next: window.location.pathname })

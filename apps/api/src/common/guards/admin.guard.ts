@@ -21,7 +21,12 @@ import { ADMIN_COOKIES, clearSessionCookies, setSessionCookies } from '../../aut
 //   • the session passed 2FA (aal2)
 // Anything else → 401/403. This — not the admin app's proxy — is the real lock.
 
-type WithAdmin = Request & { admin?: AdminProfile; adminTokens?: AdminTokens }
+type WithAdmin = Request & {
+  admin?: AdminProfile
+  adminTokens?: AdminTokens
+  /** For AdminRoleGuard (step 38e) — from our database, like the rest of `admin`. */
+  adminRole?: AdminProfile['role']
+}
 export interface AdminTokens {
   accessToken: string
   refreshToken: string
@@ -52,6 +57,7 @@ async function identify(ctx: ExecutionContext, auth: AdminAuthService, config: A
   }
   if (result.renewed) setSessionCookies(res, result.renewed, config.cookies, ADMIN_COOKIES)
   req.admin = result.admin
+  req.adminRole = result.admin.role
   req.adminTokens = result.renewed
     ? { accessToken: result.renewed.accessToken, refreshToken: result.renewed.refreshToken }
     : { accessToken: tokens.access ?? '', refreshToken: tokens.refresh ?? '' }

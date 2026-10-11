@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { APPROVE_TEMPLATE } from '@/lib/return-labels'
 import { parseReturnFilters } from '@/lib/return-filters'
 import * as api from '@/lib/returns-api'
+import { AdminContext } from '@/components/admin-shell'
 import { ReturnDetail } from './return-detail'
 import { ReturnList } from './return-list'
 
@@ -358,5 +359,32 @@ describe('ReturnDetail — history', () => {
     expect(steps[2]).toHaveTextContent('Courier on Sunday.')
     expect(screen.getByRole('region', { name: 'Items' })).toHaveTextContent('Not resold (damaged)')
     expect(screen.getByRole('region', { name: 'Refunds' })).toHaveTextContent('By hand — cash')
+  })
+})
+
+describe('refunds are ADMIN only (step 38e)', () => {
+  const staff = { id: 's', email: 'helper@nowoll.com', fullName: 'Helper', role: 'STAFF' as const }
+
+  it('Staff see the return is ready, but no refund form — "ask an admin"', async () => {
+    mocked.fetchReturn.mockResolvedValue(ok(at({ status: 'RECEIVED', paymentMethod: 'COD' })))
+    render(
+      <AdminContext.Provider value={staff}>
+        <ReturnDetail id="r1" />
+      </AdminContext.Provider>,
+    )
+    await screen.findByRole('heading', { name: 'Return of NW-10020' })
+    expect(within(next()).getByText(/Only an admin can send refunds/)).toBeInTheDocument()
+    expect(within(next()).queryByRole('button', { name: 'Review refund…' })).toBeNull()
+  })
+
+  it('Admins get the refund form', async () => {
+    mocked.fetchReturn.mockResolvedValue(ok(at({ status: 'RECEIVED', paymentMethod: 'COD' })))
+    render(
+      <AdminContext.Provider value={{ ...staff, role: 'ADMIN' }}>
+        <ReturnDetail id="r1" />
+      </AdminContext.Provider>,
+    )
+    await screen.findByRole('heading', { name: 'Return of NW-10020' })
+    expect(within(next()).getByRole('button', { name: 'Review refund…' })).toBeInTheDocument()
   })
 })

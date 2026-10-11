@@ -47,7 +47,19 @@ try {
     console.error(`✗ No account for ${email}. Sign up on the shop with this email first.`)
     process.exitCode = 1
   } else if (command === 'grant') {
-    await prisma.user.update({ where: { id: user.id }, data: { role: role as 'ADMIN' | 'STAFF' } })
+    const toRole = role as 'ADMIN' | 'STAFF'
+    // The staff change log (step 38e): actor null = "a server command".
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: user.id }, data: { role: toRole } }),
+      prisma.staffChange.create({
+        data: {
+          targetId: user.id,
+          action: user.role === 'CUSTOMER' ? 'GRANTED' : 'ROLE_CHANGED',
+          fromRole: user.role,
+          toRole,
+        },
+      }),
+    ])
     console.log(`✓ ${email} is now ${role}.`)
     console.log(
       '  Next: sign in at the admin panel and scan the QR code with an authenticator app.',
@@ -55,7 +67,12 @@ try {
     if (user.status === 'BANNED')
       console.log('  ⚠ This account is BANNED — it still cannot sign in.')
   } else if (command === 'revoke') {
-    await prisma.user.update({ where: { id: user.id }, data: { role: 'CUSTOMER' } })
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: user.id }, data: { role: 'CUSTOMER' } }),
+      prisma.staffChange.create({
+        data: { targetId: user.id, action: 'REVOKED', fromRole: user.role, toRole: 'CUSTOMER' },
+      }),
+    ])
     console.log(`✓ ${email} no longer has admin access (was ${user.role}).`)
   } else {
     const auth = new SupabaseAuthProvider(
@@ -64,6 +81,7 @@ try {
       requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
     )
     if (await auth.removeTotp(user.id)) {
+      await prisma.staffChange.create({ data: { targetId: user.id, action: 'TWO_FACTOR_RESET' } })
       console.log(`✓ Authenticator app removed for ${email}; they were signed out everywhere.`)
       console.log('  Their next admin sign-in shows a new QR code to scan.')
     } else {

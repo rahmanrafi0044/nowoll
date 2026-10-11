@@ -19,6 +19,8 @@ import { ListDiscountsQuery } from './dto/list-discounts.query.js'
 import { UpdateDiscountDto } from './dto/update-discount.dto.js'
 import { ValidateDiscountDto } from './dto/validate-discount.dto.js'
 
+// Managing codes is ADMIN only (step 38e): discounts are money rules. Checking a
+// code at checkout (validate) stays public.
 @Controller('discounts')
 export class DiscountsController {
   constructor(private readonly discounts: DiscountsService) {}
@@ -33,33 +35,33 @@ export class DiscountsController {
   }
 
   @Get()
-  @AdminOnly()
+  @AdminOnly({ role: 'ADMIN' })
   @Header('Cache-Control', 'no-store')
   list(@Query() query: ListDiscountsQuery) {
     return this.discounts.list(query)
   }
 
   @Get(':id')
-  @AdminOnly()
+  @AdminOnly({ role: 'ADMIN' })
   @Header('Cache-Control', 'no-store')
   detail(@Param('id', ParseUUIDPipe) id: string) {
     return this.discounts.detail(id)
   }
 
   @Post()
-  @AdminOnly()
+  @AdminOnly({ role: 'ADMIN' })
   create(@Body() dto: CreateDiscountDto) {
     return this.discounts.create(dto)
   }
 
   @Patch(':id')
-  @AdminOnly()
+  @AdminOnly({ role: 'ADMIN' })
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateDiscountDto) {
     return this.discounts.update(id, dto)
   }
 
   @Delete(':id')
-  @AdminOnly()
+  @AdminOnly({ role: 'ADMIN' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.discounts.remove(id)
   }

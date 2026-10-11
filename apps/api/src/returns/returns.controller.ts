@@ -97,13 +97,15 @@ export class ReturnsController {
   }
 
   @Patch(':id/refund')
-  @AdminOnly()
+  // Money going out → ADMIN only (step 38e).
+  @AdminOnly({ role: 'ADMIN' })
   refund(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RefundReturnDto) {
     return this.refunds.refund(id, dto)
   }
 
   @Patch(':id/refunds/:refundId/resolve')
-  @AdminOnly()
+  // Money going out → ADMIN only (step 38e).
+  @AdminOnly({ role: 'ADMIN' })
   resolve(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('refundId', ParseUUIDPipe) refundId: string,

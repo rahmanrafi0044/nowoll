@@ -157,17 +157,19 @@ model User {
   updatedAt    DateTime   @updatedAt @map("updated_at")
   deletedAt    DateTime?  @map("deleted_at")
 
-  addresses      Address[]
-  orders         Order[]
-  wishlistItems  WishlistItem[]
-  reviews        Review[]
-  returnRequests ReturnRequest[]
-  blogPosts      BlogPost[]
-  inventoryLogs  InventoryLog[]       @relation("InventoryActor")
-  statusChanges  OrderStatusHistory[] @relation("StatusChangedBy")
-  discountUsages DiscountUsage[]
-  bannedBy       User?                @relation("BannedBy", fields: [bannedById], references: [id], onDelete: SetNull)
-  banned         User[]               @relation("BannedBy")
+  addresses        Address[]
+  orders           Order[]
+  wishlistItems    WishlistItem[]
+  reviews          Review[]
+  returnRequests   ReturnRequest[]
+  blogPosts        BlogPost[]
+  inventoryLogs    InventoryLog[]       @relation("InventoryActor")
+  statusChanges    OrderStatusHistory[] @relation("StatusChangedBy")
+  discountUsages   DiscountUsage[]
+  bannedBy         User?                @relation("BannedBy", fields: [bannedById], references: [id], onDelete: SetNull)
+  banned           User[]               @relation("BannedBy")
+  staffChangesMade StaffChange[]        @relation("StaffChangeActor")
+  staffChanges     StaffChange[]        @relation("StaffChangeTarget")
 
   @@index([role]) // admin "list staff" and role checks
   @@map("users")
@@ -792,4 +794,35 @@ model Setting {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("settings")
+}
+
+// ============================================================================
+// STAFF CHANGE LOG (step 38e) — who gave, changed or removed someone's admin
+// access, or reset their authenticator app, and when. Accountability for the
+// most sensitive changes in the shop. Rows are only ever added, never edited.
+// ============================================================================
+
+enum StaffChangeAction {
+  GRANTED // a shop account got admin access
+  ROLE_CHANGED // ADMIN ⇄ STAFF
+  REVOKED // back to a customer account
+  TWO_FACTOR_RESET // their authenticator app was removed (lost phone)
+}
+
+model StaffChange {
+  id        String            @id @default(uuid()) @db.Uuid
+  // null = a server command (pnpm admin:*), not someone in the panel.
+  // SET NULL: removing the actor's row later never deletes the record.
+  actorId   String?           @map("actor_id") @db.Uuid
+  targetId  String            @map("target_id") @db.Uuid
+  action    StaffChangeAction
+  fromRole  UserRole?         @map("from_role")
+  toRole    UserRole?         @map("to_role")
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  actor  User? @relation("StaffChangeActor", fields: [actorId], references: [id], onDelete: SetNull)
+  target User  @relation("StaffChangeTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt]) // the Staff page shows the newest changes first
+  @@map("staff_changes")
 }

@@ -1,3 +1,4 @@
+import type { ExecutionContext } from '@nestjs/common'
 import type { NestExpressApplication } from '@nestjs/platform-express'
 import { Test } from '@nestjs/testing'
 import { AppModule } from '../../src/app.module.js'
@@ -20,8 +21,8 @@ import {
 
 /**
  * Boots the real API (real middleware, real nowoll_test database).
- * asAdmin: true swaps AdminGuard for one that allows everything, so feature
- * tests needn't sign in. The REAL guard (staff + 2FA) is tested in
+ * asAdmin: true swaps AdminGuard for one that skips sign-in, so feature
+ * tests needn't sign in; `role` decides what the role check sees. The REAL guard (staff + 2FA) is tested in
  * admin-auth.e2e-spec.ts, which signs in for real with test/utils/admin.ts.
  * Image storage is ALWAYS the in-memory fake — tests never touch real Supabase.
  * Get it with app.get(IMAGE_STORAGE).
@@ -31,6 +32,8 @@ import {
  */
 export async function createTestApp(options: {
   asAdmin: boolean
+  /** With asAdmin: the role the stand-in admin has (default ADMIN). STAFF tests the role checks (step 38e). */
+  role?: 'ADMIN' | 'STAFF'
 }): Promise<NestExpressApplication> {
   let builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(IMAGE_STORAGE)
@@ -45,8 +48,16 @@ export async function createTestApp(options: {
     .useValue(new FakePaymentGateway())
     .overrideProvider(AUTH_PROVIDER)
     .useValue(new FakeAuthProvider())
-  if (options.asAdmin)
-    builder = builder.overrideGuard(AdminGuard).useValue({ canActivate: () => true })
+  if (options.asAdmin) {
+    const role = options.role ?? 'ADMIN'
+    // Stands in for sign-in + 2FA only; the REAL role check (AdminRoleGuard) still runs.
+    builder = builder.overrideGuard(AdminGuard).useValue({
+      canActivate: (ctx: ExecutionContext) => {
+        ctx.switchToHttp().getRequest<{ adminRole?: string }>().adminRole = role
+        return true
+      },
+    })
+  }
   const app = (await builder.compile()).createNestApplication<NestExpressApplication>({
     logger: false,
   })

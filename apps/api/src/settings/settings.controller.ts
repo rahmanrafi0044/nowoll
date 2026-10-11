@@ -44,7 +44,8 @@ export class SettingsController {
 
 // Admin → Settings (step 38, part 1). Staff + 2FA.
 @Controller('admin/settings')
-@AdminOnly()
+// ADMIN only (step 38e): shop-wide rules.
+@AdminOnly({ role: 'ADMIN' })
 export class AdminSettingsController {
   constructor(
     private readonly settings: SettingsService,
