@@ -176,7 +176,23 @@ enabled on all Supabase projects by default"; after verifying a new factor "all 
 **Rules:** an already set-up app can't be replaced with just the password (a stolen password must not beat
 2FA) — that takes `pnpm admin:reset-2fa`. 5 tries/min on login, enrol and verify per IP.
 
+### Who is staff — Admin → Staff (step 38e)
+The usual way: an **Admin** opens **Admin → Staff** and adds the email of an existing shop account
+(the person signs up on the shop first, choosing their own password), as **Staff** or **Admin**;
+changes a role; removes access (back to a customer account); or resets someone's authenticator app
+(`removeTotp` above). Every change is written to the `staff_changes` log. Rules (the API enforces them):
+- only an Admin can manage staff; nobody can change, remove or reset **their own** access;
+- there is always at least one Admin (checked in a SERIALIZABLE transaction, so two admins removing
+  each other at the same moment can't leave none);
+- banned or deleted accounts can't be added; 2FA can never be switched off.
+
+**What Staff may do** (`@AdminOnly({ role: 'ADMIN' })` routes refuse them with `403 ADMIN_ONLY`):
+Staff — orders, products, categories, inventory, customers, returns (not refunds), content, pages,
+reviews, dashboard. Admin only — refunds, discount codes, settings (incl. payments, look), shipping,
+staff. The role is read from our database on every request, so a change applies on the next click.
+
 ### Who is staff — commands (repo root)
+For when no Admin can sign in (they write to the same change log, as "a server command"):
 ```bash
 pnpm admin:grant you@example.com          # ADMIN (or add STAFF)
 pnpm admin:revoke someone@example.com     # back to a customer account

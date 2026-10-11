@@ -105,7 +105,7 @@
 ### K. Staff
 | # | What | Status |
 |---|---|---|
-| 34 | Add / remove staff and set their role (ADMIN only; always with 2FA) | 🛠 38e |
+| 34 | Add / remove staff and set their role (ADMIN only; always with 2FA) | ✅ (step 38e) |
 
 ---
 

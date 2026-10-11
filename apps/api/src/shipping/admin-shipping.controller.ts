@@ -7,7 +7,8 @@ import { ShippingService } from './shipping.service.js'
 // /api/v1/admin/shipping/zones — step 37. Staff + 2FA. No DELETE: orders point
 // to their zone — switch a zone off instead.
 @Controller('admin/shipping/zones')
-@AdminOnly()
+// ADMIN only (step 38e): delivery fees are shop-wide rules.
+@AdminOnly({ role: 'ADMIN' })
 export class AdminShippingController {
   constructor(private readonly shipping: ShippingService) {}
 

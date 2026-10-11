@@ -3,7 +3,7 @@
 import { Button } from '@nowoll/ui'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { type ReactNode, useEffect, useState } from 'react'
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react'
 import { LOGIN_PATH } from '@/lib/admin-access'
 import { type AdminProfile, fetchAdmin, signOut } from '@/lib/admin-auth-api'
 
@@ -17,20 +17,31 @@ import { type AdminProfile, fetchAdmin, signOut } from '@/lib/admin-auth-api'
 // server renewed an expired session while rendering, the browser would never
 // receive the new cookies — and the old refresh token would be used up.)
 // ============================================================================
-// The admin sections, in the header. More arrive with each Phase 5 step.
-const NAV = [
+// The admin sections, in the header. `adminOnly`: hidden from STAFF (step 38e)
+// — the API refuses them anyway (403 ADMIN_ONLY); hiding just avoids dead ends.
+const NAV: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: '/admin/dashboard', label: 'Dashboard' },
   { href: '/admin/orders', label: 'Orders' },
   { href: '/admin/products', label: 'Products' },
   { href: '/admin/categories', label: 'Categories' },
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/inventory', label: 'Inventory' },
-  { href: '/admin/discounts', label: 'Discounts' },
+  { href: '/admin/discounts', label: 'Discounts', adminOnly: true },
   { href: '/admin/returns', label: 'Returns' },
-  { href: '/admin/shipping', label: 'Shipping' },
+  { href: '/admin/shipping', label: 'Shipping', adminOnly: true },
   { href: '/admin/content', label: 'Content' },
-  { href: '/admin/settings', label: 'Settings' },
+  { href: '/admin/settings', label: 'Settings', adminOnly: true },
+  { href: '/admin/staff', label: 'Staff', adminOnly: true },
 ]
+
+/**
+ * CONTEXT: the signed-in person, for any page inside the shell — e.g. to hide
+ * a button only an admin may use (the API still checks; this just avoids
+ * offering what would be refused).
+ */
+export const AdminContext = createContext<AdminProfile | null>(null)
+export const useAdmin = () => useContext(AdminContext)
+export const isAdmin = (a: AdminProfile | null) => a?.role === 'ADMIN'
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
@@ -73,7 +84,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-6">
             <span className="font-semibold">Nowoll Admin</span>
             <nav aria-label="Admin sections" className="flex gap-4 text-sm">
-              {NAV.map((item) => {
+              {NAV.filter((item) => !item.adminOnly || admin.role === 'ADMIN').map((item) => {
                 const current = pathname === item.href || pathname.startsWith(`${item.href}/`)
                 return (
                   <Link
@@ -109,7 +120,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      {children}
+      <AdminContext.Provider value={admin}>{children}</AdminContext.Provider>
     </>
   )
 }

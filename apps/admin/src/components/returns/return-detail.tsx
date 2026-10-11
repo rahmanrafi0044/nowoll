@@ -4,6 +4,7 @@ import type { AdminRefundView, AdminReturnView } from '@nowoll/types'
 import { Badge, Button, Input } from '@nowoll/ui'
 import Link from 'next/link'
 import { type FormEvent, type ReactNode, useCallback, useState } from 'react'
+import { useAdmin } from '@/components/admin-shell'
 import { Panel } from '@/components/dashboard/panel'
 import { useLoad } from '@/components/dashboard/use-load'
 import { FormProblem, TextArea } from '@/components/form-fields'
@@ -158,14 +159,31 @@ function Timeline({ r }: { r: AdminReturnView }) {
   )
 }
 
+/**
+ * Refunds send money out → ADMIN only (step 38e). The API refuses STAFF
+ * anyway (403 ADMIN_ONLY); this just doesn't offer a button that can't work.
+ * null = not inside the admin shell (e.g. a test) → shown; the API decides.
+ */
+const useCanRefund = () => {
+  const admin = useAdmin()
+  return admin === null || admin.role === 'ADMIN'
+}
+
+const ONLY_ADMIN_REFUNDS = (
+  <p className="text-sm text-muted-foreground">
+    Ready to refund. Only an admin can send refunds — ask an admin to finish this return.
+  </p>
+)
+
 function NextStep({ r, onChanged }: { r: AdminReturnView; onChanged: () => void }) {
+  const canRefund = useCanRefund()
   switch (r.status) {
     case 'REQUESTED':
       return <Decide r={r} onChanged={onChanged} />
     case 'APPROVED':
       return <Receive r={r} onChanged={onChanged} />
     case 'RECEIVED':
-      return <Refund r={r} onChanged={onChanged} />
+      return canRefund ? <Refund r={r} onChanged={onChanged} /> : ONLY_ADMIN_REFUNDS
     case 'REFUNDED':
       return (
         <p className="text-sm text-muted-foreground">
@@ -420,6 +438,7 @@ function Refund({ r, onChanged }: { r: AdminReturnView; onChanged: () => void })
 }
 
 function Refunds({ r, onChanged }: { r: AdminReturnView; onChanged: () => void }) {
+  const canRefund = useCanRefund()
   if (r.refunds.length === 0)
     return <p className="text-sm text-muted-foreground">No refunds yet.</p>
   return (
@@ -427,7 +446,7 @@ function Refunds({ r, onChanged }: { r: AdminReturnView; onChanged: () => void }
       {r.refunds.map((f) => (
         <li key={f.id} className="rounded-control border border-border p-3">
           <RefundLine f={f} />
-          {f.status === 'PENDING' && <Resolve r={r} f={f} onChanged={onChanged} />}
+          {f.status === 'PENDING' && canRefund && <Resolve r={r} f={f} onChanged={onChanged} />}
         </li>
       ))}
     </ul>

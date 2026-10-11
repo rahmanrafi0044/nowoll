@@ -6,7 +6,8 @@ import { PaymentsService } from './payments.service.js'
 // when "Online payment" is on but the SSLCommerz keys aren't on the server
 // (adding them is developer-side, CLAUDE.md Rule 9). Never returns the keys.
 @Controller('admin/payments')
-@AdminOnly()
+// ADMIN only (step 38e).
+@AdminOnly({ role: 'ADMIN' })
 export class AdminPaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
