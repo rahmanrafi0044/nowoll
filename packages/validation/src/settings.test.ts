@@ -231,3 +231,16 @@ describe('marketing and tracking IDs (step 39a)', () => {
     )
   })
 })
+
+describe('server-side events switch (step 39b)', () => {
+  it('a plain on/off, off by default, never public', () => {
+    expect(SETTING_DEFAULTS.meta_capi_enabled).toBe(false)
+    expect(SETTINGS_SCHEMA.partial().strict().safeParse({ meta_capi_enabled: true }).success).toBe(
+      true,
+    )
+    expect(SETTINGS_SCHEMA.partial().strict().safeParse({ meta_capi_enabled: 'yes' }).success).toBe(
+      false,
+    )
+    expect(publicSettings(SETTING_DEFAULTS)).not.toHaveProperty('meta_capi_enabled')
+  })
+})

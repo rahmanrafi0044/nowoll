@@ -495,6 +495,8 @@ model Order {
   discountUsage  DiscountUsage?
   reviews        Review[]
   returnRequests ReturnRequest[]
+  tracking       OrderTracking?
+  metaEvents     MetaEvent[]
 
   @@index([userId, createdAt]) // "My orders", newest first
   @@index([status, createdAt]) // admin order list filtered by status
@@ -825,4 +827,58 @@ model StaffChange {
 
   @@index([createdAt]) // the Staff page shows the newest changes first
   @@map("staff_changes")
+}
+
+// ── Meta Conversions API (Phase 6, step 39b — docs/integrations/meta.md) ──
+
+/**
+ * What the customer's browser told us at checkout, saved ONLY when they
+ * allowed "Marketing" in the cookie banner — needed because the online
+ * payment and the delivery happen later, with no browser. One row per order
+ * (the order id is the key: a 1-to-1 relation). Personal data (IP address),
+ * so a daily job deletes rows 60 days after the order.
+ */
+model OrderTracking {
+  orderId   String   @id @map("order_id") @db.Uuid
+  fbp       String? // Meta's _fbp cookie (sent as-is, never hashed — Meta's rule)
+  fbc       String? // Meta's _fbc cookie (the ad click)
+  clientIp  String   @map("client_ip")
+  userAgent String   @map("user_agent")
+  sourceUrl String   @map("source_url") // the checkout page address (event_source_url)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt]) // the daily clean-up deletes the old ones
+  @@map("order_tracking")
+}
+
+enum MetaEventStatus {
+  SENT // Meta accepted it
+  FAILED // Meta refused it, or every retry failed
+  SKIPPED // not sent on purpose (switched off, no consent, too old)
+}
+
+/**
+ * The delivery log shown in Admin → Marketing. No customer details here —
+ * only which order, which event, and what Meta answered.
+ */
+model MetaEvent {
+  id             String          @id @default(uuid()) @db.Uuid
+  // SET NULL: deleting an order later keeps the log line (with its number).
+  orderId        String?         @map("order_id") @db.Uuid
+  orderNumber    Int?            @map("order_number")
+  eventName      String          @map("event_name") // Purchase, OrderDelivered
+  eventId        String          @map("event_id") // purchase-NW-10001
+  status         MetaEventStatus
+  test           Boolean         @default(false) // sent with a test_event_code from the admin
+  eventsReceived Int?            @map("events_received")
+  message        String? // Meta's error/warning, or why it was skipped
+  fbtraceId      String?         @map("fbtrace_id") // Meta support's reference
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt]) // newest first in the admin log
+  @@map("meta_events")
 }

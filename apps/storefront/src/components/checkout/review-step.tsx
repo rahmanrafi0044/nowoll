@@ -10,6 +10,7 @@ import { placeOrder } from '@/lib/cart-api'
 import { formatBdt } from '@/lib/format'
 import { useCartStore } from '@/stores/cart-store'
 import { useCheckoutStore } from '@/stores/checkout-store'
+import { orderTrackingPart } from '@/stores/tracking-store'
 import { paymentLabel } from './payment-step'
 import { deliveryEstimate } from './shipping-step'
 
@@ -45,6 +46,8 @@ export function ReviewStep({
     if (!quote || !contact || !address || !payment) return
     setSending('order')
     setProblem(null)
+    // Meta server events (step 39b) — only if the customer allowed Marketing.
+    const tracking = orderTrackingPart()
     const result = await placeOrder(
       {
         items: items.map(({ variantId, quantity }) => ({ variantId, quantity })),
@@ -60,6 +63,7 @@ export function ReviewStep({
         paymentMethod: payment,
         ...(discountCode && { discountCode }),
         expectedTotal: quote.totals.total, // the API refuses if the real total differs (PRICE_CHANGED)
+        ...(tracking && { tracking }),
       },
       // The same key on every attempt of this checkout: a retry can't create a second order.
       ensureAttemptKey(),

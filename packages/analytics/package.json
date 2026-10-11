@@ -2,12 +2,16 @@
   "name": "@nowoll/analytics",
   "version": "0.0.0",
   "private": true,
-  "description": "Tracking: customer consent, GA4 / GTM / Meta Pixel event builders and the browser-side senders",
+  "description": "Tracking: customer consent, GA4 / GTM / Meta Pixel event builders, browser senders; ./server — Meta Conversions API (hashing, sending)",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
     }
   },
   "files": [

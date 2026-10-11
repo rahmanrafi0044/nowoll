@@ -3,6 +3,9 @@
 // those shapes, this file stops compiling and `pnpm typecheck` fails —
 // long before a customer sees a broken page.
 import type {
+  MarketingStatusView,
+  MetaEventLogView,
+  TestEventResultView,
   AccountOrderDetailView,
   AdminStaffPage as AdminStaffPageView,
   AdminShippingZone as AdminShippingZoneView,
@@ -64,6 +67,7 @@ import type { AdminReturn, MyReturn, ReturnEligibility } from './returns/returns
 import type { AdminReview, MyReview, ProductReviews } from './reviews/reviews.service.js'
 import type { AdminShippingZone, ShippingRate } from './shipping/shipping.service.js'
 import type { AdminStaffPage } from './staff/staff.service.js'
+import type { MarketingService } from './marketing/marketing.service.js'
 import type { WishlistEntry } from './wishlist/wishlist.service.js'
 import type { PublicVariant } from './products/product-view.js'
 import type { ProductCard, ProductDetail, ProductFacets } from './products/products.service.js'
@@ -144,5 +148,16 @@ describe('API ↔ storefront contract', () => {
 
   it('admin staff', () => {
     expectTypeOf<Serialized<AdminStaffPage>>().toEqualTypeOf<AdminStaffPageView>()
+    // Admin → Marketing (step 39b)
+    type M = MarketingService
+    expectTypeOf<
+      Serialized<Awaited<ReturnType<M['status']>>>
+    >().toEqualTypeOf<MarketingStatusView>()
+    expectTypeOf<
+      Serialized<Awaited<ReturnType<M['log']>>[number]>
+    >().toEqualTypeOf<MetaEventLogView>()
+    expectTypeOf<
+      Serialized<Awaited<ReturnType<M['sendTest']>>>
+    >().toEqualTypeOf<TestEventResultView>()
   })
 })

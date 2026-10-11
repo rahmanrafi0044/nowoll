@@ -1,3 +1,4 @@
+import { FBC_PATTERN, FBP_PATTERN } from '@nowoll/analytics/server'
 import { PaymentMethod } from '@nowoll/database/enums'
 import { DISTRICTS, DIVISIONS } from '@nowoll/validation'
 import { Transform, Type } from 'class-transformer'
@@ -5,6 +6,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsIn,
   IsNotEmpty,
@@ -70,6 +72,26 @@ export class OrderAddressDto {
 }
 
 // POST /orders — what the checkout sends. Never prices: they're looked up again.
+/**
+ * Step 39b: sent ONLY when the customer allowed "Marketing" in the cookie
+ * banner — Meta's own cookies, so server events can be matched to the ad.
+ * Strict formats: anything else is refused (never stored, never sent on).
+ */
+export class OrderTrackingDto {
+  @IsBoolean()
+  marketing: boolean
+
+  @IsOptional()
+  @IsString()
+  @Matches(FBP_PATTERN, { message: 'tracking.fbp is not a Meta _fbp cookie' })
+  fbp?: string
+
+  @IsOptional()
+  @IsString()
+  @Matches(FBC_PATTERN, { message: 'tracking.fbc is not a Meta _fbc cookie' })
+  fbc?: string
+}
+
 export class CreateOrderDto {
   @IsArray()
   @ArrayMinSize(1, { message: 'Your bag is empty.' })
@@ -110,4 +132,9 @@ export class CreateOrderDto {
     message: 'expectedTotal must be an amount like "1550" or "1550.50"',
   })
   expectedTotal: string
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OrderTrackingDto)
+  tracking?: OrderTrackingDto
 }

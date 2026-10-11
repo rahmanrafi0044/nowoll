@@ -61,6 +61,24 @@ action never happens on just opening the link (email scanners open links). One s
 subscriber serves both links and stays valid, so future newsletters can carry the unsubscribe link.
 Signing up again while PENDING sends nothing new (no inbox flooding through the form).
 
+## Marketing queue (step 39b)
+
+Meta Conversions API events — docs/integrations/meta.md. Run by the **notification worker process**, but by
+its own BullMQ worker (concurrency 2), so a slow or broken Meta never delays an email.
+
+| Job | Added when | Worker does |
+|---|---|---|
+| `meta-event` `{kind: 'purchase'}` | COD order placed / online payment confirmed — **only if the customer allowed Marketing** (the order has an `order_tracking` row) | `Purchase` to Meta |
+| `meta-event` `{kind: 'delivered'}` | admin marks the order Delivered (same consent rule) | `OrderDelivered` to Meta |
+| `tracking-cleanup` | every 24 h (a BullMQ job scheduler, set up when the worker starts) | deletes `order_tracking` rows older than 60 days, `meta_events` log lines older than a year |
+
+- Job ids `meta-purchase_NW-10001` / `meta-delivered_NW-10001`: each event at most once.
+- Every job re-checks the switch (Settings), the Pixel ID, the token, the consent row and the order; if one is
+  missing it writes a **SKIPPED** line with the reason (Admin → Marketing shows the log).
+- Temporary Meta trouble → retried (5 tries); a wrong event or an expired token (code 190) → **FAILED** at once.
+- Needs `META_CAPI_ACCESS_TOKEN` (server `.env`, secret). Without it, events are skipped, nothing breaks.
+- Tests use a fake Meta — never graph.facebook.com.
+
 ## Not yet
 - Sending newsletters (campaigns), one-click unsubscribe headers for bulk mail.
 - An email when a review is approved (not in the spec).

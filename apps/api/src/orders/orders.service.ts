@@ -59,6 +59,14 @@ const CANCELLABLE: OrderStatus[] = [
   OrderStatus.PROCESSING,
 ]
 
+/** The customer's browser at checkout (step 39b — Meta's Conversions API needs it). */
+export interface CheckoutBrowser {
+  ip: string
+  userAgent: string
+  /** The checkout page's address (Meta's event_source_url). */
+  sourceUrl: string
+}
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name)
@@ -81,6 +89,7 @@ export class OrdersService {
     dto: CreateOrderDto,
     idempotencyKey: string,
     userId: string | null = null, // the signed-in customer (step 22); null = guest checkout
+    browser: CheckoutBrowser | null = null, // step 39b — kept only with Marketing consent
   ): Promise<PlacedOrder> {
     // Same request seen before (double tap / network retry) → the same order back (decision #4).
     const existing = await this.findByIdempotencyKey(idempotencyKey)
@@ -176,6 +185,21 @@ export class OrdersService {
                 })),
               },
               statusHistory: { create: { toStatus: OrderStatus.PENDING, note: 'Order placed' } },
+              // Meta server events (step 39b): ONLY when the customer allowed
+              // Marketing in the cookie banner and we know their browser.
+              ...(dto.tracking?.marketing === true &&
+                browser?.ip &&
+                browser.userAgent && {
+                  tracking: {
+                    create: {
+                      fbp: dto.tracking.fbp ?? null,
+                      fbc: dto.tracking.fbc ?? null,
+                      clientIp: browser.ip,
+                      userAgent: browser.userAgent,
+                      sourceUrl: browser.sourceUrl,
+                    },
+                  },
+                }),
             },
           })
 

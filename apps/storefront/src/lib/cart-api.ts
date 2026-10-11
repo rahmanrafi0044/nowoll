@@ -80,6 +80,8 @@ export interface PlaceOrderBody {
   paymentMethod: 'COD' | 'SSLCOMMERZ'
   discountCode?: string
   expectedTotal: string
+  /** Only with Marketing consent (step 39b). */
+  tracking?: { marketing: true; fbp?: string; fbc?: string }
 }
 
 /** Places the order. The key makes retries safe: the same key never creates a second order. */

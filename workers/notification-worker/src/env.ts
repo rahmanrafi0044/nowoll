@@ -15,6 +15,12 @@ const schema = z.object({
   EMAIL_USE_RESEND: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().optional(),
+  // Meta Conversions API (step 39b). SECRET, server only. Empty = server events are skipped.
+  META_CAPI_ACCESS_TOKEN: z
+    .string()
+    .regex(/^[A-Za-z0-9]{50,500}$/, 'META_CAPI_ACCESS_TOKEN must be the token from Meta')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
 })
 
 export type WorkerEnv = z.infer<typeof schema>

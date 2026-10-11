@@ -15,6 +15,9 @@ the Pixel needs the customer's **Marketing** consent.
 | `fbp` / `fbc` | https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc |
 | Catalog feed fields | https://www.facebook.com/business/help/120325381656392 |
 | Domain verification | https://www.facebook.com/business/help/321167023127050 |
+| Events endpoint (response fields) | https://developers.facebook.com/docs/marketing-api/reference/ads-pixel/events/ |
+| Graph API errors | https://developers.facebook.com/docs/graph-api/guides/error-handling |
+| Conversions API troubleshooting | https://developers.facebook.com/docs/marketing-api/conversions-api/support |
 
 ## 1. Pixel (browser) — step 39a
 
@@ -77,10 +80,56 @@ with country code: `8801…`), `fn`/`ln` (lowercase, no punctuation), `ct` (lowe
 `fbp` = the `_fbp` cookie (`fb.1.<ms>.<random>`). `fbc` = the `_fbc` cookie, or built from the `fbclid`
 in the landing URL as `fb.1.<ms>.<fbclid>` (fbclid is case-sensitive — never change it).
 
-**Access token:** created in Events Manager → Settings → Conversions API → "Generate access token" (or a
-System User in Business Settings — it doesn't expire). No App Review needed. It is a **secret**: it goes in
-the server `.env` (`META_CAPI_ACCESS_TOKEN`) once, never in the admin panel (CLAUDE.md Rule 9). The admin
-shows only "token set / not set" and a "Send test event" button.
+`client_user_agent` is required for `website` events (Meta's troubleshooting notes: events without a real
+browser name may not show), so we always send the browser name saved at checkout.
+
+### Answers (checked October 2026, step 39b)
+
+- **Success (HTTP 2xx):** `{ "events_received": 1, "messages": [], "fbtrace_id": "…" }`. `messages` holds
+  warnings. Accepted events can take up to 20 minutes (Test Events) or longer (reports) to show.
+- **Error (HTTP 4xx/5xx):**
+  `{ "error": { "message", "type", "code", "error_subcode", "error_user_title", "error_user_msg", "fbtrace_id" } }`.
+  - Temporary — wait and retry: codes **1, 2, 4, 17, 341, 368**, any HTTP 5xx, network errors.
+  - **190** — the access token expired or was revoked: make a new one (retrying won't help).
+  - Anything else (e.g. **100** invalid parameter) — the event itself is wrong: logged, not retried.
+- There is no fixed rate limit for this API. Meta recommends sending events within an hour of them happening.
+
+### `test_event_code`
+
+Events Manager → your dataset → **Test events** → "Confirm your server's events are set up correctly" shows a code
+like `TEST12345`. Events sent with it appear live in that window. **They are not dropped** — they still count
+for measurement — so the code is used only by the admin's "Send test event" button, never on real orders.
+
+### How Nowoll uses it (step 39b)
+
+| When | Event | `event_id` |
+|---|---|---|
+| Cash-on-delivery order placed | `Purchase` | `purchase-NW-10001` (same as the browser's Pixel event → Meta keeps one) |
+| Online payment confirmed | `Purchase` | `purchase-NW-10001` |
+| Admin marks the order Delivered | `OrderDelivered` (custom) | `delivered-NW-10001` |
+
+- Only for customers who allowed **Marketing** in the cookie banner. At checkout the browser then sends its
+  consent, the `_fbp`/`_fbc` cookies and the page address; the API adds the IP address and browser name and keeps
+  them in `order_tracking` — **deleted 60 days after the order**. Without consent nothing is stored or sent.
+- Customer details come from the order and are **hashed on our server** before sending (`external_id` = hash of
+  the email). The log (`meta_events`) keeps no customer details — order number, event, result, Meta's message.
+- Sent by a background worker (`marketing` queue, run in the notification worker): 5 tries for temporary
+  errors; an event that would be older than 7 days is skipped and logged.
+
+### Getting the access token (Rafi, once)
+
+1. **Business Settings → Users → System users → Add** (name "Nowoll server", role *Admin*).
+2. **Add assets** → Pixels/Datasets → your Pixel → *Manage* (full control).
+3. **Generate new token** → choose the app (create a simple *Business* app if asked) → token expiry
+   **Never** → permissions `ads_management` and `business_management`. (Simpler alternative: Events Manager →
+   your dataset → Settings → Conversions API → *Generate access token*.)
+4. Copy it **once** into the server's `.env` as `META_CAPI_ACCESS_TOKEN=…` (the VPS `.env` in production) and
+   restart the API and workers. Never in the admin panel, chat, email or git (CLAUDE.md Rule 9).
+5. Admin → Settings → Marketing and tracking: switch **Send events from the server** on.
+   Admin → Marketing: paste the `TEST…` code, press **Send test event**, see it in Events Manager → Test events.
+
+If the token leaks: delete it in Business Settings (System users → Revoke tokens), make a new one, replace it in
+`.env`. A 190 error in the log means the same thing — make a new one.
 
 ## 3. Domain verification — step 39a
 
