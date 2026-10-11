@@ -168,3 +168,66 @@ describe('payments (step 38c)', () => {
     expect(pub).not.toHaveProperty('payment_online_enabled')
   })
 })
+
+describe('marketing and tracking IDs (step 39a)', () => {
+  const parse = (patch: object) => SETTINGS_SCHEMA.partial().strict().safeParse(patch)
+  it('accepts each official ID format (cleaned to capitals), or empty', () => {
+    expect(
+      parse({
+        ga4_measurement_id: ' g-ab12cd34ef ',
+        gtm_container_id: 'gtm-ab12cd3',
+        meta_pixel_id: '123456789012345',
+        meta_domain_verification: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5',
+      }).data,
+    ).toEqual({
+      ga4_measurement_id: 'G-AB12CD34EF',
+      gtm_container_id: 'GTM-AB12CD3',
+      meta_pixel_id: '123456789012345',
+      meta_domain_verification: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5',
+    })
+    expect(parse({ ga4_measurement_id: '', gtm_container_id: '', meta_pixel_id: '' }).success).toBe(
+      true,
+    )
+  })
+
+  it('refuses anything that is not just an ID — no pasted scripts (CLAUDE.md Rule 9)', () => {
+    expect(parse({ ga4_measurement_id: 'UA-12345-1' }).success).toBe(false) // old Universal Analytics
+    expect(parse({ ga4_measurement_id: 'GTM-AB12CD3' }).success).toBe(false) // wrong box
+    expect(parse({ gtm_container_id: 'G-AB12CD34EF' }).success).toBe(false)
+    expect(
+      parse({ ga4_measurement_id: "<script>gtag('config','G-AB12CD34EF')</script>" }).success,
+    ).toBe(false)
+    expect(parse({ meta_pixel_id: '12345' }).success).toBe(false)
+    expect(parse({ meta_pixel_id: "fbq('init','123456789012345')" }).success).toBe(false)
+    expect(parse({ meta_domain_verification: 'abc"><script>' }).success).toBe(false)
+    expect(parse({ meta_domain_verification: 'short' }).success).toBe(false)
+  })
+
+  it('the whole Meta verification tag can be pasted — only the code is kept', () => {
+    expect(
+      parse({
+        meta_domain_verification:
+          '<meta name="facebook-domain-verification" content="a1b2c3d4e5f6g7h8i9j0" />',
+      }).data,
+    ).toEqual({ meta_domain_verification: 'a1b2c3d4e5f6g7h8i9j0' })
+    expect(
+      parse({ meta_domain_verification: '<meta content="x<script>alert(1)</script>" />' }).success,
+    ).toBe(false)
+  })
+
+  it('the IDs are public (every visitor receives them in the scripts) and empty by default', () => {
+    const pub = publicSettings(readSettings([{ key: 'meta_pixel_id', value: '123456789012345' }]))
+    expect(pub).toMatchObject({
+      meta_pixel_id: '123456789012345',
+      ga4_measurement_id: '',
+      gtm_container_id: '',
+      meta_domain_verification: '',
+    })
+  })
+
+  it('a broken stored ID falls back to empty (no tracking) instead of reaching the page', () => {
+    expect(readSettings([{ key: 'gtm_container_id', value: '"><script>' }]).gtm_container_id).toBe(
+      '',
+    )
+  })
+})

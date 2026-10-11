@@ -13,6 +13,7 @@ const line = {
   unitPrice: '1490',
   quantity: 1,
   lineTotal: '1490',
+  sku: 'NW-TEST-SKU',
 }
 const receipt = (over: Partial<OrderReceiptView> = {}): OrderReceiptView => ({
   orderId: ORDER,

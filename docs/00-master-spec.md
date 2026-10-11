@@ -76,8 +76,7 @@
 38c. apps/admin: Payment methods on/off + descriptions; COD limit; minimum order amount
 38d. apps/admin: Product page "Delivery and returns" info box
 38e. apps/admin: Staff management (add/remove staff, role; ADMIN only; 2FA always on)
-38f. apps/storefront: Design refresh — explore the live site with Rafi, then improve the look
-     and feel (every admin-editable item keeps working)
+(38f, the design refresh, moved to the very end — see "Last step" below Phase 7)
 ```
 
 Everything the admin panel can and can't change — with the safety rules — is in
@@ -85,7 +84,12 @@ Everything the admin panel can and can't change — with the safety rules — is
 
 ### Phase 6 — Analytics & Marketing
 ```
-39. GA4 + GTM + Meta Pixel (via next/script in storefront layout; the IDs are admin settings — validated ID fields, never pasted scripts)
+39a. Tracking + consent: cookie banner (customer chooses); GA4, GTM and Meta Pixel loaded only with
+     consent from admin-entered IDs (validated ID fields, never pasted scripts); shopping events
+     (view item, add to bag, begin checkout, purchase) with event IDs; Meta domain verification
+39b. Meta Conversions API (server-side, via a background worker; hashed customer data; only with
+     consent; "Order delivered" event) + Admin → Marketing checklist (token status, test event, log)
+39c. Product catalog feed for Meta (and Google) — same product codes as the tracking events
 40. apps/api: Analytics endpoints (revenue summary, revenue chart, top products, top categories)
 41. apps/admin: Analytics dashboard (Recharts line chart, tables)
 42. Newsletter sign-up form → Resend subscriber list or Mailchimp API
@@ -107,6 +111,13 @@ Everything the admin panel can and can't change — with the safety rules — is
 52. Accessibility audit: WCAG 2.1 AA
 53. Security audit: OWASP Top 10 checklist
 54. Launch checklist verification (see section below)
+```
+
+### Last step — Design refresh (Rafi's choice, 11 Oct 2026)
+```
+38f. apps/storefront: Design refresh — explore the live site with Rafi, then improve the look
+     and feel (every admin-editable item keeps working). Ask whether to do it before or after
+     the launch checklist.
 ```
 
 ---

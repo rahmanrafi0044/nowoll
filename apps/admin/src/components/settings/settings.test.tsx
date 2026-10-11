@@ -209,4 +209,42 @@ describe('Payments (step 38c)', () => {
     fireEvent.click(pay().getByLabelText(/Online payment \(SSLCommerz\) — offered/))
     expect(screen.queryByRole('note')).toBeNull()
   })
+
+  it('marketing and tracking (step 39a): IDs only — cleaned, a pasted script refused before sending', async () => {
+    render(<SettingsPage />)
+    const section = 'Marketing and tracking'
+    fireEvent.change(await screen.findByLabelText('Meta Pixel ID'), {
+      target: { value: "<script>fbq('init','123')</script>" },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Meta Pixel ID: A Pixel ID is 10–20 digits',
+    )
+    expect(mocked.saveSettings).not.toHaveBeenCalled()
+
+    fireEvent.change(field(section, 'Meta Pixel ID'), { target: { value: '123456789012345' } })
+    fireEvent.change(field(section, 'Google Analytics 4 Measurement ID'), {
+      target: { value: 'g-ab12cd34ef' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    await waitFor(() =>
+      expect(mocked.saveSettings).toHaveBeenCalledWith({
+        meta_pixel_id: '123456789012345',
+        ga4_measurement_id: 'G-AB12CD34EF',
+      }),
+    )
+  })
+
+  it('GA4 and Tag Manager both filled → a warning about counting visits twice', async () => {
+    render(<SettingsPage />)
+    const section = 'Marketing and tracking'
+    fireEvent.change(await screen.findByLabelText('Google Analytics 4 Measurement ID'), {
+      target: { value: 'G-AB12CD34EF' },
+    })
+    expect(screen.queryByText(/counted twice/)).toBeNull()
+    fireEvent.change(field(section, 'Google Tag Manager container ID'), {
+      target: { value: 'GTM-AB12CD3' },
+    })
+    expect(screen.getByRole('note')).toHaveTextContent(/counted twice/)
+  })
 })

@@ -17,15 +17,24 @@ This page explains what information Nowoll collects when you shop with us, why, 
 - **Your details when you order:** name, phone number, email and delivery address.
 - **Your account**, if you create one: your email and password (stored securely — we never see your password).
 - **Payments:** online payments are handled by our payment partner. We never see or store your card or mobile-banking details.
-- **How you use the site:** pages visited and products viewed, to improve the shop. [fill in: name any analytics tools you use]
+- **How you use the site — only if you agree:** pages visited, products viewed and added to your bag, and orders placed. We ask first with a cookie banner, and you can change your choice any time with "Cookie settings" at the bottom of every page.
 
 ## Why we use it
 - To deliver your order and contact you about it.
 - To handle returns and refunds.
 - To send our newsletter — only if you signed up. Every email has an unsubscribe link.
 
+## Cookies and tracking
+- **Necessary** (always on): your bag, signing in and checkout. The shop doesn't work without them.
+- **Analytics** (only if you agree): Google Analytics counts visits and what is popular, so we can improve the shop.
+- **Marketing** (only if you agree): the Meta Pixel (Facebook and Instagram) and Google Tag Manager measure which ads bring customers, so we show our ads to people likely to want them.
+
+Google and Meta are based outside Bangladesh and receive this information under their own privacy policies. [fill in: which of these tools you actually use, and how long their data is kept, e.g. Google Analytics 14 months]
+
+We don't knowingly track or target ads at children.
+
 ## Who we share it with
-Only the people needed to get your order to you: our courier [fill in: courier name] and our payment partner. We never sell your information.
+Only the people needed to get your order to you: our courier [fill in: courier name] and our payment partner — and, if you agree to cookies, Google and Meta as described above. We never sell your information.
 
 ## How long we keep it
 [fill in: e.g. order records for as long as the law requires]

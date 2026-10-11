@@ -178,6 +178,28 @@ describe('settings (step 38)', () => {
     await save({ cod_max_total: 50 }).expect(400)
   })
 
+  it('tracking IDs (step 39a): checked and cleaned, public; a pasted script is refused', async () => {
+    await save({
+      ga4_measurement_id: 'g-ab12cd34ef',
+      meta_pixel_id: '123456789012345',
+      meta_domain_verification:
+        '<meta name="facebook-domain-verification" content="a1b2c3d4e5f6g7h8i9j0" />',
+    }).expect(200)
+    const pub = (await http().get('/api/v1/settings/public').expect(200)).body.data
+    expect(pub).toMatchObject({
+      ga4_measurement_id: 'G-AB12CD34EF',
+      gtm_container_id: '',
+      meta_pixel_id: '123456789012345',
+      meta_domain_verification: 'a1b2c3d4e5f6g7h8i9j0',
+    })
+    const r = await save({
+      gtm_container_id:
+        "<script>(function(w,d,s,l,i){})(window,document,'script','dataLayer','GTM-X')</script>",
+    }).expect(400)
+    expect(r.body.details.join(' ')).toMatch(/GTM-/)
+    expect(await db.setting.findUnique({ where: { key: 'gtm_container_id' } })).toBeNull()
+  })
+
   it('payment status: whether online payment is set up on the server (never the keys)', async () => {
     const r = (await http().get('/api/v1/admin/payments/status').expect(200)).body.data
     expect(Object.keys(r)).toEqual(['onlineConfigured'])

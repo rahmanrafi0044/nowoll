@@ -7,6 +7,8 @@ import { CartHydrator } from '@/components/cart-hydrator'
 import { AnnouncementBar } from '@/components/home/announcement-bar'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
+import { ConsentBanner } from '@/components/tracking/consent-banner'
+import { TrackingScripts } from '@/components/tracking/tracking-scripts'
 import { apiGet } from '@/lib/api'
 import { publicEnv } from '@/lib/env'
 import { fontVariables } from '@/lib/fonts'
@@ -41,6 +43,11 @@ export async function generateMetadata(): Promise<Metadata> {
       icons: { icon: [{ url: s.favicon_url, type: 'image/png' }], apple: s.favicon_url },
     }),
     robots: { index: true, follow: true },
+    // Meta domain verification (Admin → Settings → Marketing and tracking, step 39a):
+    // <meta name="facebook-domain-verification" content="…"> — only a checked code.
+    ...(s.meta_domain_verification && {
+      verification: { other: { 'facebook-domain-verification': s.meta_domain_verification } },
+    }),
   }
 }
 
@@ -77,6 +84,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <main className="flex-1">{children}</main>
         <SiteFooter pages={pages ?? []} settings={settings} footer={footer} />
         <CartDrawer />
+        {/* Tracking only with the customer's OK (step 39a — docs/integrations/analytics.md). */}
+        <TrackingScripts
+          ids={{
+            ga4MeasurementId: settings.ga4_measurement_id,
+            gtmContainerId: settings.gtm_container_id,
+            metaPixelId: settings.meta_pixel_id,
+          }}
+        />
+        <ConsentBanner />
       </body>
     </html>
   )

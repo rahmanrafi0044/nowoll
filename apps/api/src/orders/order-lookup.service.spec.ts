@@ -108,7 +108,10 @@ describe('receipt — the confirmation page', () => {
       deliveryZone: 'Inside Dhaka',
       canPay: false,
     })
-    expect(r.items).toEqual([expect.objectContaining({ variantLabel: 'M / Blue', quantity: 1 })])
+    expect(r.items).toEqual([
+      // sku: the same id as the catalog feed and tracking events (step 39a)
+      expect.objectContaining({ variantLabel: 'M / Blue', quantity: 1, sku: expect.any(String) }),
+    ])
     expect(r.items[0]!.lineTotal.toString()).toBe('1490')
     expect(r.totals.shippingFee.toString()).toBe('60')
     expect(r.totals.total.toString()).toBe('1550')

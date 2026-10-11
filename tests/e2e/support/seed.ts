@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { createPrismaClient, Prisma } from '@nowoll/database'
 import { E2E_DATABASE_URL } from './env.js'
-import { CATEGORY, DISCOUNT, SHIRT } from './fixtures.js'
+import { CATEGORY, DISCOUNT, SHIRT, TRACKING } from './fixtures.js'
 
 const DATABASE_PACKAGE = path.resolve(import.meta.dirname, '../../../packages/database')
 
@@ -59,6 +59,12 @@ export async function seedE2eDatabase(): Promise<void> {
 
   const db = createPrismaClient(E2E_DATABASE_URL)
   try {
+    // Tracking IDs (step 39a), so the cookie banner and the consent rules are tested for real.
+    for (const [key, value] of [
+      ['ga4_measurement_id', TRACKING.ga4],
+      ['meta_pixel_id', TRACKING.pixel],
+    ] as const)
+      await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
     const category = await db.category.create({
       data: { id: CATEGORY.id, name: CATEGORY.name, slug: CATEGORY.slug },
     })

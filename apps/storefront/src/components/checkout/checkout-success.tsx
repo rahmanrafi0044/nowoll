@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { ReceiptDetails } from '@/components/orders/receipt-details'
 import { fetchReceipt } from '@/lib/cart-api'
+import { trackPurchaseOnce } from '@/lib/tracking'
 import { formatBdt } from '@/lib/format'
 import { useCheckoutStore } from '@/stores/checkout-store'
 import { OrderNotFound, PaymentConfirmation } from './payment-confirmation'
@@ -50,7 +51,8 @@ export function CheckoutSuccess({
   return (
     <div className="flex flex-col gap-10">
       {receipt.paymentMethod === 'SSLCOMMERZ' ? (
-        <PaymentConfirmation orderId={receipt.orderId} />
+        // Online: it's a sale once the payment is confirmed (step 39a).
+        <PaymentConfirmation orderId={receipt.orderId} onPaid={() => trackPurchaseOnce(receipt)} />
       ) : (
         <CashOnDeliveryPlaced receipt={receipt} />
       )}
@@ -68,6 +70,9 @@ function CashOnDeliveryPlaced({ receipt }: { receipt: OrderReceiptView }) {
     headingRef.current?.focus() // announce it to screen readers
     useCheckoutStore.getState().reset() // this checkout is finished
   }, [])
+  // Cash on delivery: the sale counts when the order is placed (step 39a). A refusal at the
+  // door is reported later by the server ("Order delivered" only for delivered ones, step 39b).
+  useEffect(() => trackPurchaseOnce(receipt), [receipt])
   const cancelled = receipt.status === 'CANCELLED'
 
   return (

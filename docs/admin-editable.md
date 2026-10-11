@@ -99,7 +99,7 @@
 |---|---|---|
 | 30 | Google title / description per product, category, page | ✅ (steps 30, 36, 36b) |
 | 31 | Site-wide Google title / description and share image | ✅ (step 38) |
-| 32 | Google Analytics and Meta Pixel **IDs** (validated ID fields; the scripts themselves are added by code) | 🛠 39 |
+| 32 | Google Analytics, Google Tag Manager and Meta Pixel **IDs**, Meta domain-verification code (validated ID fields; the scripts themselves are added by code, and load only after the customer agrees) | 🛠 39a |
 | 33 | Redirects: an old web address sends visitors to the new one | 🛠 43c |
 
 ### K. Staff

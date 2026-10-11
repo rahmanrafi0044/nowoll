@@ -222,6 +222,7 @@ export interface OrderLineView {
   productId: string | null
   productName: string
   variantLabel: string
+  sku: string // the variant's code — same id as the catalog feed and tracking events
   imageUrl: string | null
   unitPrice: Money
   quantity: number
