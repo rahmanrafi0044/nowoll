@@ -1,5 +1,6 @@
 import type { CategoryNode } from '@nowoll/types'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { menuLinks } from '@/lib/navigation'
 import { MobileMenu } from './mobile-menu'
 
 const node = (name: string, children: CategoryNode[] = []): CategoryNode => ({
@@ -18,7 +19,7 @@ describe('<MobileMenu />', () => {
   const categories = [node('Men', [node('Shirts')]), node('Women')]
 
   it('opens and closes, telling screen readers its state', () => {
-    render(<MobileMenu categories={categories} />)
+    render(<MobileMenu links={menuLinks(null, categories)} />)
     const button = screen.getByRole('button', { name: 'Open menu' })
     expect(button).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
@@ -35,7 +36,7 @@ describe('<MobileMenu />', () => {
   })
 
   it('closes when a link is chosen', () => {
-    render(<MobileMenu categories={categories} />)
+    render(<MobileMenu links={menuLinks(null, categories)} />)
     fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
     fireEvent.click(screen.getByRole('link', { name: 'Women' }))
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()

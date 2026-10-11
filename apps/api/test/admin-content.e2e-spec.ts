@@ -139,8 +139,10 @@ describe('admin content (step 36)', () => {
       const blocks = (await http().get('/api/v1/admin/content-blocks').expect(200)).body.data
       expect(blocks.map((b: { key: string }) => b.key).sort()).toEqual([
         'announcement_bar',
+        'footer',
         'homepage_hero',
         'homepage_layout',
+        'main_menu',
       ])
       expect(blocks.find((b: { key: string }) => b.key === 'homepage_hero')).toMatchObject({
         data: null,
@@ -153,6 +155,54 @@ describe('admin content (step 36)', () => {
         .put('/api/v1/admin/content-blocks/announcement_bar')
         .send({ data: { text: 'x' } })
         .expect(400) // isActive required
+    })
+  })
+
+  describe('menu and footer (step 38b)', () => {
+    const cat = '0f8fad5b-d9cb-469f-a165-70867728950e'
+
+    it('menu: saved cleaned and served to the shop; drop-downs and javascript: refused', async () => {
+      const r = await save('main_menu', {
+        items: [
+          { id: 'all', kind: 'shop_all' },
+          { id: 'eid', kind: 'category', categoryId: cat, label: '  Eid ' },
+          { id: 'sale', kind: 'link', label: 'Sale', href: '/shop?tag=sale' },
+        ],
+      }).expect(200)
+      expect(r.body.data.data.items[1]).toEqual({
+        id: 'eid',
+        kind: 'category',
+        categoryId: cat,
+        label: 'Eid',
+      })
+      const shop = (await http().get('/api/v1/content-blocks/main_menu').expect(200)).body.data
+      expect(shop.data.items).toHaveLength(3)
+      await save('main_menu', {
+        items: [{ id: 'x', kind: 'dropdown', label: 'More', items: [] }],
+      }).expect(400)
+      const bad = await save('main_menu', {
+        items: [{ id: 'x', kind: 'link', label: 'Win', href: 'javascript:alert(1)' }],
+      }).expect(400)
+      expect(bad.body.details.join(' ')).toMatch(/href/)
+    })
+
+    it('footer: defaults filled in; only the fixed payment badges', async () => {
+      const r = await save('footer', {
+        about: 'Clothing made in Dhaka.',
+        payments: ['cod', 'bkash'],
+      }).expect(200)
+      expect(r.body.data.data).toEqual({
+        about: 'Clothing made in Dhaka.',
+        columns: [],
+        autoPages: true,
+        payments: ['cod', 'bkash'],
+        copyright: '',
+      })
+      await save('footer', { payments: ['paypal'] }).expect(400)
+      await save('footer', { about: '<script>', unknown: 1 }).expect(200) // extra keys dropped; text is text
+      const served = (await http().get('/api/v1/content-blocks/footer').expect(200)).body.data.data
+      expect(served).not.toHaveProperty('unknown')
+      expect(served.about).toBe('<script>') // shown as text by React, never as HTML
     })
   })
 

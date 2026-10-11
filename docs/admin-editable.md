@@ -41,7 +41,7 @@
 ### B. Header and navigation
 | # | What | Status |
 |---|---|---|
-| 6 | Main menu: which categories, in what order, plus custom links ("Sale", "Eid collection") | 🛠 38b |
+| 6 | Main menu: which categories, in what order, plus custom links ("Sale", "Eid collection") | ✅ (step 38b) |
 | 7 | Announcement bar (text, link, on/off) | ✅ (step 36) |
 
 ### C. Homepage
@@ -70,8 +70,8 @@
 ### F. Footer
 | # | What | Status |
 |---|---|---|
-| 19 | Footer link columns, short "about" text, copyright line | 🛠 38b |
-| 20 | Payment-method logos (bKash, Nagad, cards, cash on delivery) — chosen from a fixed set | 🛠 38b |
+| 19 | Footer link columns, short "about" text, copyright line | ✅ (step 38b) |
+| 20 | Payment-method logos (bKash, Nagad, cards, cash on delivery) — chosen from a fixed set | ✅ (step 38b) |
 
 ### G. Pages and blog
 | # | What | Status |
