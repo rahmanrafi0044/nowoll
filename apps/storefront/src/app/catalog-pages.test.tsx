@@ -175,6 +175,52 @@ describe('/shop/[categorySlug]', () => {
 })
 
 describe('/products/[productSlug]', () => {
+  it('the "Delivery and returns" box (step 38d): automatic lines from live rates and settings, your own lines, the link', async () => {
+    responses.set('/products/oxford-shirt', productDetail())
+    responses.set('/content-blocks/product_info', {
+      key: 'product_info',
+      data: {
+        title: 'Delivery and returns',
+        showDelivery: true,
+        showReturns: true,
+        showCod: true,
+        lines: ['100% cotton, made in Bangladesh'],
+        link: { label: 'Return policy', href: '/return-policy' },
+      },
+    })
+    responses.set('/shipping/rates', [
+      {
+        id: 'z1',
+        code: 'D',
+        name: 'Inside Dhaka',
+        fee: '60',
+        freeShippingThreshold: null,
+        estimatedDaysMin: 1,
+        estimatedDaysMax: 3,
+        districts: ['Dhaka'],
+        isDefault: false,
+      },
+    ])
+    await renderServer(ProductPage({ params: Promise.resolve({ productSlug: 'oxford-shirt' }) }))
+    const box = within(screen.getByRole('region', { name: 'Delivery and returns' }))
+    expect(box.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Inside Dhaka: ৳60 · 1–3 days',
+      'Easy returns within 7 days of delivery', // the default return window (settings unreachable here)
+      'Cash on delivery available',
+      '100% cotton, made in Bangladesh',
+    ])
+    expect(box.getByRole('link', { name: 'Return policy' })).toHaveAttribute(
+      'href',
+      '/return-policy',
+    )
+  })
+
+  it('no box until the shop switches it on (nothing saved → nothing shown)', async () => {
+    responses.set('/products/oxford-shirt', productDetail())
+    await renderServer(ProductPage({ params: Promise.resolve({ productSlug: 'oxford-shirt' }) }))
+    expect(screen.queryByRole('region', { name: 'Delivery and returns' })).toBeNull()
+  })
+
   it('renders the product with purchase panel, details, size guide and structured data', async () => {
     responses.set('/products/oxford-shirt', productDetail())
     responses.set('/categories/shirts', {

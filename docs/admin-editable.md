@@ -64,7 +64,7 @@
 ### E. Product page
 | # | What | Status |
 |---|---|---|
-| 17 | "Delivery and returns" info box | 🛠 38d |
+| 17 | "Delivery and returns" info box | ✅ (step 38d) |
 | 18 | Size guide per category | ✅ (step 36b) |
 
 ### F. Footer

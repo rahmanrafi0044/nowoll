@@ -32,6 +32,11 @@ const PARTS = [
     title: 'Footer',
     text: 'About text, link columns, payment badges and the copyright line.',
   },
+  {
+    href: '/admin/content/product-info',
+    title: 'Product info',
+    text: 'The “Delivery and returns” box on every product page — fees, returns, cash on delivery.',
+  },
 ]
 
 export default function ContentPage() {

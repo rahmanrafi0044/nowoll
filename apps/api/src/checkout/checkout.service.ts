@@ -63,7 +63,9 @@ export class CheckoutService {
     const payment = paymentRules({
       total: totals.total,
       afterDiscount: totals.afterDiscount,
-      settings: await this.settings.all(),
+      // `db`: during "Place order" this runs inside the order transaction — reading
+      // settings on another connection could deadlock the pool under load.
+      settings: await this.settings.all(db),
       onlineConfigured: this.payments.onlineConfigured(),
     })
     return { lines, totals, discount, discountProblem, shipping, payment }

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { productInfoSchema } from './product-info.js'
 
 // ============================================================================
 // Shapes of the editable homepage content stored in content_blocks.data (JSON).
@@ -205,6 +206,7 @@ export const CONTENT_BLOCK_SCHEMAS = {
   homepage_layout: homepageLayoutSchema,
   main_menu: mainMenuSchema,
   footer: footerSchema,
+  product_info: productInfoSchema, // step 38d
 } as const
 
 export type ContentBlockKey = keyof typeof CONTENT_BLOCK_SCHEMAS

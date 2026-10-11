@@ -279,6 +279,9 @@ export const PUBLIC_SETTING_KEYS = [
   'share_image_url',
   'brand_color',
   'font',
+  // Not secret (checkout shows them) — the product page's info box needs them (step 38d).
+  'payment_cod_enabled',
+  'cod_max_total',
 ] as const satisfies readonly SettingKey[]
 
 /** The settings that are pictures (uploaded through Admin → Settings → Look). */
