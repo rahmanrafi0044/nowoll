@@ -1,11 +1,13 @@
 'use client'
 
+import { addToCartEvent, newEventId } from '@nowoll/analytics'
 import type { ProductDetailView } from '@nowoll/types'
 import { Button } from '@nowoll/ui'
 import { useEffect, useState } from 'react'
 import { discountPercent, formatBdt } from '@/lib/format'
 import { colorOptions, findVariant, sizeOptions } from '@/lib/variants'
 import { useCartStore } from '@/stores/cart-store'
+import { track } from '@/stores/tracking-store'
 import { useUiStore } from '@/stores/ui-store'
 import { WishlistButton } from './wishlist-button'
 
@@ -90,6 +92,19 @@ export function ProductPurchase({
         unitPrice: Number(variant.price),
       },
       quantity,
+    )
+    track(
+      addToCartEvent(
+        {
+          productId: product.id,
+          sku: variant.sku,
+          name: product.name,
+          variant: `${variant.size} / ${variant.color}`,
+          price: Number(variant.price),
+          quantity,
+        },
+        newEventId(),
+      ),
     )
     setAdded(true)
     openCart() // decision #4: show the bag with a Checkout button right away

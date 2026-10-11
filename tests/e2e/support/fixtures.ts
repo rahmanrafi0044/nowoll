@@ -41,3 +41,6 @@ export const CUSTOMER = {
 
 /** Inside Dhaka delivery (from the standard seed). */
 export const DHAKA_DELIVERY = '60'
+
+/** Made-up tracking IDs (step 39a): the shop shows the cookie banner and would load the tools. */
+export const TRACKING = { ga4: 'G-E2ETEST01', pixel: '1234567890' }

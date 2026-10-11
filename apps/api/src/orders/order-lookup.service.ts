@@ -27,6 +27,8 @@ export interface OrderLine {
   productId: string | null
   productName: string
   variantLabel: string
+  /** The variant's code — the same id the catalog feed and tracking events use. */
+  sku: string
   imageUrl: string | null
   unitPrice: Prisma.Decimal
   quantity: number
@@ -270,6 +272,7 @@ export class OrderLookupService {
         productId: i.productId,
         productName: i.productName,
         variantLabel: i.variantLabel,
+        sku: i.sku,
         imageUrl: i.imageUrl,
         unitPrice: i.unitPrice,
         quantity: i.quantity,

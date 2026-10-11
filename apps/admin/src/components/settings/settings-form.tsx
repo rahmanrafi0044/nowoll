@@ -66,6 +66,10 @@ const LABEL: Record<SettingKey, string> = {
   payment_online_description: 'Online payment: description',
   cod_max_total: 'Cash-on-delivery limit (৳)',
   min_order_amount: 'Minimum order (৳)',
+  ga4_measurement_id: 'Google Analytics 4 Measurement ID',
+  gtm_container_id: 'Google Tag Manager container ID',
+  meta_pixel_id: 'Meta Pixel ID',
+  meta_domain_verification: 'Meta domain verification code',
 }
 
 const NUMBER_KEYS = new Set<SettingKey>([
@@ -363,6 +367,37 @@ export function SettingsForm({ initial }: { initial: StoreSettings }) {
       >
         {text('seo_title', { maxLength: 70 })}
         {text('seo_description', { maxLength: 160 })}
+      </Section>
+
+      <Section
+        title="Marketing and tracking"
+        note="Only the IDs — the shop adds each tool’s official code itself, and loads it only for customers who agree in the cookie banner. Empty = not used. Step-by-step guide: docs/integrations/analytics.md and meta.md."
+      >
+        {text('ga4_measurement_id', {
+          placeholder: 'G-AB12CD34EF',
+          hint: 'Google Analytics → Admin → Data streams → Web → Measurement ID.',
+        })}
+        {text('gtm_container_id', {
+          placeholder: 'GTM-AB12CD3',
+          hint: 'Tag Manager → the ID at the top of the workspace. Needs both Analytics and Marketing consent.',
+        })}
+        {form.ga4_measurement_id.trim() && form.gtm_container_id.trim() && (
+          <p
+            role="note"
+            className="rounded-control bg-warning-soft p-3 text-sm text-warning sm:col-span-2"
+          >
+            Using both? Don’t also add a Google Analytics tag inside Tag Manager — every visit would
+            be counted twice. Use one way or the other.
+          </p>
+        )}
+        {text('meta_pixel_id', {
+          placeholder: '123456789012345',
+          hint: 'Meta Events Manager → Data sources → your Pixel (dataset) → its ID (digits only).',
+        })}
+        {text('meta_domain_verification', {
+          placeholder: 'a1b2c3d4e5f6g7h8i9j0',
+          hint: 'Business Settings → Brand safety → Domains → Meta-tag verification. Paste the code (or the whole tag — only the code is kept).',
+        })}
       </Section>
 
       {problem && (

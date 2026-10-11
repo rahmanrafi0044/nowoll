@@ -8,6 +8,7 @@ import {
 } from '@nowoll/validation'
 import { copyrightLine, footerColumns, paymentBadges } from '@/lib/navigation'
 import { NavAnchor } from './nav-link'
+import { CookieSettingsButton } from './tracking/cookie-settings-button'
 
 // The footer: the store's name, tagline, about text and social links; its
 // contact details (Admin → Settings, step 38); link columns, payment badges
@@ -149,9 +150,13 @@ export function SiteFooter({
           </ul>
         </div>
       )}
-      <p className="border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">
-        {copyrightLine(footer, s.store_name, new Date().getFullYear())}
-      </p>
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">
+        <p>{copyrightLine(footer, s.store_name, new Date().getFullYear())}</p>
+        {/* Change the cookie choice any time (step 39a) — only when the shop uses tracking. */}
+        {(s.ga4_measurement_id || s.gtm_container_id || s.meta_pixel_id) && (
+          <CookieSettingsButton />
+        )}
+      </div>
     </footer>
   )
 }

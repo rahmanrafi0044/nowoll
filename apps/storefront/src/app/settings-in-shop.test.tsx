@@ -148,3 +148,32 @@ describe('the look (step 38, part 2)', () => {
     expect(plain.openGraph).not.toHaveProperty('images')
   })
 })
+
+describe('marketing and tracking (step 39a)', () => {
+  it('Meta domain verification: the checked code as a meta tag; none when not set', async () => {
+    responses.set(
+      '/settings/public',
+      settings({ meta_domain_verification: 'a1b2c3d4e5f6g7h8i9j0' }),
+    )
+    expect((await generateMetadata()).verification).toEqual({
+      other: { 'facebook-domain-verification': 'a1b2c3d4e5f6g7h8i9j0' },
+    })
+    responses.clear()
+    expect((await generateMetadata()).verification).toBeUndefined()
+  })
+
+  it('footer: "Cookie settings" only when the shop uses a tracking tool', () => {
+    const footer = footerSchema.parse({})
+    const { unmount } = render(<SiteFooter pages={[]} settings={settings()} footer={footer} />)
+    expect(screen.queryByRole('button', { name: 'Cookie settings' })).toBeNull()
+    unmount()
+    render(
+      <SiteFooter
+        pages={[]}
+        settings={settings({ meta_pixel_id: '123456789012' })}
+        footer={footer}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Cookie settings' })).toBeInTheDocument()
+  })
+})

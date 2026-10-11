@@ -1,12 +1,15 @@
 'use client'
 
+import { beginCheckoutEvent, newEventId } from '@nowoll/analytics'
 import Link from 'next/link'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useCartHydrated } from '@/hooks/use-cart-hydrated'
 import { useCheckoutQuote } from '@/hooks/use-checkout-quote'
+import { cartItemsToTracked } from '@/lib/tracking'
 import { useCartStore } from '@/stores/cart-store'
 import { useCheckoutStore } from '@/stores/checkout-store'
 import { useSessionStore } from '@/stores/session-store'
+import { track } from '@/stores/tracking-store'
 import { AddressStep } from './address-step'
 import { ContactStep } from './contact-step'
 import { OrderPlaced } from './order-placed'
@@ -51,6 +54,14 @@ export function CheckoutFlow() {
   const placed = useCheckoutStore((s) => s.placed)
   const paymentNotice = useCheckoutStore((s) => s.paymentNotice)
   const quoteState = useCheckoutQuote(address?.district, contact?.email)
+
+  // "Begin checkout" once per visit to this page, as soon as the bag is known (step 39a).
+  const checkoutTracked = useRef(false)
+  useEffect(() => {
+    if (!hydrated || checkoutTracked.current || placed || items.length === 0) return
+    checkoutTracked.current = true
+    track(beginCheckoutEvent(cartItemsToTracked(items), newEventId()))
+  }, [hydrated, placed, items])
 
   if (!hydrated) return <p className="py-12 text-center text-muted-foreground">Loading checkout…</p>
 

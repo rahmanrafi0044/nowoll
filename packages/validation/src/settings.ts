@@ -136,6 +136,29 @@ export const FONTS = [
 ] as const
 export type FontChoice = (typeof FONTS)[number]['value']
 
+// ── Marketing and tracking (step 39a) ────────────────────────────────────
+// Only IDs, each checked against its official format — never a pasted script
+// (CLAUDE.md Rule 9). The shop adds each tool's official snippet itself, and
+// only after the customer agrees (docs/integrations/analytics.md).
+
+/** Empty, or an ID of this shape (stored in capitals, as Google shows it). */
+const trackingId = (pattern: RegExp, message: string) =>
+  z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((v) => v === '' || pattern.test(v), message)
+
+/** Meta's verification code. Pasting the whole <meta …> tag works too — only the code is kept. */
+const metaVerification = z
+  .string()
+  .trim()
+  .transform((v) => /content\s*=\s*["']([^"']*)["']/i.exec(v)?.[1]?.trim() ?? v)
+  .refine(
+    (v) => v === '' || /^[A-Za-z0-9]{10,64}$/.test(v),
+    'Paste the code from Meta (letters and numbers only), or the whole meta tag',
+  )
+
 export const SHOP_PAGE_SIZES = [12, 24, 36, 48] as const
 export const SHOP_SORTS = ['newest', 'price_asc', 'price_desc'] as const
 
@@ -213,6 +236,11 @@ export const SETTINGS_SCHEMA = z.object({
       (v) => Number.isInteger(v * 100) || Math.abs(Math.round(v * 100) - v * 100) < 1e-9,
       'At most 2 decimals',
     ),
+  // Marketing and tracking (step 39a)
+  ga4_measurement_id: trackingId(/^G-[A-Z0-9]{4,20}$/, 'A Measurement ID looks like G-AB12CD34EF'),
+  gtm_container_id: trackingId(/^GTM-[A-Z0-9]{4,12}$/, 'A container ID looks like GTM-AB12CD3'),
+  meta_pixel_id: trackingId(/^[0-9]{10,20}$/, 'A Pixel ID is 10–20 digits, e.g. 123456789012345'),
+  meta_domain_verification: metaVerification,
 })
 
 export type StoreSettings = z.output<typeof SETTINGS_SCHEMA>
@@ -253,6 +281,10 @@ export const SETTING_DEFAULTS: StoreSettings = {
   payment_online_description: '',
   cod_max_total: 0,
   min_order_amount: 0,
+  ga4_measurement_id: '',
+  gtm_container_id: '',
+  meta_pixel_id: '',
+  meta_domain_verification: '',
 }
 
 /** Shown to everyone by GET /settings/public. Never the admin email or internal limits. */
@@ -282,6 +314,11 @@ export const PUBLIC_SETTING_KEYS = [
   // Not secret (checkout shows them) — the product page's info box needs them (step 38d).
   'payment_cod_enabled',
   'cod_max_total',
+  // Public by nature — every visitor's browser receives them in the scripts anyway (step 39a).
+  'ga4_measurement_id',
+  'gtm_container_id',
+  'meta_pixel_id',
+  'meta_domain_verification',
 ] as const satisfies readonly SettingKey[]
 
 /** The settings that are pictures (uploaded through Admin → Settings → Look). */

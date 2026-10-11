@@ -11,6 +11,7 @@
     "report": "playwright show-report playwright-report"
   },
   "devDependencies": {
+    "@nowoll/analytics": "workspace:*",
     "@nowoll/api": "workspace:*",
     "@nowoll/config": "workspace:*",
     "@nowoll/database": "workspace:*",

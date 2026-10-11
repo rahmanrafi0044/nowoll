@@ -81,3 +81,35 @@ describe('<ProductPurchase />', () => {
     expect(screen.getAllByRole('button', { name: 'Choose a size' })).toHaveLength(2)
   })
 })
+
+describe('<ProductPurchase /> tracking (step 39a)', () => {
+  it('"Add to bag" reports AddToCart with the variant SKU (once the customer agreed)', async () => {
+    const { ACCEPT_ALL, CONSENT_STORAGE_KEY, serializeConsent } = await import('@nowoll/analytics')
+    const { useTrackingStore } = await import('@/stores/tracking-store')
+    const w = window as unknown as { fbq?: { queue?: unknown[] } }
+    delete w.fbq
+    useCartStore.getState().clear()
+    localStorage.setItem(CONSENT_STORAGE_KEY, serializeConsent(ACCEPT_ALL, new Date()))
+    useTrackingStore
+      .getState()
+      .start({ ga4MeasurementId: '', gtmContainerId: '', metaPixelId: '123456789012' })
+
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('radio', { name: 'M' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add to bag' }))
+
+    const queue = (): unknown[] =>
+      (window as unknown as { fbq?: { queue?: unknown[] } }).fbq?.queue ?? []
+    const calls = queue().map((a) => [...(a as IArguments)])
+    expect(calls).toContainEqual([
+      'track',
+      'AddToCart',
+      expect.objectContaining({
+        content_ids: [useCartStore.getState().items[0]!.sku],
+        content_type: 'product',
+        currency: 'BDT',
+      }),
+      { eventID: expect.any(String) },
+    ])
+  })
+})

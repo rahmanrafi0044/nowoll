@@ -201,6 +201,7 @@ describe('reviews on a delivered order', () => {
       unitPrice: '1490',
       quantity: 1,
       lineTotal: '1490',
+      sku: 'NW-TEST-SKU',
     },
     {
       productId: 'p1',
@@ -210,6 +211,7 @@ describe('reviews on a delivered order', () => {
       unitPrice: '1490',
       quantity: 1,
       lineTotal: '1490',
+      sku: 'NW-TEST-SKU',
     },
     {
       productId: 'p2',
@@ -219,6 +221,7 @@ describe('reviews on a delivered order', () => {
       unitPrice: '2490',
       quantity: 1,
       lineTotal: '2490',
+      sku: 'NW-TEST-SKU',
     },
     {
       productId: null,
@@ -228,6 +231,7 @@ describe('reviews on a delivered order', () => {
       unitPrice: '990',
       quantity: 1,
       lineTotal: '990',
+      sku: 'NW-TEST-SKU',
     },
   ]
   const mine = (over: Partial<MyReviewView>): MyReviewView => ({

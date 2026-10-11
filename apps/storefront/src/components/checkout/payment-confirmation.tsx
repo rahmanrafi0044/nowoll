@@ -10,7 +10,14 @@ import { useCheckoutStore } from '@/stores/checkout-store'
 const linkClass = 'font-medium underline underline-offset-4'
 
 /** The thank-you page after SSLCommerz: "Confirming…" until the API says paid (or under review). */
-export function PaymentConfirmation({ orderId }: { orderId: string | null }) {
+export function PaymentConfirmation({
+  orderId,
+  onPaid,
+}: {
+  orderId: string | null
+  /** Called once the payment is confirmed (the purchase is reported then). */
+  onPaid?: () => void
+}) {
   const { view, notFound, error, gaveUp, loading, checkAgain } = usePaymentStatus(orderId, true)
   const paid = view?.paymentStatus === 'PAID'
 
@@ -18,6 +25,10 @@ export function PaymentConfirmation({ orderId }: { orderId: string | null }) {
   useEffect(() => {
     if (paid) useCheckoutStore.getState().reset()
   }, [paid])
+  // (onPaid may run again on a re-render — the purchase is reported once anyway.)
+  useEffect(() => {
+    if (paid) onPaid?.()
+  }, [paid, onPaid])
 
   if (!orderId || notFound) return <OrderNotFound />
 

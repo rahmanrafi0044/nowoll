@@ -18,6 +18,7 @@ import { ProductReviews } from '@/components/reviews/product-reviews'
 import { apiGet } from '@/lib/api'
 import { absoluteUrl, breadcrumbJsonLd, JsonLd } from '@/lib/json-ld'
 import { productJsonLd } from '@/lib/product-json-ld'
+import { TrackViewItem } from '@/components/tracking/track-view-item'
 import { getSettings } from '@/lib/settings'
 
 type Props = { params: Promise<{ productSlug: string }> }
@@ -90,6 +91,7 @@ export default async function ProductPage({ params }: Props) {
     // Extra bottom padding on phones so the sticky "Add to bag" bar never covers content.
     <div className="mx-auto max-w-7xl px-4 py-8 pb-28 md:pb-12">
       <JsonLd data={productJsonLd(product, reviews, settings.store_name)} />
+      <TrackViewItem productId={product.id} name={product.name} price={Number(product.basePrice)} />
       <JsonLd
         data={breadcrumbJsonLd(product.breadcrumb, {
           name: product.name,

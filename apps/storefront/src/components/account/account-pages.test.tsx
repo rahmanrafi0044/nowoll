@@ -130,6 +130,7 @@ describe('my orders', () => {
         unitPrice: '1490',
         quantity: 1,
         lineTotal: '1490',
+        sku: 'NW-TEST-SKU',
       },
     ],
     total: '1550',
