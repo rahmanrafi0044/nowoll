@@ -2,11 +2,22 @@
 // Real Redis (docker compose up -d redis; CI runs it), a unique queue prefix
 // per run so a running dev worker never picks these test jobs up.
 import { randomUUID } from 'node:crypto'
-import { createNotificationsQueue, createOrdersQueue, producerConnection } from '@nowoll/queues'
-import { NotificationsQueueService, OrdersQueueService } from './orders-queue.js'
+import {
+  createMarketingQueue,
+  createNotificationsQueue,
+  createOrdersQueue,
+  producerConnection,
+} from '@nowoll/queues'
+import type { PrismaService } from '../prisma/prisma.service.js'
+import {
+  MarketingQueueService,
+  NotificationsQueueService,
+  OrdersQueueService,
+} from './orders-queue.js'
 import {
   QueuedCustomerNotifier,
   QueuedLowStockAlerter,
+  QueuedMarketingEvents,
   QueuedOrderNotifier,
 } from './queued-notifiers.js'
 
@@ -14,11 +25,32 @@ const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379'
 const connection = producerConnection(REDIS_URL)
 const queue = createOrdersQueue(connection, `test-${randomUUID()}`)
 const service = new OrdersQueueService(queue)
-const notifier = new QueuedOrderNotifier(service)
 
-afterEach(() => queue.obliterate({ force: true }))
+// Step 39b: the Meta events queue, and a stand-in for the database that says
+// which orders' customers allowed Marketing (their order has a tracking row).
+const mQueue = createMarketingQueue(connection, `test-${randomUUID()}`)
+const consentedOrders = new Map<string, number>() // orderId → order number
+const fakeDb = {
+  orderTracking: {
+    findUnique: async ({ where }: { where: { orderId: string } }) => {
+      const n = consentedOrders.get(where.orderId)
+      return n === undefined ? null : { order: { orderNumber: n } }
+    },
+  },
+} as unknown as PrismaService
+const marketing = new QueuedMarketingEvents(new MarketingQueueService(mQueue), fakeDb)
+const notifier = new QueuedOrderNotifier(service, marketing)
+const metaJobs = async () =>
+  (await mQueue.getJobs(['waiting'])).map((j) => ({ name: j.name, id: j.id, data: j.data }))
+
+afterEach(async () => {
+  consentedOrders.clear()
+  await queue.obliterate({ force: true })
+  await mQueue.obliterate({ force: true })
+})
 afterAll(async () => {
   await queue.close()
+  await mQueue.close()
   await connection.quit()
 })
 
@@ -86,7 +118,7 @@ describe('Redis down', () => {
     const started = Date.now()
     await expect(broken.add('order-confirmation', { orderId: 'o1' })).resolves.toBe(false)
     await expect(
-      new QueuedOrderNotifier(broken).orderPlaced(placed('COD')),
+      new QueuedOrderNotifier(broken, marketing).orderPlaced(placed('COD')),
     ).resolves.toBeUndefined()
     expect(Date.now() - started).toBeLessThan(10_000)
     await broken.onApplicationShutdown()
@@ -96,7 +128,7 @@ describe('Redis down', () => {
 describe('customer events → notification jobs (step 28)', () => {
   const nConnection = producerConnection(REDIS_URL)
   const nQueue = createNotificationsQueue(nConnection, `test-${randomUUID()}`)
-  const customer = new QueuedCustomerNotifier(new NotificationsQueueService(nQueue))
+  const customer = new QueuedCustomerNotifier(new NotificationsQueueService(nQueue), marketing)
   const nJobs = async () =>
     (await nQueue.getJobs(['waiting'])).map((j) => ({ name: j.name, id: j.id, data: j.data }))
 
@@ -128,5 +160,56 @@ describe('customer events → notification jobs (step 28)', () => {
       `newsletter-confirm_s1_${'a'.repeat(12)}`,
       `newsletter-confirm_s1_${'b'.repeat(12)}`,
     ])
+  })
+})
+
+describe('Meta server events (step 39b) — only for customers who allowed Marketing', () => {
+  it('no consent → no Meta job at all (the email jobs still happen)', async () => {
+    await notifier.orderPlaced(placed('COD'))
+    await notifier.paymentConfirmed({ orderId: randomUUID(), orderNumber: 10009 })
+    expect(await metaJobs()).toEqual([])
+    expect(await jobs()).toHaveLength(2)
+  })
+
+  it('consent: COD placed → ONE Purchase job, even if reported twice', async () => {
+    const e = placed('COD', 10003)
+    consentedOrders.set(e.orderId, 10003)
+    await notifier.orderPlaced(e)
+    await notifier.orderPlaced(e)
+    expect(await metaJobs()).toEqual([
+      {
+        name: 'meta-event',
+        id: 'meta-purchase_NW-10003',
+        data: { kind: 'purchase', orderId: e.orderId },
+      },
+    ])
+  })
+
+  it('consent: online placed → nothing yet; paid → Purchase', async () => {
+    const e = placed('SSLCOMMERZ', 10004)
+    consentedOrders.set(e.orderId, 10004)
+    await notifier.orderPlaced(e)
+    expect(await metaJobs()).toEqual([])
+    await notifier.paymentConfirmed({ orderId: e.orderId, orderNumber: 10004 })
+    expect((await metaJobs()).map((j) => j.id)).toEqual(['meta-purchase_NW-10004'])
+  })
+
+  it('consent: delivered → OrderDelivered job', async () => {
+    const nConnection = producerConnection(REDIS_URL)
+    const nQueue = createNotificationsQueue(nConnection, `test-${randomUUID()}`)
+    try {
+      const customer = new QueuedCustomerNotifier(new NotificationsQueueService(nQueue), marketing)
+      const orderId = randomUUID()
+      consentedOrders.set(orderId, 10005)
+      await customer.orderDelivered(orderId)
+      await customer.orderDelivered(randomUUID()) // no consent → nothing
+      expect(await metaJobs()).toEqual([
+        { name: 'meta-event', id: 'meta-delivered_NW-10005', data: { kind: 'delivered', orderId } },
+      ])
+    } finally {
+      await nQueue.obliterate({ force: true })
+      await nQueue.close()
+      await nConnection.quit()
+    }
   })
 })

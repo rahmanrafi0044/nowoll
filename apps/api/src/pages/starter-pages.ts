@@ -29,6 +29,8 @@ This page explains what information Nowoll collects when you shop with us, why, 
 - **Analytics** (only if you agree): Google Analytics counts visits and what is popular, so we can improve the shop.
 - **Marketing** (only if you agree): the Meta Pixel (Facebook and Instagram) and Google Tag Manager measure which ads bring customers, so we show our ads to people likely to want them.
 
+If you allow Marketing, our server also tells Meta when you place an order and when it is delivered — with your email, phone, name and area scrambled (hashed) first, your IP address and browser name. We keep those browser details for 60 days, then delete them.
+
 Google and Meta are based outside Bangladesh and receive this information under their own privacy policies. [fill in: which of these tools you actually use, and how long their data is kept, e.g. Google Analytics 14 months]
 
 We don't knowingly track or target ads at children.

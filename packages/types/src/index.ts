@@ -39,3 +39,4 @@ export type {
 // Enums are real values (usable in dropdowns, comparisons) as well as types.
 // They come from a tiny generated file with no database code in it.
 export * from '@nowoll/database/enums'
+export * from './admin-marketing.js'

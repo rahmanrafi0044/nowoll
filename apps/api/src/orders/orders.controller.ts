@@ -6,17 +6,20 @@ import {
   Header,
   Headers,
   HttpCode,
+  Ip,
   Param,
   ParseUUIDPipe,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { Throttle } from '@nestjs/throttler'
 import { isUUID } from 'class-validator'
 import { CurrentAccount, OptionalSignInGuard, SignedInGuard } from '../auth/auth.guard.js'
 import type { AccountProfile } from '../auth/auth.service.js'
 import { StrictRateLimit } from '../common/decorators/strict-rate-limit.decorator.js'
+import type { EnvironmentVariables } from '../config/env.validation.js'
 import { CreateOrderDto } from './dto/create-order.dto.js'
 import { MyOrdersQuery } from './dto/my-orders.query.js'
 import { TrackOrderDto } from './dto/track-order.dto.js'
@@ -30,6 +33,7 @@ export class OrdersController {
   constructor(
     private readonly orders: OrdersService,
     private readonly lookup: OrderLookupService,
+    private readonly config: ConfigService<EnvironmentVariables, true>,
   ) {}
 
   /**
@@ -46,12 +50,22 @@ export class OrdersController {
     @Body() dto: CreateOrderDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @CurrentAccount() account: AccountProfile | undefined,
+    @Ip() ip: string,
+    @Headers('user-agent') userAgent: string | undefined,
   ) {
     // (@Headers can't take a validation pipe in NestJS, so it's checked here.)
     if (!idempotencyKey || !isUUID(idempotencyKey)) {
       throw new BadRequestException('An Idempotency-Key header (a UUID) is required.')
     }
-    return this.orders.create(dto, idempotencyKey, account?.id ?? null)
+    // Step 39b: the browser details Meta needs — the IP address (the real one:
+    // 'trust proxy' is set for Nginx) and browser name. Saved only if the
+    // customer allowed Marketing (dto.tracking), and deleted after 60 days.
+    const siteUrl = this.config.get('NEXT_PUBLIC_SITE_URL', { infer: true }).replace(/\/+$/, '')
+    return this.orders.create(dto, idempotencyKey, account?.id ?? null, {
+      ip,
+      userAgent: (userAgent ?? '').slice(0, 500),
+      sourceUrl: `${siteUrl}/checkout`,
+    })
   }
 
   /**

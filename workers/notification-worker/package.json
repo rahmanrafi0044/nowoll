@@ -2,7 +2,7 @@
   "name": "@nowoll/notification-worker",
   "version": "0.0.0",
   "private": true,
-  "description": "Background worker: account, newsletter, return, refund and shipping emails (BullMQ) — CLAUDE.md §10",
+  "description": "Background worker: account, newsletter, return, refund and shipping emails (BullMQ) \u2014 CLAUDE.md \u00a710",
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=../../.env --watch --import tsx src/main.ts",
@@ -14,6 +14,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
+    "@nowoll/analytics": "workspace:*",
     "@nowoll/database": "workspace:*",
     "@nowoll/email": "workspace:*",
     "@nowoll/queues": "workspace:*",

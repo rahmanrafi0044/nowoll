@@ -100,6 +100,7 @@
 | 30 | Google title / description per product, category, page | ✅ (steps 30, 36, 36b) |
 | 31 | Site-wide Google title / description and share image | ✅ (step 38) |
 | 32 | Google Analytics, Google Tag Manager and Meta Pixel **IDs**, Meta domain-verification code (validated ID fields; the scripts themselves are added by code, and load only after the customer agrees) | 🛠 39a |
+| Meta server events on/off (Conversions API); Admin → Marketing: setup checklist, "send test event" (Meta's test code), delivery log | 🛠 39b |
 | 33 | Redirects: an old web address sends visitors to the new one | 🛠 43c |
 
 ### K. Staff
@@ -116,7 +117,7 @@ even if asked later** — explain why and offer the safe alternative instead.
 
 | What | Why | Safe alternative |
 |---|---|---|
-| **Payment and API secret keys** (SSLCommerz, Supabase service role, Resend, …) | A stolen admin session must never reveal or change secrets (CLAUDE.md Rule 3) | Server environment variables, changed by a developer |
+| **Payment and API secret keys** (SSLCommerz, Supabase service role, Resend, Meta Conversions API access token, …) | A stolen admin session must never reveal or change secrets (CLAUDE.md Rule 3) | Server environment variables, changed by a developer |
 | **Pasting raw HTML or JavaScript** anywhere (pages, banners, "custom code" boxes) | The most common way online shops get hacked (XSS, card skimming) | Markdown text; validated ID fields for analytics / Pixel |
 | **Turning off admin 2FA** | Admin accounts control money and customer data (CLAUDE.md §11.8) | Always on; lost phone → `pnpm admin:reset-2fa` |
 | **New page layouts or new features** | Real development work that needs tests | A developer step in this spec |

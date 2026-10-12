@@ -1,7 +1,8 @@
 // The cookie banner decides what tracking loads (step 39a, docs/integrations/analytics.md).
 import type { Page } from '@playwright/test'
 import { SHIRT, TRACKING } from '../support/fixtures.js'
-import { addShirtToBag } from '../support/flows.js'
+import { e2eDb } from '../support/db.js'
+import { addShirtToBag, buyShirtCashOnDelivery } from '../support/flows.js'
 import { expect, test, TRACKING_HOSTS } from '../support/test.js'
 
 test.use({ consentChosen: false })
@@ -82,4 +83,38 @@ test('"Accept all" loads the official scripts with the admin IDs; Cookie setting
   expect(await page.evaluate(() => typeof (globalThis as unknown as { fbq?: unknown }).fbq)).toBe(
     'undefined',
   )
+})
+
+// Step 39b: the order carries the customer's consent for Meta's server events.
+const trackingOf = async (orderNumber: string) =>
+  e2eDb().orderTracking.findFirst({
+    where: { order: { orderNumber: Number(orderNumber.replace('NW-', '')) } },
+  })
+
+test('Marketing allowed → the order keeps the browser details for Meta (with the _fbp cookie)', async ({
+  page,
+  context,
+}) => {
+  await watchTracking(page)
+  await page.goto('/')
+  await banner(page).getByRole('button', { name: 'Accept all' }).click()
+  // The real Pixel would set this cookie; here its script is a stand-in, so we set it.
+  const { hostname } = new URL(page.url())
+  await context.addCookies([
+    { name: '_fbp', value: 'fb.1.1760000000000.1234567890', domain: hostname, path: '/' },
+  ])
+  const orderNumber = await buyShirtCashOnDelivery(page)
+  expect(await trackingOf(orderNumber)).toMatchObject({
+    fbp: 'fb.1.1760000000000.1234567890',
+    userAgent: expect.stringContaining('Mozilla'),
+    sourceUrl: expect.stringMatching(/\/checkout$/),
+  })
+})
+
+test('"Only necessary" → the order keeps nothing for Meta', async ({ page }) => {
+  await watchTracking(page)
+  await page.goto('/')
+  await banner(page).getByRole('button', { name: 'Only necessary' }).click()
+  const orderNumber = await buyShirtCashOnDelivery(page)
+  expect(await trackingOf(orderNumber)).toBeNull()
 })

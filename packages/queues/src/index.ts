@@ -123,3 +123,32 @@ export function createNotificationsQueue(connection: Redis, prefix?: string): No
     ...(prefix && { prefix }),
   })
 }
+
+// ---- Marketing queue (step 39b) ------------------------------------------------
+// Meta Conversions API events, run by workers/notification-worker in its own
+// BullMQ worker — a slow or broken Meta never delays an email
+// (docs/integrations/meta.md).
+
+export const MARKETING_QUEUE = 'marketing'
+
+export interface MarketingJobs {
+  /** Send one order event to Meta (only queued for customers who allowed Marketing). */
+  'meta-event': { kind: 'purchase' | 'delivered'; orderId: string }
+  /** Daily: delete saved browser details (IP address, cookies) 60 days after the order. */
+  'tracking-cleanup': Record<string, never>
+}
+export type MarketingJobName = keyof MarketingJobs
+
+/** One job per order and event — the same event twice is sent once. */
+export const metaEventJobId = (kind: 'purchase' | 'delivered', orderNumber: number) =>
+  `meta-${kind}_NW-${orderNumber}`
+
+export type MarketingQueue = Queue<MarketingJobs[MarketingJobName], unknown, MarketingJobName>
+
+export function createMarketingQueue(connection: Redis, prefix?: string): MarketingQueue {
+  return new Queue(MARKETING_QUEUE, {
+    connection,
+    defaultJobOptions: DEFAULT_JOB_OPTIONS,
+    ...(prefix && { prefix }),
+  })
+}

@@ -10,6 +10,7 @@ import {
   isWithdrawal,
   NO_TARGETS,
   parseConsent,
+  readMetaCookies,
   sendEvent,
   serializeConsent,
   type TrackEvent,
@@ -143,4 +144,21 @@ export function track(event: TrackEvent): void {
     return
   }
   sendEvent(win(), s.targets, event)
+}
+
+/**
+ * Step 39b: what the order request carries for Meta's server events — ONLY
+ * when the customer allowed Marketing and the shop uses the Pixel. Otherwise
+ * nothing, and the server stores and sends nothing for this order.
+ */
+export function orderTrackingPart(): { marketing: true; fbp?: string; fbc?: string } | undefined {
+  const { consent, ids } = useTrackingStore.getState()
+  if (!consent?.marketing || !ids?.metaPixelId) return undefined
+  let cookies = ''
+  try {
+    cookies = document.cookie
+  } catch {
+    // no cookies readable → still consent, just no Meta cookies
+  }
+  return { marketing: true, ...readMetaCookies(cookies) }
 }

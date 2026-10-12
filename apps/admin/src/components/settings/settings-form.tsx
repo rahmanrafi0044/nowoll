@@ -13,6 +13,7 @@ import {
   SOCIAL_SITES,
   type StoreSettings,
 } from '@nowoll/validation'
+import Link from 'next/link'
 import { type ReactNode, useEffect, useState } from 'react'
 import { ImageField } from '@/components/content/fields'
 import { Panel } from '@/components/dashboard/panel'
@@ -70,6 +71,7 @@ const LABEL: Record<SettingKey, string> = {
   gtm_container_id: 'Google Tag Manager container ID',
   meta_pixel_id: 'Meta Pixel ID',
   meta_domain_verification: 'Meta domain verification code',
+  meta_capi_enabled: 'Send events from the server (Meta Conversions API)',
 }
 
 const NUMBER_KEYS = new Set<SettingKey>([
@@ -83,7 +85,11 @@ const NUMBER_KEYS = new Set<SettingKey>([
 ])
 /** Number boxes where empty means "none" (stored as 0) — step 38c. */
 const ZERO_IF_EMPTY = new Set<SettingKey>(['cod_max_total', 'min_order_amount'])
-const BOOLEAN_KEYS = new Set<SettingKey>(['payment_cod_enabled', 'payment_online_enabled'])
+const BOOLEAN_KEYS = new Set<SettingKey>([
+  'payment_cod_enabled',
+  'payment_online_enabled',
+  'meta_capi_enabled',
+])
 const PHONE_KEYS = new Set<SettingKey>(['store_phone', 'store_whatsapp'])
 
 type Form = Record<SettingKey, string>
@@ -398,6 +404,25 @@ export function SettingsForm({ initial }: { initial: StoreSettings }) {
           placeholder: 'a1b2c3d4e5f6g7h8i9j0',
           hint: 'Business Settings → Brand safety → Domains → Meta-tag verification. Paste the code (or the whole tag — only the code is kept).',
         })}
+        <label className="flex items-start gap-2 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4"
+            checked={form.meta_capi_enabled === 'true'}
+            onChange={(e) => set('meta_capi_enabled')(String(e.target.checked))}
+          />
+          <span>
+            <span className="font-medium">{LABEL.meta_capi_enabled}</span>
+            <span className="block text-muted-foreground">
+              Sales and delivered orders also go to Meta from the server — only for customers who
+              allowed Marketing cookies. Needs the access token on the server; check it in{' '}
+              <Link href="/admin/marketing" className="underline underline-offset-4">
+                Marketing
+              </Link>
+              .
+            </span>
+          </span>
+        </label>
       </Section>
 
       {problem && (

@@ -153,3 +153,32 @@ describe('tracking store (step 39a)', () => {
     set.mockRestore()
   })
 })
+
+describe('order request: Meta details only with Marketing consent (step 39b)', () => {
+  it('Marketing allowed + Pixel in use → consent and the Meta cookies', async () => {
+    const { orderTrackingPart } = await import('./tracking-store')
+    document.cookie = '_fbp=fb.1.1760000000000.1234567890; path=/'
+    document.cookie = '_fbc=fb.1.1760000000000.IwAR_x; path=/'
+    useTrackingStore.getState().start(IDS)
+    expect(orderTrackingPart()).toBeUndefined() // not chosen yet
+    useTrackingStore.getState().choose(ACCEPT_ALL)
+    expect(orderTrackingPart()).toEqual({
+      marketing: true,
+      fbp: 'fb.1.1760000000000.1234567890',
+      fbc: 'fb.1.1760000000000.IwAR_x',
+    })
+  })
+
+  it('analytics only, only necessary, or no Pixel → nothing at all', async () => {
+    const { orderTrackingPart } = await import('./tracking-store')
+    useTrackingStore.getState().start(IDS)
+    useTrackingStore.getState().choose({ analytics: true, marketing: false })
+    expect(orderTrackingPart()).toBeUndefined()
+
+    useTrackingStore.setState(initial, true)
+    localStorage.clear()
+    useTrackingStore.getState().start({ ...IDS, metaPixelId: '' })
+    useTrackingStore.getState().choose(ACCEPT_ALL)
+    expect(orderTrackingPart()).toBeUndefined()
+  })
+})

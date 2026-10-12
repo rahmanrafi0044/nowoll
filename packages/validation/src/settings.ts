@@ -241,6 +241,8 @@ export const SETTINGS_SCHEMA = z.object({
   gtm_container_id: trackingId(/^GTM-[A-Z0-9]{4,12}$/, 'A container ID looks like GTM-AB12CD3'),
   meta_pixel_id: trackingId(/^[0-9]{10,20}$/, 'A Pixel ID is 10–20 digits, e.g. 123456789012345'),
   meta_domain_verification: metaVerification,
+  /** Step 39b: send Purchase / OrderDelivered from the server (needs the token in the server .env). */
+  meta_capi_enabled: z.boolean(),
 })
 
 export type StoreSettings = z.output<typeof SETTINGS_SCHEMA>
@@ -285,6 +287,7 @@ export const SETTING_DEFAULTS: StoreSettings = {
   gtm_container_id: '',
   meta_pixel_id: '',
   meta_domain_verification: '',
+  meta_capi_enabled: false,
 }
 
 /** Shown to everyone by GET /settings/public. Never the admin email or internal limits. */

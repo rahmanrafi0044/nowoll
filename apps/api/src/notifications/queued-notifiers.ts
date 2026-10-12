@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import { notificationJobId, orderJobId } from '@nowoll/queues'
+import { metaEventJobId, notificationJobId, orderJobId } from '@nowoll/queues'
+import { PrismaService } from '../prisma/prisma.service.js'
 import type { LowStockAlert, LowStockAlerter } from '../inventory/low-stock-alerter.js'
 import type {
   OrderNotifier,
@@ -7,7 +8,38 @@ import type {
   PaymentConfirmedEvent,
 } from '../orders/order-notifier.js'
 import type { CustomerNotifier } from './customer-notifier.js'
-import { NotificationsQueueService, OrdersQueueService } from './orders-queue.js'
+import {
+  MarketingQueueService,
+  NotificationsQueueService,
+  OrdersQueueService,
+} from './orders-queue.js'
+
+/**
+ * Meta server events (step 39b) — queued ONLY for orders whose customer
+ * allowed "Marketing" (their order has a saved order_tracking row). Whether
+ * the switch is on and the token set is checked by the worker, which logs a
+ * "skipped" line Rafi can see in Admin → Marketing.
+ */
+@Injectable()
+export class QueuedMarketingEvents {
+  constructor(
+    private readonly queue: MarketingQueueService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  async orderEvent(kind: 'purchase' | 'delivered', orderId: string): Promise<void> {
+    const consented = await this.prisma.orderTracking.findUnique({
+      where: { orderId },
+      select: { order: { select: { orderNumber: true } } },
+    })
+    if (!consented) return
+    await this.queue.add(
+      'meta-event',
+      { kind, orderId },
+      { jobId: metaEventJobId(kind, consented.order.orderNumber) },
+    )
+  }
+}
 
 /**
  * Order events → jobs for the order worker (step 27 decision #2):
@@ -18,8 +50,12 @@ import { NotificationsQueueService, OrdersQueueService } from './orders-queue.js
  */
 @Injectable()
 export class QueuedOrderNotifier implements OrderNotifier {
-  constructor(private readonly queue: OrdersQueueService) {}
+  constructor(
+    private readonly queue: OrdersQueueService,
+    private readonly marketing: QueuedMarketingEvents,
+  ) {}
 
+  // A sale for Meta (step 39b): cash on delivery when placed, online when paid.
   async orderPlaced(e: OrderPlacedEvent): Promise<void> {
     if (e.paymentMethod !== 'COD') return
     await this.queue.add(
@@ -27,6 +63,7 @@ export class QueuedOrderNotifier implements OrderNotifier {
       { orderId: e.orderId },
       { jobId: orderJobId('order-confirmation', e.orderNumber) },
     )
+    await this.marketing.orderEvent('purchase', e.orderId)
   }
 
   async paymentConfirmed(e: PaymentConfirmedEvent): Promise<void> {
@@ -35,6 +72,7 @@ export class QueuedOrderNotifier implements OrderNotifier {
       { orderId: e.orderId },
       { jobId: orderJobId('payment-confirmed', e.orderNumber) },
     )
+    await this.marketing.orderEvent('purchase', e.orderId)
   }
 }
 
@@ -51,7 +89,10 @@ export class QueuedLowStockAlerter implements LowStockAlerter {
 /** Account, newsletter, returns, refunds, shipping → jobs for the notification worker. */
 @Injectable()
 export class QueuedCustomerNotifier implements CustomerNotifier {
-  constructor(private readonly queue: NotificationsQueueService) {}
+  constructor(
+    private readonly queue: NotificationsQueueService,
+    private readonly marketing: QueuedMarketingEvents,
+  ) {}
 
   async welcome(userId: string) {
     await this.queue.add('welcome', { userId }, { jobId: notificationJobId('welcome', userId) })
@@ -99,5 +140,6 @@ export class QueuedCustomerNotifier implements CustomerNotifier {
       { orderId },
       { jobId: notificationJobId('order-delivered', orderId) },
     )
+    await this.marketing.orderEvent('delivered', orderId) // "OrderDelivered" for Meta (step 39b)
   }
 }

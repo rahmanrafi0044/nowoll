@@ -2,7 +2,7 @@
   "name": "@nowoll/api",
   "version": "0.0.0",
   "private": true,
-  "description": "Nowoll REST API (NestJS) — served at /api/v1",
+  "description": "Nowoll REST API (NestJS) \u2014 served at /api/v1",
   "type": "module",
   "scripts": {
     "build": "nest build -p tsconfig.build.json",
@@ -25,6 +25,7 @@
     "@nestjs/platform-express": "^12.1.2",
     "@nestjs/schedule": "^12.0.2",
     "@nestjs/throttler": "^6.7.1",
+    "@nowoll/analytics": "workspace:*",
     "@nowoll/database": "workspace:*",
     "@nowoll/payments": "workspace:*",
     "@nowoll/queues": "workspace:^",

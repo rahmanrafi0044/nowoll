@@ -247,4 +247,15 @@ describe('Payments (step 38c)', () => {
     })
     expect(screen.getByRole('note')).toHaveTextContent(/counted twice/)
   })
+
+  it('server events switch (step 39b): sent as true/false', async () => {
+    render(<SettingsPage />)
+    const box = await screen.findByRole('checkbox', { name: /Send events from the server/ })
+    expect(box).not.toBeChecked()
+    fireEvent.click(box)
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    await waitFor(() =>
+      expect(mocked.saveSettings).toHaveBeenCalledWith({ meta_capi_enabled: true }),
+    )
+  })
 })

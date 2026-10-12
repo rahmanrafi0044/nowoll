@@ -78,6 +78,16 @@ export class EnvironmentVariables {
   @IsIn(['true', 'false'])
   SSLCOMMERZ_IS_LIVE?: 'true' | 'false'
 
+  // Meta Conversions API (step 39b, docs/integrations/meta.md). SERVER ONLY,
+  // never admin-editable (CLAUDE.md Rule 9). Optional: without it, server
+  // events are skipped and Admin → Marketing says the token is missing.
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @Matches(/^[A-Za-z0-9]{50,500}$/, {
+    message: 'META_CAPI_ACCESS_TOKEN must be the token from Meta (letters and numbers only)',
+  })
+  META_CAPI_ACCESS_TOKEN?: string
+
   // Which site the login cookies belong to. Production: ".nowoll.com", so both
   // nowoll.com (the shop) and api.nowoll.com (this API) see them. Development:
   // leave empty — localhost cookies are already shared between ports.

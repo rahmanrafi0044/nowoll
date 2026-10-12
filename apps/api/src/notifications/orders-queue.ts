@@ -1,6 +1,9 @@
 import { Inject, Injectable, Logger, type OnApplicationShutdown } from '@nestjs/common'
 import type {
   JobsOptions,
+  MarketingJobName,
+  MarketingJobs,
+  MarketingQueue,
   NotificationJobName,
   NotificationJobs,
   NotificationsQueue,
@@ -11,8 +14,9 @@ import type {
 
 export const ORDERS_QUEUE = Symbol('ORDERS_QUEUE')
 export const NOTIFICATIONS_QUEUE = Symbol('NOTIFICATIONS_QUEUE')
+export const MARKETING_QUEUE = Symbol('MARKETING_QUEUE')
 
-type AnyQueue = OrdersQueue | NotificationsQueue
+type AnyQueue = OrdersQueue | NotificationsQueue | MarketingQueue
 
 /**
  * Adds jobs to a queue. Never throws: by the time a job is added, the thing it
@@ -65,6 +69,15 @@ export class OrdersQueueService extends SafeQueue<OrderJobs, OrderJobName> {
 export class NotificationsQueueService extends SafeQueue<NotificationJobs, NotificationJobName> {
   protected readonly logger = new Logger('NotificationsQueue')
   constructor(@Inject(NOTIFICATIONS_QUEUE) queue: NotificationsQueue) {
+    super(queue)
+  }
+}
+
+/** Meta Conversions API events (step 39b). */
+@Injectable()
+export class MarketingQueueService extends SafeQueue<MarketingJobs, MarketingJobName> {
+  protected readonly logger = new Logger('MarketingQueue')
+  constructor(@Inject(MARKETING_QUEUE) queue: MarketingQueue) {
     super(queue)
   }
 }

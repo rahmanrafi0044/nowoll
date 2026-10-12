@@ -129,3 +129,14 @@ describe('taking consent back', () => {
     expect(cookieDomains('127.0.0.1')).toEqual(['127.0.0.1'])
   })
 })
+
+describe("reading Meta's cookies at checkout (step 39b)", () => {
+  it('takes _fbp and _fbc only when they look exactly like Meta’s', async () => {
+    const { readMetaCookies } = await import('./meta-cookies.js')
+    expect(
+      readMetaCookies('a=1; _fbp=fb.1.1760000000000.1234567890; _fbc=fb.1.1760000000000.IwAR_x-Y'),
+    ).toEqual({ fbp: 'fb.1.1760000000000.1234567890', fbc: 'fb.1.1760000000000.IwAR_x-Y' })
+    expect(readMetaCookies('_fbp=hello; _fbc=fb.1.1.<script>')).toEqual({})
+    expect(readMetaCookies('')).toEqual({})
+  })
+})
