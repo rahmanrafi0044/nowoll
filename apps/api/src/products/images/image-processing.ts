@@ -26,8 +26,8 @@ const MAX_INPUT_PIXELS = 40_000_000
 
 export interface ProcessedImage {
   data: Buffer
-  contentType: `image/${ImageKind}`
-  extension: 'jpg' | 'png' | 'webp'
+  contentType: 'image/jpeg' | 'image/png'
+  extension: 'jpg' | 'png'
   width: number
   height: number
 }
@@ -38,6 +38,7 @@ export interface ProcessedImage {
  *  - re-encoding drops ALL metadata — including GPS coordinates of where the
  *    photo was taken (sharp only keeps metadata if asked with keepMetadata())
  *  - shrinks anything larger than 2400px on its longest side
+ *  - saves WebP as JPEG (Meta's catalogue accepts only JPEG/PNG)
  * Throws if the bytes aren't a decodable image (corrupt or disguised files).
  */
 export async function processImage(input: Buffer, kind: ImageKind): Promise<ProcessedImage> {
@@ -50,18 +51,20 @@ export async function processImage(input: Buffer, kind: ImageKind): Promise<Proc
       withoutEnlargement: true,
     })
 
+  // WebP is SAVED AS JPEG (step 39c): Meta's catalogue (and many email apps)
+  // refuse WebP. Customers lose nothing — next/image still sends modern
+  // formats to browsers. A see-through WebP gets a white background.
+  const out = kind === 'png' ? 'png' : 'jpeg'
   pipeline =
-    kind === 'jpeg'
-      ? pipeline.jpeg({ quality: 88, mozjpeg: true })
-      : kind === 'png'
-        ? pipeline.png({ compressionLevel: 9 })
-        : pipeline.webp({ quality: 88 })
+    out === 'png'
+      ? pipeline.png({ compressionLevel: 9 })
+      : pipeline.flatten({ background: '#ffffff' }).jpeg({ quality: 88, mozjpeg: true })
 
   const { data, info } = await pipeline.toBuffer({ resolveWithObject: true })
   return {
     data,
-    contentType: `image/${kind}`,
-    extension: kind === 'jpeg' ? 'jpg' : kind,
+    contentType: `image/${out}`,
+    extension: out === 'jpeg' ? 'jpg' : 'png',
     width: info.width,
     height: info.height,
   }

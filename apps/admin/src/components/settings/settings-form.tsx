@@ -72,6 +72,7 @@ const LABEL: Record<SettingKey, string> = {
   meta_pixel_id: 'Meta Pixel ID',
   meta_domain_verification: 'Meta domain verification code',
   meta_capi_enabled: 'Send events from the server (Meta Conversions API)',
+  meta_catalog_enabled: 'Catalog feed for Meta', // switched in Admin → Marketing (step 39c)
 }
 
 const NUMBER_KEYS = new Set<SettingKey>([
@@ -89,6 +90,7 @@ const BOOLEAN_KEYS = new Set<SettingKey>([
   'payment_cod_enabled',
   'payment_online_enabled',
   'meta_capi_enabled',
+  'meta_catalog_enabled',
 ])
 const PHONE_KEYS = new Set<SettingKey>(['store_phone', 'store_whatsapp'])
 

@@ -1,13 +1,19 @@
 'use client'
 
-import type { MarketingStatusView, MetaEventLogView } from '@nowoll/types'
+import type { CatalogFeedReportView, MarketingStatusView, MetaEventLogView } from '@nowoll/types'
 import { Badge, Button, Input } from '@nowoll/ui'
 import Link from 'next/link'
 import { type FormEvent, type ReactNode, useState } from 'react'
 import { Panel } from '@/components/dashboard/panel'
 import { useLoad } from '@/components/dashboard/use-load'
 import { formatInstantDateTime } from '@/lib/date'
-import { fetchMarketingStatus, fetchMetaEvents, sendTestEvent } from '@/lib/marketing-api'
+import {
+  fetchCatalogFeed,
+  fetchMarketingStatus,
+  fetchMetaEvents,
+  sendTestEvent,
+} from '@/lib/marketing-api'
+import { saveSettings } from '@/lib/settings-api'
 
 // ============================================================================
 // Admin → Marketing (step 39b). ADMIN only (the API enforces it).
@@ -39,6 +45,7 @@ export function MarketingPage() {
         {(s) => <Checklist s={s} />}
       </Panel>
       <TestEvent onSent={refreshAll} />
+      <CatalogFeed />
       <Panel
         title="Delivery log"
         subtitle="The newest 100 events. No customer details are kept here."
@@ -224,6 +231,102 @@ function Log({ rows }: { rows: MetaEventLogView[] }) {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// ── Catalog feed (step 39c) ────────────────────────────────────────────────
+
+function CatalogFeed() {
+  const { state, retry, refresh } = useLoad(fetchCatalogFeed)
+  return (
+    <Panel
+      title="Catalog feed"
+      subtitle="Your products for Meta’s catalogue (dynamic ads, Instagram/Facebook Shops). Meta fetches this address on a schedule — each size/colour is one item, with the same codes as the Pixel."
+      state={state}
+      retry={retry}
+    >
+      {(feed) => <FeedDetails feed={feed} onChanged={refresh} />}
+    </Panel>
+  )
+}
+
+function FeedDetails({ feed, onChanged }: { feed: CatalogFeedReportView; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
+
+  async function toggle() {
+    setBusy(true)
+    setNote(null)
+    const r = await saveSettings({ meta_catalog_enabled: !feed.enabled })
+    setBusy(false)
+    if (!r.ok) return setNote({ ok: false, text: r.message })
+    onChanged()
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(feed.url)
+      setNote({
+        ok: true,
+        text: 'Copied. Paste it in Meta Commerce Manager → Data sources → Data feed.',
+      })
+    } catch {
+      setNote({ ok: false, text: 'Couldn’t copy — select the address and copy it by hand.' })
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 text-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge variant={feed.enabled ? 'success' : 'neutral'}>{feed.enabled ? 'On' : 'Off'}</Badge>
+        <Button size="sm" variant="secondary" disabled={busy} onClick={() => void toggle()}>
+          {busy ? 'Saving…' : feed.enabled ? 'Switch off' : 'Switch on'}
+        </Button>
+        <span className="text-muted-foreground">
+          {feed.items} item{feed.items === 1 ? '' : 's'} (sizes/colours)
+        </span>
+      </div>
+      {feed.enabled ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="rounded-control bg-surface-muted px-2 py-1 break-all">{feed.url}</code>
+          <Button size="sm" variant="ghost" onClick={() => void copy()}>
+            Copy
+          </Button>
+          <a
+            href={feed.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-4"
+          >
+            Open
+          </a>
+        </div>
+      ) : (
+        <p className="text-muted-foreground">
+          Off: the address answers “not found”. Switch it on when you’re ready to connect Meta.
+        </p>
+      )}
+      {note && (
+        <p role={note.ok ? 'status' : 'alert'} className={note.ok ? 'text-success' : 'text-danger'}>
+          {note.text}
+        </p>
+      )}
+      {feed.skipped.length > 0 && (
+        <div>
+          <p className="font-medium">Left out of the feed ({feed.skipped.length})</p>
+          <ul aria-label="Left out of the feed" className="mt-1 flex flex-col gap-1">
+            {feed.skipped.map((p) => (
+              <li key={p.id}>
+                <Link href={`/admin/products/${p.id}`} className="underline underline-offset-4">
+                  {p.name}
+                </Link>{' '}
+                — <span className="text-muted-foreground">{p.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
