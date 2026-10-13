@@ -11,6 +11,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express'
 import { Prisma } from '@nowoll/database'
 import request from 'supertest'
 import { AnalyticsService } from '../src/analytics/analytics.service.js'
+import { periodFor } from '../src/analytics/period.js'
 import { createTestApp } from './utils/app.js'
 import { makeCategory, makeProduct } from './utils/factories.js'
 import { resetDatabase, testPrisma } from './utils/test-db.js'
@@ -19,6 +20,9 @@ const db = testPrisma()
 afterAll(() => db.$disconnect())
 
 const NOW = new Date('2026-10-06T06:00:00Z') // 12:00 noon in Dhaka, 6 Oct
+/** The last N shop days up to NOW, or from/to dates. */
+const last = (days: number) => periodFor({ days }, NOW)
+const dates = (from: string, to: string) => periodFor({ from, to, days: 30 }, NOW)
 type Status =
   'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'RETURNED'
 
@@ -33,6 +37,9 @@ async function order(
     paymentStatus?: 'PENDING' | 'PAID' | 'UNDER_REVIEW'
     items?: { productId?: string | null; name: string; quantity: number; lineTotal: number }[]
     userId?: string
+    email?: string
+    name?: string
+    zone?: string
   } = {},
 ) {
   n += 1
@@ -43,13 +50,13 @@ async function order(
       status,
       paymentMethod: extra.method ?? 'COD',
       paymentStatus: extra.paymentStatus ?? 'PENDING',
-      email: `buyer${n}@example.com`,
+      email: extra.email ?? `buyer${n}@example.com`,
       phone: '+8801712345678',
-      customerName: 'Buyer',
+      customerName: extra.name ?? 'Buyer',
       shippingAddressLine1: 'House 1',
       shippingDistrict: 'Dhaka',
       shippingDivision: 'Dhaka',
-      shippingZoneName: 'Inside Dhaka',
+      shippingZoneName: extra.zone ?? 'Inside Dhaka',
       subtotal: new Prisma.Decimal(total),
       total: new Prisma.Decimal(total),
       createdAt: new Date(at),
@@ -172,7 +179,7 @@ describe('analytics (step 29b)', () => {
       await order('2026-09-29T18:00:00Z', 'PROCESSING', 200) // 30 Sep
       await order('2026-09-29T17:59:59Z', 'DELIVERED', 4000) // 29 Sep — outside 7 days
 
-      const r = await analytics.revenue(7, NOW)
+      const r = await analytics.revenue(last(7))
       expect(r.days).toEqual([
         { date: '2026-09-30', revenue: '200', orders: 1 },
         { date: '2026-10-01', revenue: '0', orders: 0 },
@@ -188,7 +195,7 @@ describe('analytics (step 29b)', () => {
     it('keeps the poisha (no rounding of sums)', async () => {
       await order('2026-10-06T01:00:00Z', 'CONFIRMED', 100.25)
       await order('2026-10-06T02:00:00Z', 'CONFIRMED', 0.5)
-      const r = await analytics.revenue(1, NOW)
+      const r = await analytics.revenue(last(1))
       expect(r.days).toEqual([{ date: '2026-10-06', revenue: '100.75', orders: 2 }])
     })
   })
@@ -220,7 +227,7 @@ describe('analytics (step 29b)', () => {
         items: [{ productId: chino.id, name: 'Chino', quantity: 50, lineTotal: 99500 }], // > 30 days ago
       })
 
-      const top = await analytics.topProducts(30, 5, NOW)
+      const top = await analytics.topProducts(last(30), 5)
       expect(top.from).toBe('2026-09-07')
       expect(top.to).toBe('2026-10-06')
       expect(top.items).toEqual([
@@ -250,7 +257,7 @@ describe('analytics (step 29b)', () => {
         await order('2026-10-06T01:00:00Z', 'CONFIRMED', 0, {
           items: [{ name: `Gone ${i}`, quantity: i, lineTotal: 100 * i }],
         })
-      const top = await analytics.topProducts(30, 2, NOW)
+      const top = await analytics.topProducts(last(30), 2)
       expect(top.items.map((p) => p.name)).toEqual(['Gone 4', 'Gone 3'])
     })
   })
@@ -269,20 +276,275 @@ describe('analytics (step 29b)', () => {
     })
 
     it('rejects bad ranges', async () => {
-      for (const q of ['days=0', 'days=91', 'days=abc'])
+      for (const q of [
+        'days=0',
+        'days=367', // at most a year (step 40)
+        'days=abc',
+        'from=2026-09-01', // both or neither
+        'from=2026-09-31&to=2026-10-01', // no 31 September
+        'from=2026-10-05&to=2026-10-01', // backwards
+        'from=2025-01-01&to=2026-01-02', // over 366 days
+        'from=1%2F9%2F2026&to=2026-10-01',
+        'groupBy=year',
+      ])
         await http().get(`/api/v1/analytics/revenue?${q}`).expect(400)
-      for (const q of ['limit=0', 'limit=21', 'days=366'])
+      for (const q of ['limit=0', 'limit=51', 'days=367'])
         await http().get(`/api/v1/analytics/top-products?${q}`).expect(400)
+      await http().get('/api/v1/analytics/top-categories?level=brand').expect(400)
     })
 
     it('every analytics route is admin-only (staff + 2FA)', async () => {
       const outsider = await createTestApp({ asAdmin: false })
       try {
-        for (const path of ['summary', 'revenue', 'top-products'])
+        for (const path of [
+          'summary',
+          'revenue',
+          'top-products',
+          'top-categories',
+          'customers',
+          'orders',
+        ])
           await request(outsider.getHttpServer()).get(`/api/v1/analytics/${path}`).expect(401)
       } finally {
         await outsider.close()
       }
+    })
+
+    it('step 40: the dashboard numbers stay open to Staff; the detail is Admin only', async () => {
+      const staff = await createTestApp({ asAdmin: true, role: 'STAFF' })
+      try {
+        const h = () => request(staff.getHttpServer())
+        for (const path of ['summary', 'revenue', 'top-products'])
+          await h().get(`/api/v1/analytics/${path}`).expect(200)
+        for (const path of ['top-categories', 'customers', 'orders'])
+          await h().get(`/api/v1/analytics/${path}`).expect(403)
+      } finally {
+        await staff.close()
+      }
+    })
+
+    it('from/to over HTTP: answers for exactly those Dhaka days', async () => {
+      const r = await http()
+        .get('/api/v1/analytics/revenue?from=2026-09-01&to=2026-09-30')
+        .expect(200)
+      expect(r.body.data).toMatchObject({ from: '2026-09-01', to: '2026-09-30', groupBy: 'day' })
+      expect(r.body.data.days).toHaveLength(30)
+      expect(r.body.data.previous).toMatchObject({ from: '2026-08-02', to: '2026-08-31' })
+    })
+  })
+})
+
+// ── Step 40: the analytics page ─────────────────────────────────────────────
+describe('analytics (step 40)', () => {
+  let app: NestExpressApplication
+  let analytics: AnalyticsService
+
+  beforeAll(async () => {
+    app = await createTestApp({ asAdmin: true })
+    analytics = app.get(AnalyticsService)
+  })
+  afterAll(() => app.close())
+  beforeEach(() => resetDatabase())
+
+  describe('periods', () => {
+    it('from/to = whole Dhaka days: 00:00 on the first day in, 00:00 after the last day out', async () => {
+      await order('2026-08-31T18:00:00Z', 'CONFIRMED', 100) // 00:00 1 Sep Dhaka → in
+      await order('2026-08-31T17:59:59Z', 'CONFIRMED', 999) // 23:59:59 31 Aug → out
+      await order('2026-09-30T17:59:59Z', 'CONFIRMED', 50) // 23:59:59 30 Sep → in
+      await order('2026-09-30T18:00:00Z', 'CONFIRMED', 999) // 00:00 1 Oct → out
+      const r = await analytics.revenue(dates('2026-09-01', '2026-09-30'))
+      expect(r).toMatchObject({ total: '150', orders: 2 })
+    })
+
+    it('previous period: the same number of days just before, with its own totals', async () => {
+      await order('2026-09-05T06:00:00Z', 'DELIVERED', 300) // previous 7 days (30 Aug – 5 Sep)
+      await order('2026-09-08T06:00:00Z', 'DELIVERED', 500) // the period (6 – 12 Sep)
+      const r = await analytics.revenue(dates('2026-09-06', '2026-09-12'))
+      expect(r.previous).toEqual({
+        from: '2026-08-30',
+        to: '2026-09-05',
+        revenue: '300',
+        orders: 1,
+      })
+      expect(r.total).toBe('500')
+    })
+  })
+
+  describe('revenue chart grouping', () => {
+    it('by day up to 92 days, by 7-day blocks beyond (the last block may be short)', async () => {
+      expect((await analytics.revenue(last(92))).groupBy).toBe('day')
+      await order('2026-01-01T06:00:00Z', 'CONFIRMED', 70) // in the first block
+      await order('2026-01-08T06:00:00Z', 'CONFIRMED', 30) // the second block
+      const r = await analytics.revenue(dates('2026-01-01', '2026-04-30')) // 120 days
+      expect(r.groupBy).toBe('week')
+      expect(r.points).toHaveLength(18) // 17 full weeks + 1 day
+      expect(r.points[0]).toEqual({
+        start: '2026-01-01',
+        end: '2026-01-07',
+        revenue: '70',
+        orders: 1,
+      })
+      expect(r.points[1]).toMatchObject({ start: '2026-01-08', revenue: '30' })
+      expect(r.points.at(-1)).toMatchObject({ start: '2026-04-30', end: '2026-04-30' })
+    })
+
+    it('by calendar month when asked (partial first and last months)', async () => {
+      await order('2026-09-20T06:00:00Z', 'CONFIRMED', 10)
+      await order('2026-10-01T06:00:00Z', 'CONFIRMED', 20)
+      const r = await analytics.revenue(dates('2026-09-15', '2026-11-10'), 'month')
+      expect(r.points).toEqual([
+        { start: '2026-09-15', end: '2026-09-30', revenue: '10', orders: 1 },
+        { start: '2026-10-01', end: '2026-10-31', revenue: '20', orders: 1 },
+        { start: '2026-11-01', end: '2026-11-10', revenue: '0', orders: 0 },
+      ])
+      expect(r.days).toHaveLength(57) // the daily list is always there too
+    })
+  })
+
+  describe('top categories', () => {
+    it('each category with its path; rolled up to the top level; deleted products as "Unknown"', async () => {
+      const men = await makeCategory({ name: 'Men' })
+      const shirts = await makeCategory({ name: 'Shirts', parentId: men.id })
+      const pants = await makeCategory({ name: 'Pants', parentId: men.id })
+      const women = await makeCategory({ name: 'Women', isActive: false }) // hidden still counts
+      const shirt = await makeProduct({ categoryId: shirts.id, name: 'Shirt' })
+      const chino = await makeProduct({ categoryId: pants.id, name: 'Chino' })
+      const kurti = await makeProduct({ categoryId: women.id, name: 'Kurti' })
+      await order('2026-10-06T01:00:00Z', 'CONFIRMED', 0, {
+        items: [
+          { productId: shirt.id, name: 'Shirt', quantity: 2, lineTotal: 3000 },
+          { productId: chino.id, name: 'Chino', quantity: 1, lineTotal: 2000 },
+          { productId: kurti.id, name: 'Kurti', quantity: 1, lineTotal: 1500 },
+          { productId: null, name: 'Old thing', quantity: 1, lineTotal: 100 },
+        ],
+      })
+      await order('2026-10-06T02:00:00Z', 'CANCELLED', 0, {
+        items: [{ productId: shirt.id, name: 'Shirt', quantity: 9, lineTotal: 9000 }], // not a sale
+      })
+      await order('2026-09-28T02:00:00Z', 'DELIVERED', 0, {
+        items: [{ productId: shirt.id, name: 'Shirt', quantity: 1, lineTotal: 400 }], // previous 7 days
+      })
+
+      const each = await analytics.topCategories(last(7), 'category', 10)
+      expect(each.items).toEqual([
+        {
+          categoryId: shirts.id,
+          name: 'Shirts',
+          path: 'Men > Shirts',
+          unitsSold: 2,
+          revenue: '3000',
+        },
+        { categoryId: pants.id, name: 'Pants', path: 'Men > Pants', unitsSold: 1, revenue: '2000' },
+        { categoryId: women.id, name: 'Women', path: 'Women', unitsSold: 1, revenue: '1500' },
+        {
+          categoryId: null,
+          name: 'Unknown category',
+          path: 'Unknown category',
+          unitsSold: 1,
+          revenue: '100',
+        },
+      ])
+      expect(each).toMatchObject({ total: '6600', previousTotal: '400', level: 'category' })
+
+      const top = await analytics.topCategories(last(7), 'top', 10)
+      expect(top.items.map((c) => [c.path, c.revenue, c.unitsSold])).toEqual([
+        ['Men', '5000', 3],
+        ['Women', '1500', 1],
+        ['Unknown category', '100', 1],
+      ])
+      expect((await analytics.topCategories(last(7), 'category', 2)).items).toHaveLength(2)
+      expect((await analytics.topCategories(last(7), 'category', 2)).total).toBe('6600') // all, not just shown
+    })
+  })
+
+  describe('customers', () => {
+    it('by email (guests too): new vs returning, repeat rate, top spenders — no addresses', async () => {
+      // Rafi bought before the period → returning; buys twice inside.
+      await order('2026-08-01T06:00:00Z', 'DELIVERED', 100, { email: 'rafi@example.com' })
+      await order('2026-10-01T06:00:00Z', 'DELIVERED', 2000, {
+        email: 'Rafi@Example.com',
+        name: 'Rafi',
+      })
+      await order('2026-10-05T06:00:00Z', 'CONFIRMED', 1000, {
+        email: 'rafi@example.com',
+        name: 'Rafi R.',
+      })
+      // Mita: first ever purchase inside → new.
+      await order('2026-10-02T06:00:00Z', 'SHIPPED', 2500, {
+        email: 'mita@example.com',
+        name: 'Mita',
+      })
+      // A cancelled order doesn't make a customer; nor does an unconfirmed one.
+      await order('2026-10-03T06:00:00Z', 'CANCELLED', 9999, { email: 'no@example.com' })
+      await order('2026-10-03T06:00:00Z', 'PENDING', 9999, { email: 'no@example.com' })
+
+      const r = await analytics.customers(last(7), 10)
+      expect(r).toMatchObject({
+        customers: 2,
+        newCustomers: 1,
+        returningCustomers: 1,
+        repeatRate: 50, // 1 of 2 bought twice
+      })
+      expect(r.topCustomers).toEqual([
+        { email: 'rafi@example.com', name: 'Rafi R.', userId: null, orders: 2, spent: '3000' },
+        { email: 'mita@example.com', name: 'Mita', userId: null, orders: 1, spent: '2500' },
+      ])
+      expect(JSON.stringify(r)).not.toMatch(/House|\+880/) // never address or phone
+    })
+
+    it('previous period counts; nobody → zeros, not a division by zero', async () => {
+      const empty = await analytics.customers(last(7), 10)
+      expect(empty).toMatchObject({
+        customers: 0,
+        newCustomers: 0,
+        repeatRate: 0,
+        topCustomers: [],
+      })
+      await order('2026-09-25T06:00:00Z', 'DELIVERED', 100, { email: 'a@example.com' })
+      expect((await analytics.customers(last(7), 10)).previous).toEqual({
+        customers: 1,
+        newCustomers: 1,
+      })
+    })
+  })
+
+  describe('order outcomes', () => {
+    it('every order placed in the period, where it is now; cancellation rate; splits of sales', async () => {
+      await order('2026-10-01T06:00:00Z', 'DELIVERED', 1000)
+      await order('2026-10-02T06:00:00Z', 'SHIPPED', 500, {
+        method: 'SSLCOMMERZ',
+        zone: 'Outside Dhaka',
+      })
+      await order('2026-10-03T06:00:00Z', 'PENDING', 700)
+      await order('2026-10-04T06:00:00Z', 'CANCELLED', 900)
+      await order('2026-10-04T07:00:00Z', 'RETURNED', 300)
+      await order('2026-09-25T06:00:00Z', 'CANCELLED', 100) // previous period
+      await order('2026-09-26T06:00:00Z', 'DELIVERED', 100)
+
+      const r = await analytics.orders(last(7))
+      expect(r).toMatchObject({
+        placed: 5,
+        outcomes: { sale: 2, delivered: 1, pending: 1, cancelled: 1, returned: 1 },
+        cancellationRate: 20,
+        previous: { placed: 2, cancellationRate: 50 },
+      })
+      expect(r.byPaymentMethod).toEqual([
+        { method: 'COD', orders: 1, revenue: '1000' },
+        { method: 'SSLCOMMERZ', orders: 1, revenue: '500' },
+      ])
+      expect(r.byZone).toEqual([
+        { zone: 'Inside Dhaka', orders: 1, revenue: '1000' },
+        { zone: 'Outside Dhaka', orders: 1, revenue: '500' },
+      ])
+    })
+
+    it('no orders → zeros and empty splits', async () => {
+      expect(await analytics.orders(last(7))).toMatchObject({
+        placed: 0,
+        cancellationRate: 0,
+        byPaymentMethod: [],
+        byZone: [],
+      })
     })
   })
 })
