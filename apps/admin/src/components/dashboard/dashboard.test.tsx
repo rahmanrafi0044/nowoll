@@ -40,6 +40,13 @@ const REVENUE: RevenueSeries = {
     day('2026-10-06', '1300', 2),
   ],
   total: '2000',
+  // Step 40 additions (the dashboard reads only days + total).
+  from: '2026-09-30',
+  to: '2026-10-06',
+  groupBy: 'day',
+  points: [],
+  orders: 4,
+  previous: { from: '2026-09-23', to: '2026-09-29', revenue: '0', orders: 0 },
 }
 const TOP: TopProducts = {
   from: '2026-09-07',
@@ -160,7 +167,11 @@ describe('Dashboard', () => {
 
   it('chart: a week without sales says so instead of drawing an empty chart', async () => {
     mocked.fetchRevenue.mockResolvedValue(
-      ok({ days: REVENUE.days.map((d) => ({ ...d, revenue: '0', orders: 0 })), total: '0' }),
+      ok({
+        ...REVENUE,
+        days: REVENUE.days.map((d) => ({ ...d, revenue: '0', orders: 0 })),
+        total: '0',
+      }),
     )
     render(<Dashboard />)
     expect(await screen.findByText('No sales in these 7 days yet.')).toBeInTheDocument()

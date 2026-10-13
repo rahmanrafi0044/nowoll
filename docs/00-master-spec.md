@@ -335,8 +335,9 @@ Everything the admin panel can and can't change — with the safety rules — is
 │   ├── GET    /summary     (admin)
 │   ├── GET    /revenue     (admin)
 │   ├── GET    /top-products (admin)
-│   ├── GET    /top-categories (admin)
-│   └── GET    /customers   (admin)
+│   ├── GET    /top-categories (admin — ADMIN role)
+│   ├── GET    /customers   (admin — ADMIN role)
+│   └── GET    /orders      (admin — ADMIN role: outcomes, cancellation rate, splits)  — docs/analytics.md
 ├── blog/
 │   ├── GET    /            (public, published only)
 │   ├── GET    /:slug       (public)
