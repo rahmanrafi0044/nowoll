@@ -21,6 +21,7 @@ import { type AdminProfile, fetchAdmin, signOut } from '@/lib/admin-auth-api'
 // — the API refuses them anyway (403 ADMIN_ONLY); hiding just avoids dead ends.
 const NAV: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: '/admin/dashboard', label: 'Dashboard' },
+  { href: '/admin/analytics', label: 'Analytics', adminOnly: true },
   { href: '/admin/orders', label: 'Orders' },
   { href: '/admin/products', label: 'Products' },
   { href: '/admin/categories', label: 'Categories' },

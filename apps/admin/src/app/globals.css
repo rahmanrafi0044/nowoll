@@ -9,10 +9,13 @@
   }
 }
 
-/* Chart colours (dashboard). One series → one hue: slot 1 of the dataviz
-   reference palette, validated on the white card (contrast ≥ 3:1). */
+/* Chart colours. Slots 1–2 of the dataviz reference palette, in that fixed
+   order, validated together on the white card (contrast ≥ 3:1, colour-blind
+   separation ΔE 24.7). Slot 2 = "the previous period" on the Analytics page
+   (step 41) — also drawn dashed, so it never relies on colour alone. */
 @theme {
   --color-chart-1: #2a78d6;
+  --color-chart-2: #eb6834;
   --color-chart-grid: #e5e5e5;
 }
 
