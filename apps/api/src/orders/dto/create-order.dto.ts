@@ -137,4 +137,12 @@ export class CreateOrderDto {
   @ValidateNested()
   @Type(() => OrderTrackingDto)
   tracking?: OrderTrackingDto
+
+  /**
+   * Step 42: the customer TICKED "Email me new arrivals and offers" (the box
+   * starts unticked). Still double opt-in: they get a confirmation email.
+   */
+  @IsOptional()
+  @IsBoolean()
+  newsletter?: boolean
 }

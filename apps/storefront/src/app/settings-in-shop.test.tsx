@@ -177,3 +177,21 @@ describe('marketing and tracking (step 39a)', () => {
     expect(screen.getByRole('button', { name: 'Cookie settings' })).toBeInTheDocument()
   })
 })
+
+describe('newsletter in the footer (step 42)', () => {
+  it('shown by default (with its own label); hidden when switched off', () => {
+    const footer = footerSchema.parse({})
+    const { unmount } = render(<SiteFooter pages={[]} settings={settings()} footer={footer} />)
+    expect(screen.getByRole('region', { name: 'Get new arrivals by email' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Your email for the newsletter')).toBeInTheDocument()
+    unmount()
+    render(
+      <SiteFooter
+        pages={[]}
+        settings={settings({ newsletter_footer_enabled: false })}
+        footer={footer}
+      />,
+    )
+    expect(screen.queryByRole('region', { name: 'Get new arrivals by email' })).toBeNull()
+  })
+})

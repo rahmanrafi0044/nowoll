@@ -75,7 +75,59 @@ Customer-typed text is escaped by React (never becomes HTML).
 
 **See them:** `pnpm email:preview` → http://localhost:8025.
 
+## Newsletter — contacts, segment and webhook (step 42)
+
+Checked October 2026 against: https://resend.com/docs/api-reference/contacts/create-contact ·
+…/contacts/update-contact · …/contacts/delete-contact · …/contacts/add-contact-to-segment ·
+…/broadcasts/create-broadcast · https://resend.com/docs/webhooks/contacts/updated ·
+https://resend.com/docs/dashboard/webhooks/verify-webhooks-requests ·
+https://docs.svix.com/receiving/verifying-payloads/how-manual · https://resend.com/docs/api-reference/errors ·
+https://resend.com/pricing
+
+**Who holds what.** Our `subscribers` table is the source of truth for consent (double opt-in, step 28).
+Resend holds a copy of the **confirmed** people in one **segment** ("Audiences are now called Segments"), and
+Rafi writes and sends newsletters there (**Broadcasts**: Resend adds `{{{RESEND_UNSUBSCRIBE_URL}}}`, schedules,
+shows stats). We never send newsletters ourselves.
+
+**Price:** marketing is charged by contacts — **free up to 1,000 contacts, no monthly email cap**; Pro marketing
+from $40/month (5,000). Separate from transactional mail (free: 3,000/month, 100/day).
+
+### API used (key: `RESEND_API_KEY` — must be a **full access** key; a "sending access" key gets
+`restricted_api_key` 401 for contacts)
+
+| Call | Used for |
+|---|---|
+| `PATCH /contacts/{email}` `{ unsubscribed }` | confirm / unsubscribe (global flag: true = no Broadcasts) |
+| `POST /contacts` `{ email, unsubscribed: false, segments: [{ id }] }` | create — **only** after PATCH answered 404 |
+| `POST /contacts/{email}/segments/{segment_id}` | put an existing contact in the newsletter segment |
+| `DELETE /contacts/{email}` | erase (Admin → Newsletter → Delete) |
+
+Errors (the docs list `status` + `type`): 429 and 5xx → retry later; 401/403 → the key (shown in the admin);
+404 on PATCH → create; 404 on unsubscribe/delete → nothing to do. **Not documented, so not relied on:** what
+creating an existing contact, or adding a contact to a segment it's in, answers — any other 4xx is recorded on
+the subscriber (`syncError`) and shown in the admin, never guessed at.
+
+### Webhook (Resend → us): `POST /api/v1/webhooks/resend`
+
+Event `contact.updated` → `data.email`, `data.unsubscribed` (also `data.id`, `data.segment_ids`, names). When
+`unsubscribed` is true (they clicked unsubscribe in a Broadcast), we mark them UNSUBSCRIBED. We never
+SUBSCRIBE anyone from a webhook — only our double opt-in does that. Other events are acknowledged and ignored.
+
+**Signature (Svix):** headers `svix-id`, `svix-timestamp`, `svix-signature`. Signed content =
+`` `${svix-id}.${svix-timestamp}.${rawBody}` ``, HMAC-SHA256 keyed with the base64 part of the secret after
+`whsec_`, base64 output. `svix-signature` holds space-separated `v1,<sig>` entries; any one matching (constant-
+time compare) is valid. Timestamp must be within **5 minutes** (Svix leaves the window to us). The **raw** body
+must be used. Secret: `RESEND_WEBHOOK_SECRET` in the server `.env` (never admin-editable).
+
+### Setup (Rafi, once)
+
+1. Resend → **Audience → Segments** → create "Newsletter"; copy its id.
+2. Resend → API keys: make sure `RESEND_API_KEY` is **Full access** (or create one and replace it in `.env`).
+3. Resend → **Webhooks** → Add → URL `https://api.nowoll.com/api/v1/webhooks/resend`, event
+   **contact.updated** → copy the signing secret into `.env` as `RESEND_WEBHOOK_SECRET`, restart the API.
+4. Admin → Settings → Newsletter: paste the segment id, switch **Copy subscribers to Resend** on.
+   Admin → Newsletter → **Sync everyone now** once.
+5. Write newsletters in Resend → **Broadcasts** → choose the "Newsletter" segment. Keep the unsubscribe link.
+
 ## Not yet
-- Sending on events: order emails (step 27, order-worker), the rest (step 28, notification-worker).
-- Newsletter confirm/unsubscribe pages and routes (step 28, with the first newsletter email).
 - Bangla versions.

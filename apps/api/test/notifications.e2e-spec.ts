@@ -100,7 +100,11 @@ describe('customer notifications (step 28)', () => {
       await subscribe('fan@example.com')
       const second = await tokenOf('fan@example.com')
       expect(second).not.toBe(first)
-      expect(events.map((e) => e.token)).toEqual([first, second])
+      // Two confirmation emails, one per sign-up cycle…
+      const confirmations = events.filter((e) => e.type === 'newsletter-confirm')
+      expect(confirmations.map((e) => e.token)).toEqual([first, second])
+      // …and the unsubscribe also updates Resend's copy (step 42).
+      expect(events.filter((e) => e.type === 'newsletter-sync')).toHaveLength(1)
     })
 
     it('an unknown token → 404 LINK_INVALID; a malformed one → 400', async () => {

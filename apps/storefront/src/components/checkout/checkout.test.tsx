@@ -340,8 +340,8 @@ describe('checkout', () => {
 })
 
 describe('placing the order', () => {
-  async function toReview() {
-    render(<CheckoutFlow />)
+  async function toReview(props: { newsletterOptIn?: boolean } = {}) {
+    render(<CheckoutFlow {...props} />)
     await screen.findByRole('button', { name: 'Continue to address' })
     await fillContact()
     await fillAddress()
@@ -370,6 +370,24 @@ describe('placing the order', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/minimum order is ৳2,000/),
     )
     expect(screen.getByRole('link', { name: 'Review your bag' })).toHaveAttribute('href', '/cart')
+  })
+
+  it('newsletter box (step 42): hidden unless switched on; starts unticked; sent only when ticked', async () => {
+    const place = await toReview()
+    expect(screen.queryByRole('checkbox', { name: /Email me new arrivals/ })).toBeNull()
+    place()
+    await waitFor(() => expect(orderCalls).toHaveLength(1))
+    expect(orderCalls[0]!.body).not.toHaveProperty('newsletter')
+  })
+
+  it('newsletter box ticked → the order asks to sign up (the API still sends a confirmation)', async () => {
+    const place = await toReview({ newsletterOptIn: true })
+    const box = screen.getByRole('checkbox', { name: /Email me new arrivals/ })
+    expect(box).not.toBeChecked()
+    fireEvent.click(box)
+    place()
+    await waitFor(() => expect(orderCalls).toHaveLength(1))
+    expect(orderCalls[0]!.body).toMatchObject({ newsletter: true })
   })
 
   it('a retry after a network error sends the SAME key (no double order possible)', async () => {

@@ -88,6 +88,15 @@ export class EnvironmentVariables {
   })
   META_CAPI_ACCESS_TOKEN?: string
 
+  // Resend webhook signing secret (step 42 — docs/integrations/resend.md). SERVER
+  // ONLY, never admin-editable. Optional: without it the webhook answers 404.
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @Matches(/^whsec_[A-Za-z0-9+/=]{16,}$/, {
+    message: 'RESEND_WEBHOOK_SECRET must be the signing secret from Resend (starts with whsec_)',
+  })
+  RESEND_WEBHOOK_SECRET?: string
+
   // Which site the login cookies belong to. Production: ".nowoll.com", so both
   // nowoll.com (the shop) and api.nowoll.com (this API) see them. Development:
   // leave empty — localhost cookies are already shared between ports.

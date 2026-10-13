@@ -70,4 +70,7 @@ export class RecordingCustomerNotifier implements CustomerNotifier {
   refundProcessed = (id: string) => this.record('refund-processed', id)
   orderShipped = (id: string) => this.record('order-shipped', id)
   orderDelivered = (id: string) => this.record('order-delivered', id)
+  newsletterSync = (id: string) => this.record('newsletter-sync', id)
+  newsletterErase = (email: string) => this.record('newsletter-erase', email)
+  newsletterSyncAll = () => this.record('newsletter-sync-all', 'all')
 }

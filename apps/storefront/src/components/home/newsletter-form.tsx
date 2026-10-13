@@ -9,7 +9,14 @@ type State = { status: 'idle' | 'sending' } | { status: 'done' | 'error'; messag
 
 // Newsletter sign-up (double opt-in, step 1 — see apps/api subscribers module).
 // A Client Component: it needs state and runs in the browser.
-export function NewsletterForm({ source = 'homepage' }: { source?: 'homepage' | 'footer' }) {
+export function NewsletterForm({
+  source = 'homepage',
+  label = 'Email address',
+}: {
+  source?: 'homepage' | 'footer'
+  /** The field's label (the footer's differs, so a page with both stays clear). */
+  label?: string
+}) {
   const [email, setEmail] = useState('')
   const [fieldError, setFieldError] = useState<string>()
   const [state, setState] = useState<State>({ status: 'idle' })
@@ -64,7 +71,7 @@ export function NewsletterForm({ source = 'homepage' }: { source?: 'homepage' | 
     >
       <div className="flex-1">
         <Input
-          label="Email address"
+          label={label}
           type="email"
           name="email"
           autoComplete="email"

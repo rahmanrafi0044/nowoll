@@ -35,7 +35,7 @@ function OpeningConfirmation({ orderId }: { orderId: string }) {
 
 // The whole checkout: contact → address → delivery → payment → review,
 // with a live order summary beside it (spec: Phase 3 step 17).
-export function CheckoutFlow() {
+export function CheckoutFlow({ newsletterOptIn = false }: { newsletterOptIn?: boolean } = {}) {
   // Load what was typed earlier in this tab (sessionStorage) once we're in the browser.
   useEffect(() => {
     void useCheckoutStore.persist.rehydrate()
@@ -127,7 +127,11 @@ export function CheckoutFlow() {
           <PaymentStep options={quoteState.quote?.payment.options ?? null} />
         </StepSection>
         <StepSection step="review" title="Review and place order">
-          <ReviewStep quote={quoteState.quote} quoteLoading={quoteState.loading} />
+          <ReviewStep
+            quote={quoteState.quote}
+            quoteLoading={quoteState.loading}
+            newsletterOptIn={newsletterOptIn}
+          />
         </StepSection>
       </div>
       <div className="order-1 mb-6 md:sticky md:top-6 md:order-2 md:mb-0">

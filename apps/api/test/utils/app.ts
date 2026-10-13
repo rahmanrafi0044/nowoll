@@ -64,6 +64,7 @@ export async function createTestApp(options: {
     })
   }
   const app = (await builder.compile()).createNestApplication<NestExpressApplication>({
+    rawBody: true, // as in main.ts (webhook signatures)
     logger: false,
   })
   configureApp(app)

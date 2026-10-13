@@ -247,3 +247,30 @@ describe('server-side events switch (step 39b)', () => {
     expect(publicSettings(SETTING_DEFAULTS)).not.toHaveProperty('meta_catalog_enabled')
   })
 })
+
+describe('newsletter (step 42)', () => {
+  const parse = (patch: object) => SETTINGS_SCHEMA.partial().strict().safeParse(patch)
+  it('footer form on, checkout box off and Resend copy off by default', () => {
+    expect(SETTING_DEFAULTS).toMatchObject({
+      newsletter_footer_enabled: true,
+      newsletter_checkout_optin: false,
+      newsletter_resend_enabled: false,
+      newsletter_resend_segment_id: '',
+    })
+  })
+
+  it('the segment id is a Resend id (cleaned), or empty', () => {
+    expect(
+      parse({ newsletter_resend_segment_id: ' 78261EEA-8F8B-4381-83C6-79FA7120F1CF ' }).data,
+    ).toEqual({ newsletter_resend_segment_id: '78261eea-8f8b-4381-83c6-79fa7120f1cf' })
+    expect(parse({ newsletter_resend_segment_id: 'Newsletter' }).success).toBe(false)
+    expect(parse({ newsletter_resend_segment_id: '' }).success).toBe(true)
+  })
+
+  it('the shop sees where to show sign-up, never the Resend settings', () => {
+    const pub = publicSettings(SETTING_DEFAULTS)
+    expect(pub).toMatchObject({ newsletter_footer_enabled: true, newsletter_checkout_optin: false })
+    expect(pub).not.toHaveProperty('newsletter_resend_enabled')
+    expect(pub).not.toHaveProperty('newsletter_resend_segment_id')
+  })
+})
