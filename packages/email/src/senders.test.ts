@@ -146,3 +146,24 @@ describe('SmtpEmailSender → Mailpit', () => {
     expect(message.ReplyTo[0]!.Address).toBe('help@nowoll.com')
   })
 })
+
+describe('resendContactsFromEnv (step 42)', () => {
+  it('only with real Resend sending: production or EMAIL_USE_RESEND, and a real key', async () => {
+    const { resendContactsFromEnv, ResendContacts } = await import('./index.js')
+    const real = 're_abc123'
+    expect(resendContactsFromEnv({ NODE_ENV: 'development', RESEND_API_KEY: real })).toBeNull()
+    expect(
+      resendContactsFromEnv({ NODE_ENV: 'production', RESEND_API_KEY: 're_your_api_key' }),
+    ).toBeNull()
+    expect(resendContactsFromEnv({ NODE_ENV: 'production', RESEND_API_KEY: real })).toBeInstanceOf(
+      ResendContacts,
+    )
+    expect(
+      resendContactsFromEnv({
+        NODE_ENV: 'development',
+        EMAIL_USE_RESEND: 'true',
+        RESEND_API_KEY: real,
+      }),
+    ).toBeInstanceOf(ResendContacts)
+  })
+})

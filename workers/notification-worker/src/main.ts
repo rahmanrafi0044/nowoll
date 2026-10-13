@@ -2,7 +2,7 @@
 // the apps; production runs it as its own Docker container (step 44).
 import { type FetchLike, sendToMeta } from '@nowoll/analytics/server'
 import { createPrismaClient } from '@nowoll/database'
-import { emailSenderFromEnv } from '@nowoll/email'
+import { emailSenderFromEnv, resendContactsFromEnv } from '@nowoll/email'
 import { createMarketingQueue, producerConnection, workerConnection } from '@nowoll/queues'
 import { parseEnv } from './env.js'
 import type { MetaSenderLike } from './marketing-job.js'
@@ -13,7 +13,14 @@ const db = createPrismaClient(env.DATABASE_URL)
 const sender = emailSenderFromEnv(env)
 const connection = workerConnection(env.REDIS_URL)
 const worker = createNotificationWorker(
-  { db, sender, siteUrl: env.NEXT_PUBLIC_SITE_URL },
+  {
+    db,
+    sender,
+    siteUrl: env.NEXT_PUBLIC_SITE_URL,
+    // Newsletter → Resend (step 42): only where real Resend sending is on.
+    contacts: resendContactsFromEnv(env),
+    pauseMs: 600, // "sync everyone": under Resend's per-second request limit
+  },
   connection,
 )
 

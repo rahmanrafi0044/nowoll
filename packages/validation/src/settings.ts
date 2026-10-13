@@ -245,6 +245,22 @@ export const SETTINGS_SCHEMA = z.object({
   meta_capi_enabled: z.boolean(),
   /** Step 39c: the product catalogue feed for Meta (/api/v1/feeds/meta-catalog.csv). Off = 404. */
   meta_catalog_enabled: z.boolean(),
+  // Newsletter (step 42 — docs/integrations/resend.md)
+  /** The sign-up form in every page's footer. */
+  newsletter_footer_enabled: z.boolean(),
+  /** An unticked "Email me new arrivals and offers" box at checkout (still double opt-in). */
+  newsletter_checkout_optin: z.boolean(),
+  /** Copy confirmed subscribers to Resend (needs RESEND_API_KEY with full access). */
+  newsletter_resend_enabled: z.boolean(),
+  /** The Resend segment newsletters go to (not secret — an id, like a list name). */
+  newsletter_resend_segment_id: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .refine(
+      (v) => v === '' || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v),
+      'Paste the segment id from Resend (like 78261eea-8f8b-4381-83c6-79fa7120f1cf)',
+    ),
 })
 
 export type StoreSettings = z.output<typeof SETTINGS_SCHEMA>
@@ -291,6 +307,10 @@ export const SETTING_DEFAULTS: StoreSettings = {
   meta_domain_verification: '',
   meta_capi_enabled: false,
   meta_catalog_enabled: false,
+  newsletter_footer_enabled: true,
+  newsletter_checkout_optin: false,
+  newsletter_resend_enabled: false,
+  newsletter_resend_segment_id: '',
 }
 
 /** Shown to everyone by GET /settings/public. Never the admin email or internal limits. */
@@ -325,6 +345,9 @@ export const PUBLIC_SETTING_KEYS = [
   'gtm_container_id',
   'meta_pixel_id',
   'meta_domain_verification',
+  // Where the shop shows newsletter sign-up (step 42).
+  'newsletter_footer_enabled',
+  'newsletter_checkout_optin',
 ] as const satisfies readonly SettingKey[]
 
 /** The settings that are pictures (uploaded through Admin → Settings → Look). */

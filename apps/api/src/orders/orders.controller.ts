@@ -25,6 +25,7 @@ import { MyOrdersQuery } from './dto/my-orders.query.js'
 import { TrackOrderDto } from './dto/track-order.dto.js'
 import { OrderLookupService } from './order-lookup.service.js'
 import { OrdersService } from './orders.service.js'
+import { SubscribersService } from '../subscribers/subscribers.service.js'
 
 const ONE_MINUTE_MS = 60_000
 
@@ -34,6 +35,7 @@ export class OrdersController {
     private readonly orders: OrdersService,
     private readonly lookup: OrderLookupService,
     private readonly config: ConfigService<EnvironmentVariables, true>,
+    private readonly subscribers: SubscribersService,
   ) {}
 
   /**
@@ -46,7 +48,7 @@ export class OrdersController {
   @Post()
   @Throttle({ default: { ttl: ONE_MINUTE_MS, limit: 10 } })
   @UseGuards(OptionalSignInGuard)
-  create(
+  async create(
     @Body() dto: CreateOrderDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @CurrentAccount() account: AccountProfile | undefined,
@@ -61,11 +63,17 @@ export class OrdersController {
     // 'trust proxy' is set for Nginx) and browser name. Saved only if the
     // customer allowed Marketing (dto.tracking), and deleted after 60 days.
     const siteUrl = this.config.get('NEXT_PUBLIC_SITE_URL', { infer: true }).replace(/\/+$/, '')
-    return this.orders.create(dto, idempotencyKey, account?.id ?? null, {
+    const placed = await this.orders.create(dto, idempotencyKey, account?.id ?? null, {
       ip,
       userAgent: (userAgent ?? '').slice(0, 500),
       sourceUrl: `${siteUrl}/checkout`,
     })
+    // Ticked "email me" (step 42) → the usual double opt-in. Never fails the order.
+    if (dto.newsletter === true)
+      await this.subscribers
+        .subscribe({ email: dto.contact.email, source: 'checkout' })
+        .catch(() => undefined)
+    return placed
   }
 
   /**

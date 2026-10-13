@@ -776,7 +776,12 @@ model Subscriber {
   confirmedAt    DateTime?        @map("confirmed_at")
   unsubscribedAt DateTime?        @map("unsubscribed_at")
   createdAt      DateTime         @default(now()) @map("created_at")
+  // Copy in Resend (step 42 — docs/integrations/resend.md). Set when Resend
+  // has this person's CURRENT state; the error stays until a sync succeeds.
+  resendSyncedAt DateTime?        @map("resend_synced_at")
+  resendError    String?          @map("resend_error")
 
+  @@index([status, createdAt]) // Admin → Newsletter: filter by status, newest first
   @@map("subscribers")
 }
 

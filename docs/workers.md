@@ -79,6 +79,17 @@ its own BullMQ worker (concurrency 2), so a slow or broken Meta never delays an 
 - Needs `META_CAPI_ACCESS_TOKEN` (server `.env`, secret). Without it, events are skipped, nothing breaks.
 - Tests use a fake Meta — never graph.facebook.com.
 
+## Newsletter → Resend (step 42, notifications queue)
+
+| Job | Added when | Worker does |
+|---|---|---|
+| `newsletter-sync` | someone confirms or unsubscribes (site, admin) | brings Resend's copy up to date (reads the CURRENT state) |
+| `newsletter-erase` | Admin → Newsletter → Delete | deletes the contact in Resend |
+| `newsletter-sync-all` | Admin → Newsletter → "Sync everyone now" (one per minute) | everyone out of date, ~2 per second; stops on 429 and retries |
+
+Only where real Resend sending is on (production, or `EMAIL_USE_RESEND=true`) and Settings → Newsletter → copy
+is on with a segment id — otherwise skipped. A failure is kept on the subscriber (`resendError`) and shown in
+the admin. Contract: docs/integrations/resend.md.
+
 ## Not yet
-- Sending newsletters (campaigns), one-click unsubscribe headers for bulk mail.
 - An email when a review is approved (not in the spec).

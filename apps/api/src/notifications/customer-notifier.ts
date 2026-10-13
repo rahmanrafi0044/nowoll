@@ -11,6 +11,12 @@ export interface CustomerNotifier {
   /** For the admin order screen (Phase 5, step 31) — nothing calls these yet. */
   orderShipped(orderId: string): Promise<void>
   orderDelivered(orderId: string): Promise<void>
+  /** Step 42: a subscriber's state changed — update Resend's copy (if switched on). */
+  newsletterSync(subscriberId: string): Promise<void>
+  /** Step 42: erased from our list → erase from Resend. */
+  newsletterErase(email: string): Promise<void>
+  /** Step 42: Admin → Newsletter → "Sync everyone now". */
+  newsletterSyncAll(): Promise<void>
 }
 
 export const CUSTOMER_NOTIFIER = Symbol('CUSTOMER_NOTIFIER')

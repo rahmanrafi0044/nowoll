@@ -39,7 +39,7 @@ export async function checkoutToReview(
 ) {
   await expect(page.getByRole('heading', { name: 'Checkout' })).toBeVisible()
   await page.getByLabel('Full name').fill(CUSTOMER.fullName)
-  await page.getByLabel('Email').fill(CUSTOMER.email)
+  await page.getByLabel('Email', { exact: true }).fill(CUSTOMER.email)
   await page.getByLabel('Mobile number').fill(CUSTOMER.phone)
   await page.getByRole('button', { name: 'Continue to address' }).click()
 

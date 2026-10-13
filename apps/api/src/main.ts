@@ -8,7 +8,8 @@ import { AppModule } from './app.module.js'
 import type { EnvironmentVariables } from './config/env.validation.js'
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule)
+  // rawBody: webhooks (Resend, step 42) are verified against the exact bytes sent.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true })
   configureApp(app)
 
   const port = app.get<ConfigService<EnvironmentVariables, true>>(ConfigService).get('PORT', {

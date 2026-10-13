@@ -99,6 +99,12 @@ export interface NotificationJobs {
   /** Triggered by the admin order screen (Phase 5, step 31). */
   'order-shipped': { orderId: string }
   'order-delivered': { orderId: string }
+  /** Step 42: bring Resend's copy of this subscriber up to date (reads the CURRENT state). */
+  'newsletter-sync': { subscriberId: string }
+  /** Step 42: this person was erased from our list — erase them in Resend too. */
+  'newsletter-erase': { email: string }
+  /** Step 42: queue a sync for everyone Resend doesn't have up to date. */
+  'newsletter-sync-all': Record<string, never>
 }
 export type NotificationJobName = keyof NotificationJobs
 

@@ -73,6 +73,10 @@ const LABEL: Record<SettingKey, string> = {
   meta_domain_verification: 'Meta domain verification code',
   meta_capi_enabled: 'Send events from the server (Meta Conversions API)',
   meta_catalog_enabled: 'Catalog feed for Meta', // switched in Admin → Marketing (step 39c)
+  newsletter_footer_enabled: 'Sign-up form in every page’s footer',
+  newsletter_checkout_optin: '“Email me new arrivals and offers” box at checkout (unticked)',
+  newsletter_resend_enabled: 'Copy subscribers to Resend',
+  newsletter_resend_segment_id: 'Resend segment id',
 }
 
 const NUMBER_KEYS = new Set<SettingKey>([
@@ -91,6 +95,9 @@ const BOOLEAN_KEYS = new Set<SettingKey>([
   'payment_online_enabled',
   'meta_capi_enabled',
   'meta_catalog_enabled',
+  'newsletter_footer_enabled',
+  'newsletter_checkout_optin',
+  'newsletter_resend_enabled',
 ])
 const PHONE_KEYS = new Set<SettingKey>(['store_phone', 'store_whatsapp'])
 
@@ -375,6 +382,33 @@ export function SettingsForm({ initial }: { initial: StoreSettings }) {
       >
         {text('seo_title', { maxLength: 70 })}
         {text('seo_description', { maxLength: 160 })}
+      </Section>
+
+      <Section
+        title="Newsletter"
+        note="Where customers can sign up (always with a confirmation email), and copying confirmed subscribers to Resend, where you write and send newsletters. The list is in Admin → Newsletter."
+      >
+        {(
+          [
+            'newsletter_footer_enabled',
+            'newsletter_checkout_optin',
+            'newsletter_resend_enabled',
+          ] as const
+        ).map((k) => (
+          <label key={k} className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={form[k] === 'true'}
+              onChange={(e) => set(k)(String(e.target.checked))}
+            />
+            {LABEL[k]}
+          </label>
+        ))}
+        {text('newsletter_resend_segment_id', {
+          placeholder: '78261eea-8f8b-4381-83c6-79fa7120f1cf',
+          hint: 'Resend → Audience → Segments → your “Newsletter” segment → its id. Not secret.',
+        })}
       </Section>
 
       <Section

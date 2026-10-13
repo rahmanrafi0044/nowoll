@@ -63,6 +63,7 @@ export async function seedE2eDatabase(): Promise<void> {
     for (const [key, value] of [
       ['ga4_measurement_id', TRACKING.ga4],
       ['meta_pixel_id', TRACKING.pixel],
+      ['newsletter_checkout_optin', true], // step 42: the "email me" box at checkout
     ] as const)
       await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
     const category = await db.category.create({

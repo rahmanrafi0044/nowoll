@@ -15,17 +15,23 @@ import {
 import type { NotificationJobName, NotificationJobs } from '@nowoll/queues'
 import { readSettings } from '@nowoll/validation'
 import { UnrecoverableError } from 'bullmq'
+import { type ContactsLike, eraseContact, syncAll, syncSubscriber } from './newsletter-sync.js'
 
 export interface Deps {
   db: PrismaClient
   sender: EmailSender
   siteUrl: string
+  /** Newsletter → Resend (step 42); null = not used here. */
+  contacts?: ContactsLike | null
+  pauseMs?: number
 }
 
 export interface NotificationJob<N extends NotificationJobName = NotificationJobName> {
   id?: string
   name: N
   data: NotificationJobs[N]
+  attemptsMade?: number
+  opts?: { attempts?: number }
 }
 
 const displayNumber = (n: number) => `NW-${n}`
@@ -165,6 +171,14 @@ export async function handleNotificationJob(job: NotificationJob, deps: Deps): P
       )
     }
 
+    // Newsletter → Resend (step 42) — no email; see newsletter-sync.ts.
+    case 'newsletter-sync':
+      return syncSubscriber(data.subscriberId!, newsletterDeps(deps), job)
+    case 'newsletter-erase':
+      return eraseContact(data.email!, newsletterDeps(deps), job)
+    case 'newsletter-sync-all':
+      return syncAll(newsletterDeps(deps))
+
     default:
       throw new UnrecoverableError(`Unknown job: ${String(job.name)}`)
   }
@@ -202,3 +216,9 @@ async function send(
 async function returnWindowDays(db: PrismaClient): Promise<number> {
   return readSettings(await db.setting.findMany()).return_window_days
 }
+
+const newsletterDeps = (deps: Deps) => ({
+  db: deps.db,
+  contacts: deps.contacts ?? null,
+  pauseMs: deps.pauseMs,
+})

@@ -142,4 +142,25 @@ export class QueuedCustomerNotifier implements CustomerNotifier {
     )
     await this.marketing.orderEvent('delivered', orderId) // "OrderDelivered" for Meta (step 39b)
   }
+  // Newsletter → Resend (step 42). Each change is its own job (the worker reads
+  // the CURRENT state, so an older job running late can't undo a newer change).
+  async newsletterSync(subscriberId: string) {
+    await this.queue.add(
+      'newsletter-sync',
+      { subscriberId },
+      { jobId: notificationJobId('newsletter-sync', `${subscriberId}_${Date.now()}`) },
+    )
+  }
+  async newsletterErase(email: string) {
+    await this.queue.add('newsletter-erase', { email })
+  }
+  async newsletterSyncAll() {
+    // One per minute at most (double clicks are one job).
+    const minute = Math.floor(Date.now() / 60_000)
+    await this.queue.add(
+      'newsletter-sync-all',
+      {},
+      { jobId: notificationJobId('newsletter-sync-all', String(minute)) },
+    )
+  }
 }

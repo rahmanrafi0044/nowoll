@@ -93,7 +93,9 @@ Everything the admin panel can and can't change — with the safety rules — is
      WebP uploads saved as JPEG). A Google Merchant Center feed can follow as its own small step.
 40. apps/api: Analytics endpoints (revenue summary, revenue chart, top products, top categories)
 41. apps/admin: Analytics dashboard (Recharts line chart, tables)
-42. Newsletter sign-up form → Resend subscriber list or Mailchimp API
+42. Newsletter: sign-up (homepage, footer, unticked checkout box — always double opt-in); Admin → Newsletter
+    (list, unsubscribe, erase, CSV); confirmed people copied to a Resend segment, newsletters written
+    and sent as Resend Broadcasts; Resend's unsubscribes come back by signed webhook
 43. Blog section (storefront + admin CRUD)
 43b. apps/admin: Email wording — subject lines, opening paragraphs, email footer/logo (layouts fixed)
 43c. apps/admin + storefront: Redirects (old web address → new one)
@@ -345,7 +347,10 @@ Everything the admin panel can and can't change — with the safety rules — is
 │   ├── PATCH  /:id        (admin)
 │   └── DELETE /:id        (admin)
 ├── subscribers/
-│   └── POST   /           (public — newsletter sign-up)
+│   ├── POST   /           (public — newsletter sign-up; also /confirm, /unsubscribe)
+│   └── admin/subscribers   (ADMIN — list, export.csv, resend status + sync-all, unsubscribe, delete)
+├── webhooks/
+│   └── POST   /resend      (Resend, signed — contact unsubscribed in a Broadcast)
 └── settings/
     ├── GET    /            (admin)
     └── PATCH  /            (admin, bulk key-value update)

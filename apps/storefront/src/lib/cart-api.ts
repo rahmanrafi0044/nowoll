@@ -82,6 +82,8 @@ export interface PlaceOrderBody {
   expectedTotal: string
   /** Only with Marketing consent (step 39b). */
   tracking?: { marketing: true; fbp?: string; fbc?: string }
+  /** Ticked "email me new arrivals and offers" (step 42). */
+  newsletter?: true
 }
 
 /** Places the order. The key makes retries safe: the same key never creates a second order. */

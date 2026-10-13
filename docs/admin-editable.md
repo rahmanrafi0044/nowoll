@@ -102,6 +102,7 @@
 | 32 | Google Analytics, Google Tag Manager and Meta Pixel **IDs**, Meta domain-verification code (validated ID fields; the scripts themselves are added by code, and load only after the customer agrees) | 🛠 39a |
 | Meta server events on/off (Conversions API); Admin → Marketing: setup checklist, "send test event" (Meta's test code), delivery log | 🛠 39b |
 | Meta catalogue feed on/off (Admin → Marketing → Catalog feed: address to copy, item count, products left out and why) | 🛠 39c |
+| Newsletter: footer form on/off, checkout "email me" box on/off, copy to Resend on/off + segment id; Admin → Newsletter (list, unsubscribe, erase, CSV, sync). Newsletters themselves are written in Resend | 🛠 42 |
 | 33 | Redirects: an old web address sends visitors to the new one | 🛠 43c |
 
 ### K. Staff
@@ -118,7 +119,7 @@ even if asked later** — explain why and offer the safe alternative instead.
 
 | What | Why | Safe alternative |
 |---|---|---|
-| **Payment and API secret keys** (SSLCommerz, Supabase service role, Resend, Meta Conversions API access token, …) | A stolen admin session must never reveal or change secrets (CLAUDE.md Rule 3) | Server environment variables, changed by a developer |
+| **Payment and API secret keys** (SSLCommerz, Supabase service role, Resend, Resend webhook secret, Meta Conversions API access token, …) | A stolen admin session must never reveal or change secrets (CLAUDE.md Rule 3) | Server environment variables, changed by a developer |
 | **Pasting raw HTML or JavaScript** anywhere (pages, banners, "custom code" boxes) | The most common way online shops get hacked (XSS, card skimming) | Markdown text; validated ID fields for analytics / Pixel |
 | **Turning off admin 2FA** | Admin accounts control money and customer data (CLAUDE.md §11.8) | Always on; lost phone → `pnpm admin:reset-2fa` |
 | **New page layouts or new features** | Real development work that needs tests | A developer step in this spec |

@@ -32,6 +32,7 @@ const NAV: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: '/admin/shipping', label: 'Shipping', adminOnly: true },
   { href: '/admin/content', label: 'Content' },
   { href: '/admin/marketing', label: 'Marketing', adminOnly: true },
+  { href: '/admin/newsletter', label: 'Newsletter', adminOnly: true },
   { href: '/admin/settings', label: 'Settings', adminOnly: true },
   { href: '/admin/staff', label: 'Staff', adminOnly: true },
 ]

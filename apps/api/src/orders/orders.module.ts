@@ -5,6 +5,7 @@ import { DiscountsModule } from '../discounts/discounts.module.js'
 import { InventoryModule } from '../inventory/inventory.module.js'
 import { PaymentsModule } from '../payments/payments.module.js'
 import { SettingsModule } from '../settings/settings.module.js'
+import { SubscribersModule } from '../subscribers/subscribers.module.js'
 import { AdminOrdersController } from './admin-orders.controller.js'
 import { AdminOrdersService } from './admin-orders.service.js'
 import { OrderExpiryService } from './order-expiry.service.js'
@@ -20,6 +21,7 @@ import { OrdersService } from './orders.service.js'
     InventoryModule,
     PaymentsModule,
     SettingsModule,
+    SubscribersModule, // the checkout's "email me new arrivals" box (step 42)
   ],
   // OrdersController FIRST: its fixed paths (/my, /track) must be matched
   // before the admin controller's /:id.

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { CheckoutFlow } from '@/components/checkout/checkout-flow'
+import { getSettings } from '@/lib/settings'
 
 // Spec: "Checkout — Server (auth optional)". The page shell is server-rendered;
 // the steps run in the browser because the bag lives there. Guest checkout
@@ -15,7 +16,7 @@ export default async function CheckoutPage({
 }) {
   // ?payment=error: the API couldn't match the customer's return from
   // SSLCommerz to an order (see PaymentsService.handleRedirect).
-  const { payment } = await searchParams
+  const [{ payment }, settings] = await Promise.all([searchParams, getSettings()])
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="text-3xl font-semibold tracking-tight">Checkout</h1>
@@ -27,7 +28,8 @@ export default async function CheckoutPage({
         </p>
       )}
       <div className="mt-6">
-        <CheckoutFlow />
+        {/* Admin → Settings → Newsletter: the unticked "email me" box (step 42). */}
+        <CheckoutFlow newsletterOptIn={settings.newsletter_checkout_optin} />
       </div>
     </div>
   )

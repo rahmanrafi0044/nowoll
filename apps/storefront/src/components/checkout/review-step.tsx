@@ -20,9 +20,12 @@ type Problem = { message: string; action?: 'BAG' | 'REMOVE_CODE' | 'PAYMENT' }
 export function ReviewStep({
   quote,
   quoteLoading,
+  newsletterOptIn = false,
 }: {
   quote: CheckoutQuoteView | null
   quoteLoading: boolean
+  /** Show the unticked "email me new arrivals and offers" box (step 42). */
+  newsletterOptIn?: boolean
 }) {
   const {
     contact,
@@ -40,6 +43,8 @@ export function ReviewStep({
   const clearCart = useCartStore((s) => s.clear)
   const [sending, setSending] = useState<false | 'order' | 'payment'>(false)
   const [problem, setProblem] = useState<Problem | null>(null)
+  // Always starts UNticked — consent must be the customer's own choice.
+  const [newsletter, setNewsletter] = useState(false)
   if (!contact || !address || !payment) return null
 
   async function submit() {
@@ -64,6 +69,7 @@ export function ReviewStep({
         ...(discountCode && { discountCode }),
         expectedTotal: quote.totals.total, // the API refuses if the real total differs (PRICE_CHANGED)
         ...(tracking && { tracking }),
+        ...(newsletterOptIn && newsletter && { newsletter: true }),
       },
       // The same key on every attempt of this checkout: a retry can't create a second order.
       ensureAttemptKey(),
@@ -238,6 +244,23 @@ export function ReviewStep({
             </button>
           )}
         </div>
+      )}
+
+      {newsletterOptIn && (
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4"
+            checked={newsletter}
+            onChange={(e) => setNewsletter(e.target.checked)}
+          />
+          <span>
+            Email me new arrivals and offers
+            <span className="block text-xs text-muted-foreground">
+              We&apos;ll send one email to confirm. Unsubscribe any time.
+            </span>
+          </span>
+        </label>
       )}
 
       <Button

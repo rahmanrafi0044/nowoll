@@ -78,7 +78,15 @@ describe('AdminShell', () => {
     await screen.findByText('Secret admin page')
     const staff = await links()
     expect(staff).toEqual(expect.arrayContaining(['Orders', 'Products', 'Returns', 'Content']))
-    for (const hidden of ['Discounts', 'Shipping', 'Settings', 'Staff', 'Analytics', 'Marketing'])
+    for (const hidden of [
+      'Discounts',
+      'Shipping',
+      'Settings',
+      'Staff',
+      'Analytics',
+      'Marketing',
+      'Newsletter',
+    ])
       expect(staff).not.toContain(hidden)
     unmount()
     as('ADMIN')
@@ -92,6 +100,7 @@ describe('AdminShell', () => {
         'Staff',
         'Analytics',
         'Marketing',
+        'Newsletter',
       ]),
     )
   })
