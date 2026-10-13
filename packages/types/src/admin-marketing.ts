@@ -27,3 +27,15 @@ export interface MetaEventLogView {
 export type TestEventResultView =
   | { ok: true; eventsReceived: number; messages: string[] }
   | { ok: false; message: string; tokenProblem: boolean }
+
+/** The Meta catalogue feed (step 39c) — Admin → Marketing → Catalog feed. */
+export interface CatalogFeedReportView {
+  enabled: boolean
+  /** The address to paste into Meta Commerce Manager. */
+  url: string
+  /** Rows (sizes/colours) in the feed. */
+  items: number
+  /** Products left out, and why. */
+  skipped: { id: string; name: string; slug: string; reason: string }[]
+  builtAt: string
+}

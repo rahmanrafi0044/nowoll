@@ -3,6 +3,7 @@
 // those shapes, this file stops compiling and `pnpm typecheck` fails —
 // long before a customer sees a broken page.
 import type {
+  CatalogFeedReportView,
   MarketingStatusView,
   MetaEventLogView,
   TestEventResultView,
@@ -68,6 +69,7 @@ import type { AdminReview, MyReview, ProductReviews } from './reviews/reviews.se
 import type { AdminShippingZone, ShippingRate } from './shipping/shipping.service.js'
 import type { AdminStaffPage } from './staff/staff.service.js'
 import type { MarketingService } from './marketing/marketing.service.js'
+import type { CatalogFeedService } from './feeds/catalog-feed.service.js'
 import type { WishlistEntry } from './wishlist/wishlist.service.js'
 import type { PublicVariant } from './products/product-view.js'
 import type { ProductCard, ProductDetail, ProductFacets } from './products/products.service.js'
@@ -149,6 +151,9 @@ describe('API ↔ storefront contract', () => {
   it('admin staff', () => {
     expectTypeOf<Serialized<AdminStaffPage>>().toEqualTypeOf<AdminStaffPageView>()
     // Admin → Marketing (step 39b)
+    expectTypeOf<
+      Serialized<Awaited<ReturnType<CatalogFeedService['report']>>>
+    >().toEqualTypeOf<CatalogFeedReportView>()
     type M = MarketingService
     expectTypeOf<
       Serialized<Awaited<ReturnType<M['status']>>>

@@ -101,6 +101,7 @@
 | 31 | Site-wide Google title / description and share image | ✅ (step 38) |
 | 32 | Google Analytics, Google Tag Manager and Meta Pixel **IDs**, Meta domain-verification code (validated ID fields; the scripts themselves are added by code, and load only after the customer agrees) | 🛠 39a |
 | Meta server events on/off (Conversions API); Admin → Marketing: setup checklist, "send test event" (Meta's test code), delivery log | 🛠 39b |
+| Meta catalogue feed on/off (Admin → Marketing → Catalog feed: address to copy, item count, products left out and why) | 🛠 39c |
 | 33 | Redirects: an old web address sends visitors to the new one | 🛠 43c |
 
 ### K. Staff

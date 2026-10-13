@@ -76,3 +76,11 @@ describe('processImage', () => {
     await expect(processImage(fake, 'jpeg')).rejects.toThrow()
   })
 })
+
+describe('WebP is saved as JPEG (step 39c — Meta accepts only JPEG/PNG)', () => {
+  it('a WebP upload comes out as a real JPEG', async () => {
+    const out = await processImage(await webp(), 'webp')
+    expect(out).toMatchObject({ contentType: 'image/jpeg', extension: 'jpg' })
+    expect(detectImageKind(out.data)).toBe('jpeg')
+  })
+})

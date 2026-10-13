@@ -89,7 +89,8 @@ Everything the admin panel can and can't change — with the safety rules — is
      (view item, add to bag, begin checkout, purchase) with event IDs; Meta domain verification
 39b. Meta Conversions API (server-side, via a background worker; hashed customer data; only with
      consent; "Order delivered" event) + Admin → Marketing checklist (token status, test event, log)
-39c. Product catalog feed for Meta (and Google) — same product codes as the tracking events
+39c. Product catalog feed for Meta (CSV, one row per size/colour, same codes as the tracking events;
+     WebP uploads saved as JPEG). A Google Merchant Center feed can follow as its own small step.
 40. apps/api: Analytics endpoints (revenue summary, revenue chart, top products, top categories)
 41. apps/admin: Analytics dashboard (Recharts line chart, tables)
 42. Newsletter sign-up form → Resend subscriber list or Mailchimp API

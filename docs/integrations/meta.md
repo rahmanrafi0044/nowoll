@@ -140,10 +140,41 @@ file upload are the other methods — DNS works too and needs no admin field.)
 
 ## 4. Catalog feed — step 39c
 
-CSV/TSV or RSS/Atom XML at a fixed URL that Meta fetches on a schedule. Required for clothing:
-`id` (SKU), `title`, `description`, `availability` (`in stock` / `out of stock`), `condition` (`new`),
-`price` (`1490.00 BDT`), `link`, `image_link`, `brand`, `size`. Optional: `sale_price`, `item_group_id`
-(product id — groups the sizes/colours), `color` (in words), `gender`, `additional_image_link`, `product_type`.
+Source (checked October 2026): https://developers.facebook.com/docs/marketing-api/catalog/reference/
+
+Formats Meta reads: CSV, TSV, RSS/Atom XML, Google Sheets. **We use CSV** at
+`<API_PUBLIC_URL>/api/v1/feeds/meta-catalog.csv` (on only when Admin → Marketing → Catalog feed is switched on;
+otherwise 404). Public data only — the same products, prices and photos as the shop.
+
+| Field | Meta's rule | Ours |
+|---|---|---|
+| `id` | required, ≤100 chars, unique; use the SKU; must match the Pixel's content IDs | variant SKU |
+| `item_group_id` | same for every variant of a product, ≤100 | product id (= the Pixel's ViewContent id) |
+| `title` | required, ≤200 (≤65 recommended) | product name |
+| `description` | required, ≤9,999, plain text (no HTML/links), different from the title | short description, else the description without Markdown, else "<name> from <store>, in <colours>" |
+| `availability` | required: `in stock` / `out of stock` | stock > 0 |
+| `condition` | required: `new` / `refurbished` / `used` | `new` |
+| `price` | required: `9.99 USD` style (number, space, ISO code, period decimal, no symbol) | regular price, `1490.00 BDT` |
+| `sale_price` | lower than `price`, same format | today's price when a higher "compare at" price exists |
+| `link` | required, http(s), on the business's domain | the product page on the shop |
+| `image_link` | required: **JPEG or PNG**, ≥500×500, ≤8 MB | the colour's photo, else the main photo (WebP photos skipped) |
+| `additional_image_link` | ≤20 URLs, ≤2,000 chars, one quoted column, comma-separated | the product's other JPEG/PNG photos |
+| `brand` | required, ≤100 | store name (Settings) |
+| `size` | required for clothing, ≤200 | variant size |
+| `color` | in words, ≤200 | variant colour |
+| `product_type` | ≤750, own category path | "Men > Shirts" |
+| `status` | `active` / `archived` | `active` (hidden products are simply left out) |
+
+Rows that can't be valid (no JPEG/PNG photo, price 0) are **left out** and listed in Admin → Marketing.
+WebP uploads have been saved as JPEG since step 39c, because Meta refuses WebP.
+
+### Connect it (Rafi, once)
+
+1. Admin → Marketing → **Catalog feed**: switch on, press **Copy** for the address, open it once to check.
+2. Meta **Commerce Manager** → Catalogue → **Data sources** → Add items → **Data feed** → "Scheduled feed",
+   paste the address, repeat **every hour** (or daily), currency **BDT**.
+3. Events Manager → your dataset → Settings → **connect the catalogue** to the Pixel, so the Pixel's SKUs and the
+   catalogue's ids are matched (Commerce Manager → Catalogue → Events shows the match rate).
 
 ## 5. Bangladesh notes
 

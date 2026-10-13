@@ -243,6 +243,8 @@ export const SETTINGS_SCHEMA = z.object({
   meta_domain_verification: metaVerification,
   /** Step 39b: send Purchase / OrderDelivered from the server (needs the token in the server .env). */
   meta_capi_enabled: z.boolean(),
+  /** Step 39c: the product catalogue feed for Meta (/api/v1/feeds/meta-catalog.csv). Off = 404. */
+  meta_catalog_enabled: z.boolean(),
 })
 
 export type StoreSettings = z.output<typeof SETTINGS_SCHEMA>
@@ -288,6 +290,7 @@ export const SETTING_DEFAULTS: StoreSettings = {
   meta_pixel_id: '',
   meta_domain_verification: '',
   meta_capi_enabled: false,
+  meta_catalog_enabled: false,
 }
 
 /** Shown to everyone by GET /settings/public. Never the admin email or internal limits. */

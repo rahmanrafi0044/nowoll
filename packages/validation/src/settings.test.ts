@@ -242,5 +242,8 @@ describe('server-side events switch (step 39b)', () => {
       false,
     )
     expect(publicSettings(SETTING_DEFAULTS)).not.toHaveProperty('meta_capi_enabled')
+    // Step 39c: the catalogue feed switch — the same rules.
+    expect(SETTING_DEFAULTS.meta_catalog_enabled).toBe(false)
+    expect(publicSettings(SETTING_DEFAULTS)).not.toHaveProperty('meta_catalog_enabled')
   })
 })
