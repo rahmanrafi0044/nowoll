@@ -1,0 +1,110 @@
+# ============================================================================
+# Promote to PRODUCTION — step 47. The one-click button:
+# GitHub → Actions → "Promote to production" → "Run workflow".
+#
+#   Leave "commit" empty → production gets exactly what STAGING runs now.
+#   Type an older commit  → production goes back to it (a ROLLBACK).
+#
+# Nothing is rebuilt: production runs the very images that were checked on
+# staging (built by deploy.yml, stored in ghcr.io). Then deploy-to.yml runs
+# the production migrations and the deploy with its automatic rollback.
+# The summary of the run lists the changes going live.
+# ============================================================================
+name: Promote to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit to put on production (empty = what staging runs now)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Which commit?
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read # check that the images exist
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+    env:
+      IMAGE_PREFIX: ghcr.io/rahmanrafi0044/nowoll
+      INPUT_COMMIT: ${{ inputs.commit }}
+      SSH: ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # full history, to list what changes
+      - name: Set up SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - id: pick
+        name: Pick the commit
+        run: |
+          running() { $SSH "sed -n 's/^IMAGE_TAG=//p' $1/app/release.env 2>/dev/null" || true; }
+          if [ -z "$INPUT_COMMIT" ]; then
+            sha="$(running /opt/nowoll-staging)"
+            [ -n "$sha" ] || { echo "::error::Staging runs nothing yet — deploy to staging first."; exit 1; }
+            echo "Staging runs $sha"
+          else
+            sha="$(git rev-parse --verify "$INPUT_COMMIT^{commit}" 2>/dev/null)" \
+              || { echo "::error::'$INPUT_COMMIT' is not a commit in this repository."; exit 1; }
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+          # What goes live (shown on the run's summary page).
+          prod="$(running /opt/nowoll)"
+          {
+            echo "## Promoting \`${sha:0:7}\` to production"
+            if [ -z "$prod" ]; then
+              echo "First production deploy."
+            elif git merge-base --is-ancestor "$sha" "$prod" 2>/dev/null && [ "$sha" != "$prod" ]; then
+              echo "**Rollback** from \`${prod:0:7}\` — these changes are taken OFF production:"
+              echo; git log --oneline "$sha..$prod" | sed 's/^/- /'
+            else
+              echo "Production runs \`${prod:0:7}\` now. Changes going live:"
+              echo; git log --oneline "$prod..$sha" | sed 's/^/- /'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: The images exist (built by "Deploy to staging")
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          SHA: ${{ steps.pick.outputs.sha }}
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin > /dev/null
+          for name in api order-worker notification-worker; do
+            docker manifest inspect "$IMAGE_PREFIX-$name:$SHA" > /dev/null 2>&1 \
+              || { echo "::error::$IMAGE_PREFIX-$name:$SHA does not exist — deploy this commit to staging first."; exit 1; }
+          done
+
+  production:
+    name: Production
+    needs: resolve
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/deploy-to.yml
+    with:
+      environment: production
+      sha: ${{ needs.resolve.outputs.sha }}
+    secrets: inherit
+
+  disabled:
+    name: Deploy is switched off
+    if: vars.DEPLOY_ENABLED != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "::notice::Deploy is off. When the VPS is ready, set the repository variable DEPLOY_ENABLED=true (docs/deployment.md)."

@@ -1,0 +1,112 @@
+# ============================================================================
+# The deploy itself, for ONE environment — step 47. Not started directly:
+#   deploy.yml   (after every merge)          → staging
+#   promote.yml  (one click, "Run workflow")  → production
+# The images for the commit must already be in ghcr.io (deploy.yml builds them).
+#
+#   1. database migrations for that environment (prisma migrate deploy)
+#   2. uploads the compose files + nginx template to the VPS
+#   3. runs deploy.sh there: pull, restart, health check, and an automatic
+#      rollback if the new version is unhealthy
+#   4. checks https://<domain>/api/v1/health from outside
+# ============================================================================
+name: Deploy to an environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: staging or production
+        type: string
+        required: true
+      sha:
+        description: The commit whose images to deploy
+        type: string
+        required: true
+
+jobs:
+  deploy:
+    name: Migrate and deploy (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # One deploy per environment at a time; a second one waits.
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read # the VPS pulls the images with this job's short-lived token
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      SHA: ${{ inputs.sha }}
+      IMAGE_PREFIX: ghcr.io/rahmanrafi0044/nowoll
+      ROOT: ${{ inputs.environment == 'production' && '/opt/nowoll' || '/opt/nowoll-staging' }}
+      DOMAIN: ${{ inputs.environment == 'production' && vars.API_DOMAIN || vars.STAGING_API_DOMAIN }}
+      SSH: ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+    steps:
+      - name: Check the environment name
+        run: |
+          case "$ENVIRONMENT" in staging|production) ;; *) echo "::error::unknown environment $ENVIRONMENT"; exit 1 ;; esac
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.sha }}
+
+      # 1. Migrations BEFORE the new version starts (CLAUDE.md Rules 4 and 7).
+      #    A migration must still work with the version that is running now
+      #    (e.g. drop a column only in a LATER release) — docs/deployment.md.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter "@nowoll/database..."
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build # only to generate the client
+      - name: Database migrations (${{ inputs.environment }})
+        working-directory: packages/database
+        env:
+          # Supabase "Session pooler" strings — GitHub's machines have no IPv6 (docs/integrations/supabase.md).
+          DATABASE_URL: ${{ inputs.environment == 'production' && secrets.PROD_DATABASE_URL || secrets.STAGING_DATABASE_URL }}
+        run: pnpm exec prisma migrate deploy
+
+      # 2. SSH with a deploy-only key; the server's fingerprint is pinned, so
+      #    GitHub refuses to talk to any other machine.
+      - name: Set up SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Upload the release to the VPS
+        run: |
+          printf 'IMAGE_PREFIX=%s\nIMAGE_TAG=%s\n' "$IMAGE_PREFIX" "$SHA" > release.env
+          tar -czf - infrastructure/deployment infrastructure/nginx release.env \
+            | $SSH "rm -rf $ROOT/app.new && mkdir -p $ROOT/app.new && tar -xzf - -C $ROOT/app.new"
+
+      # 3. Log the VPS in to ghcr.io with this job's token (it expires when the
+      #    job ends), deploy, and always log out again.
+      - name: Deploy (pull, restart, health check, rollback if unhealthy)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          echo "$TOKEN" | $SSH "docker login ghcr.io -u '$ACTOR' --password-stdin" > /dev/null
+          status=0
+          $SSH "bash $ROOT/app.new/infrastructure/deployment/deploy.sh $ENVIRONMENT" || status=$?
+          $SSH 'docker logout ghcr.io' > /dev/null || true
+          exit $status
+
+      # 4. From the outside, through Nginx and HTTPS.
+      - name: Check https://<domain>/api/v1/health
+        run: |
+          for _ in $(seq 1 10); do
+            if curl -fsS "https://$DOMAIN/api/v1/health"; then
+              echo; echo "::notice::$ENVIRONMENT is running $SHA"; exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::https://$DOMAIN/api/v1/health did not answer"
+          exit 1

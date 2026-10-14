@@ -1,0 +1,80 @@
+# ============================================================================
+# Docker check — step 47. On a PR that changes the Docker files, the production
+# setup or the dependencies: build the 3 images (nothing is pushed), and check
+# the compose file, the Nginx config and deploy.sh. Other PRs skip it, so they
+# stay fast. The real build + deploy is deploy.yml.
+# ============================================================================
+name: Docker check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - infrastructure/**
+      - .dockerignore
+      - pnpm-lock.yaml
+      - '**/package.json'
+      - .github/workflows/docker-build.yml
+      - .github/workflows/deploy.yml
+      - .github/workflows/deploy-to.yml
+      - .github/workflows/promote.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  config:
+    name: Compose, Nginx and deploy.sh
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: The compose files are valid (app and edge)
+        run: |
+          printf 'REDIS_PASSWORD=x\nAPI_DOMAIN=api.example.com\nSTAGING_API_DOMAIN=api.staging.example.com\n' > ci.env
+          NOWOLL_ENV_FILE="$PWD/ci.env" docker compose -f infrastructure/deployment/docker-compose.prod.yml --env-file ci.env config -q
+          docker compose -f infrastructure/deployment/docker-compose.edge.yml --env-file ci.env config -q
+      - name: deploy.sh passes shellcheck
+        run: shellcheck infrastructure/deployment/deploy.sh
+      - name: nginx -t (with a throwaway self-signed certificate)
+        run: |
+          mkdir -p le/live/api.example.com
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 -subj /CN=api.example.com \
+            -keyout le/live/api.example.com/privkey.pem -out le/live/api.example.com/fullchain.pem 2> /dev/null
+          docker run --rm -e API_DOMAIN=api.example.com -e STAGING_API_DOMAIN=api.staging.example.com \
+            -v "$PWD/infrastructure/nginx/nowoll.conf.template:/etc/nginx/templates/default.conf.template:ro" \
+            -v "$PWD/le:/etc/letsencrypt:ro" \
+            nginx:1.27.5-alpine sh -c '/docker-entrypoint.d/20-envsubst-on-templates.sh && nginx -t'
+
+  build:
+    name: Build ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      matrix:
+        image: [api, order-worker, notification-worker]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build (not pushed)
+        env:
+          NAME: ${{ matrix.image }}
+        run: |
+          if [ "$NAME" = api ]; then
+            docker build -f infrastructure/docker/api.Dockerfile -t "nowoll-$NAME:ci" .
+          else
+            docker build -f infrastructure/docker/worker.Dockerfile --build-arg "WORKER=$NAME" -t "nowoll-$NAME:ci" .
+          fi
+      - name: Runs as non-root, with no .env files or keys inside
+        env:
+          NAME: ${{ matrix.image }}
+        run: |
+          user="$(docker run --rm --entrypoint id "nowoll-$NAME:ci" -un)"
+          [ "$user" = node ] || { echo "::error::runs as $user"; exit 1; }
+          found="$(docker run --rm --entrypoint sh "nowoll-$NAME:ci" -c \
+            'find / -xdev \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name ".git" \) 2>/dev/null | grep -v /node_modules/ || true')"
+          [ -z "$found" ] || { echo "::error::found in image: $found"; exit 1; }
+          docker images "nowoll-$NAME:ci" --format 'Size: {{.Size}}'
