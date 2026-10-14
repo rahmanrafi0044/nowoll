@@ -1,0 +1,66 @@
+# ============================================================================
+# The EDGE on the Hostinger VPS — steps 46 and 47: Nginx (HTTPS) and certbot,
+# shared by production and staging (guide: docs/deployment.md).
+#
+#   api.nowoll.com          → api-production   (project "nowoll-production")
+#   api.staging.nowoll.com  → api-staging      (project "nowoll-staging")
+#
+# Project "nowoll-edge", settings from /opt/nowoll/.env (production's). Started
+# by deploy.sh: on every PRODUCTION deploy (so nginx changes reach production
+# only after staging was checked), and by a staging deploy only if nginx isn't
+# running yet. Nginx starts even if an API is missing (it answers 502 for it).
+# ============================================================================
+
+name: nowoll-edge
+
+services:
+  nginx:
+    # Exact version: the config needs "server … resolve" (nginx 1.27.3 or newer).
+    image: nginx:1.27.5-alpine
+    restart: unless-stopped
+    networks: [edge]
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+    ports: ['80:80', '443:443']
+    environment:
+      # Filled into the template when nginx starts.
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in /opt/nowoll/.env, e.g. api.nowoll.com}
+      STAGING_API_DOMAIN: ${STAGING_API_DOMAIN:?Set STAGING_API_DOMAIN in /opt/nowoll/.env, e.g. api.staging.nowoll.com}
+    volumes:
+      # Mounted as default.conf so it REPLACES the image's stock "Welcome to nginx" site.
+      - ../nginx/nowoll.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    security_opt: [no-new-privileges:true]
+    deploy:
+      resources:
+        limits: { memory: 64m }
+
+  # Renews the HTTPS certificate twice a day when it's close to expiry
+  # (the first certificate and the nginx reload: step 49, docs/deployment.md).
+  certbot:
+    image: certbot/certbot:v3.0.1
+    restart: unless-stopped
+    networks: [edge]
+    entrypoint:
+      [
+        '/bin/sh',
+        '-c',
+        'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done',
+      ]
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    logging:
+      driver: json-file
+      options: { max-size: '5m', max-file: '2' }
+
+networks:
+  edge:
+    name: nowoll_edge
+    external: true
+
+volumes:
+  letsencrypt:
+  certbot_www:

@@ -1,36 +1,58 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Runs ON THE VPS for every deploy (step 47) — started by .github/workflows/deploy.yml.
+# Runs ON THE VPS for every deploy (step 47) — started by the GitHub workflows:
+#   bash <root>/app.new/infrastructure/deployment/deploy.sh staging|production
 #
-# The workflow first uploads the new release to /opt/nowoll/app.new:
-#   app.new/infrastructure/{deployment,nginx}   the compose file + nginx template
+#   environment   root (settings in <root>/.env)   compose project
+#   staging       /opt/nowoll-staging              nowoll-staging
+#   production    /opt/nowoll                      nowoll-production
+#
+# The workflow first uploads the new release to <root>/app.new:
+#   app.new/infrastructure/{deployment,nginx}   the compose files + nginx template
 #   app.new/release.env                          IMAGE_PREFIX=… and IMAGE_TAG=<git commit>
-# then runs  bash /opt/nowoll/app.new/infrastructure/deployment/deploy.sh
 #
 # This script:
 #   1. swaps the folders: app → app.prev, app.new → app
-#   2. pulls the new images and restarts everything (docker compose up --wait)
+#   2. pulls the new images and restarts the app (docker compose up --wait)
 #   3. checks: API healthy + both workers still running (not crash-looping)
-#   4. healthy   → keeps it, and deletes images older than the previous release
-#      unhealthy → ROLLBACK: puts app.prev back and starts the previous images
+#   4. starts the shared nginx (docker-compose.edge.yml): always for production
+#      — so nginx changes go live only with a production deploy — and for
+#      staging only if nginx isn't running yet
+#   5. healthy   → keeps it, and deletes images older than the previous release
+#      unhealthy → ROLLBACK: puts app.prev back and starts the previous release
 #
 # Database migrations are NOT run here — the workflow runs them before this.
-# NOWOLL_ROOT (default /opt/nowoll) and NOWOLL_COMPOSE_OVERRIDE exist only so
-# the script can be tested on a developer machine (docs/deployment.md).
+# NOWOLL_BASE (default /opt) and NOWOLL_COMPOSE_OVERRIDE / NOWOLL_EDGE_OVERRIDE
+# exist only so the script can be tested on a developer machine.
 # ============================================================================
 set -euo pipefail
 
-ROOT="${NOWOLL_ROOT:-/opt/nowoll}"
+ENVIRONMENT="${1:-}"
+BASE="${NOWOLL_BASE:-/opt}"
+case "$ENVIRONMENT" in
+  production) ROOT="$BASE/nowoll" && export COMPOSE_PROJECT_NAME=nowoll-production ;;
+  staging) ROOT="$BASE/nowoll-staging" && export COMPOSE_PROJECT_NAME=nowoll-staging ;;
+  *) echo "usage: deploy.sh staging|production" >&2 && exit 2 ;;
+esac
+export DEPLOY_ENV="$ENVIRONMENT" # the API's name for nginx: api-production / api-staging
 export NOWOLL_ENV_FILE="$ROOT/.env"
+EDGE_ENV_FILE="$BASE/nowoll/.env" # nginx always uses production's settings (both domains)
 WORKERS=(order-worker notification-worker)
 
-log() { echo "[deploy] $*"; }
+log() { echo "[deploy $ENVIRONMENT] $*"; }
 
-# docker compose for the release currently in $ROOT/app.
+# docker compose for the app of the release currently in $ROOT/app.
 compose() {
   local files=(-f "$ROOT/app/infrastructure/deployment/docker-compose.prod.yml")
   [[ -n "${NOWOLL_COMPOSE_OVERRIDE:-}" ]] && files+=(-f "$NOWOLL_COMPOSE_OVERRIDE")
   docker compose "${files[@]}" --env-file "$NOWOLL_ENV_FILE" "$@"
+}
+
+# docker compose for the shared nginx + certbot, from the same release.
+edge() {
+  local files=(-f "$ROOT/app/infrastructure/deployment/docker-compose.edge.yml")
+  [[ -n "${NOWOLL_EDGE_OVERRIDE:-}" ]] && files+=(-f "$NOWOLL_EDGE_OVERRIDE")
+  COMPOSE_PROJECT_NAME=nowoll-edge docker compose "${files[@]}" --env-file "$EDGE_ENV_FILE" "$@"
 }
 
 # Loads IMAGE_PREFIX and IMAGE_TAG of the release in $ROOT/app.
@@ -62,11 +84,21 @@ start_and_check() {
       return 1
     fi
   done
+  # The shared nginx. --force-recreate on production: nginx reads its template
+  # from this release's folder, so it must restart to pick the new folder up
+  # (a second or two). A staging deploy never changes a running nginx.
+  if [[ "$ENVIRONMENT" == production ]]; then
+    edge up -d --force-recreate --wait --wait-timeout 60 || { log "nginx did not start"; return 1; }
+  elif [[ -z "$(edge ps -q --status running nginx 2>/dev/null)" ]]; then
+    [[ -f "$EDGE_ENV_FILE" ]] || { log "nginx not started: $EDGE_ENV_FILE is missing"; return 1; }
+    edge up -d --wait --wait-timeout 60 || { log "nginx did not start"; return 1; }
+  fi
   log "${IMAGE_TAG} is healthy"
 }
 
 [[ -d "$ROOT/app.new" ]] || { log "nothing to deploy: $ROOT/app.new is missing"; exit 1; }
 [[ -f "$NOWOLL_ENV_FILE" ]] || { log "missing $NOWOLL_ENV_FILE (copy .env.production.example)"; exit 1; }
+docker network create nowoll_edge > /dev/null 2>&1 || true # shared with nginx; exists after the first deploy
 
 # 1. Swap the folders (the previous release stays for a rollback).
 rm -rf "$ROOT/app.prev"
@@ -78,22 +110,24 @@ load_release
 log "pulling ${IMAGE_PREFIX}-*:${IMAGE_TAG}"
 compose pull --quiet api "${WORKERS[@]}"
 
-# 3. Start and check.
+# 3–4. Start and check.
 if start_and_check; then
-  new_tag="$IMAGE_TAG"
-  prev_tag=""
-  [[ -f "$ROOT/app.prev/release.env" ]] && prev_tag="$(sed -n 's/^IMAGE_TAG=//p' "$ROOT/app.prev/release.env")"
-  # 4a. Free disk space: keep only this release's and the previous release's images.
+  # 5a. Free disk space: keep the images that staging and production run now,
+  # and each one's previous release (for a rollback).
+  keep="$IMAGE_TAG"
+  for f in "$BASE"/nowoll{,-staging}/{app,app.prev}/release.env; do
+    [[ -f "$f" ]] && keep="$keep|$(sed -n 's/^IMAGE_TAG=//p' "$f")"
+  done
   docker images --format '{{.Repository}}:{{.Tag}}' \
     | grep "^${IMAGE_PREFIX}-" \
-    | grep -vE ":(${new_tag}${prev_tag:+|$prev_tag})\$" \
-    | xargs -r docker rmi >/dev/null 2>&1 || true
-  docker image prune -f >/dev/null
-  log "done — running ${new_tag}"
+    | grep -vE ":(${keep})\$" \
+    | xargs -r docker rmi > /dev/null 2>&1 || true
+  docker image prune -f > /dev/null
+  log "done — running ${IMAGE_TAG}"
   exit 0
 fi
 
-# 4b. Rollback.
+# 5b. Rollback.
 log "logs of the failed release:"
 compose logs --tail 40 api "${WORKERS[@]}" || true
 if [[ ! -d "$ROOT/app.prev" ]]; then

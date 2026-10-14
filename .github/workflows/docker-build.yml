@@ -16,6 +16,8 @@ on:
       - '**/package.json'
       - .github/workflows/docker-build.yml
       - .github/workflows/deploy.yml
+      - .github/workflows/deploy-to.yml
+      - .github/workflows/promote.yml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -31,18 +33,19 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-      - name: docker-compose.prod.yml is valid
+      - name: The compose files are valid (app and edge)
         run: |
-          printf 'REDIS_PASSWORD=x\nAPI_DOMAIN=localhost\n' > ci.env
+          printf 'REDIS_PASSWORD=x\nAPI_DOMAIN=api.example.com\nSTAGING_API_DOMAIN=api.staging.example.com\n' > ci.env
           NOWOLL_ENV_FILE=ci.env docker compose -f infrastructure/deployment/docker-compose.prod.yml --env-file ci.env config -q
+          docker compose -f infrastructure/deployment/docker-compose.edge.yml --env-file ci.env config -q
       - name: deploy.sh passes shellcheck
         run: shellcheck infrastructure/deployment/deploy.sh
       - name: nginx -t (with a throwaway self-signed certificate)
         run: |
-          mkdir -p le/live/localhost
-          openssl req -x509 -nodes -newkey rsa:2048 -days 1 -subj /CN=localhost \
-            -keyout le/live/localhost/privkey.pem -out le/live/localhost/fullchain.pem 2> /dev/null
-          docker run --rm -e API_DOMAIN=localhost \
+          mkdir -p le/live/api.example.com
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 -subj /CN=api.example.com \
+            -keyout le/live/api.example.com/privkey.pem -out le/live/api.example.com/fullchain.pem 2> /dev/null
+          docker run --rm -e API_DOMAIN=api.example.com -e STAGING_API_DOMAIN=api.staging.example.com \
             -v "$PWD/infrastructure/nginx/nowoll.conf.template:/etc/nginx/templates/default.conf.template:ro" \
             -v "$PWD/le:/etc/letsencrypt:ro" \
             nginx:1.27.5-alpine sh -c '/docker-entrypoint.d/20-envsubst-on-templates.sh && nginx -t'
