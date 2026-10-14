@@ -1,0 +1,61 @@
+# ============================================================================
+# What Docker must NEVER copy into an image (steps 44–46). The build context
+# is the repo root, so everything here is excluded from every image.
+# Secrets come from the VPS's /opt/nowoll/.env at RUN time, never at build time.
+# ============================================================================
+
+# ── Secrets and keys (CLAUDE.md Rule 3) ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+!.env.production.example
+**/.env
+**/.env.*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+**/secrets/
+**/*.secret*
+id_rsa*
+.npmrc
+
+# ── Version control, editors, local tooling ─────────────────────────────────
+.git
+.gitignore
+.github
+.vscode
+.idea
+.claude
+*.log
+.DS_Store
+
+# ── Dependencies and build output (rebuilt inside the image) ────────────────
+**/node_modules
+**/dist
+**/.next
+**/.next-e2e
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+
+# ── Not needed to run the API or workers ────────────────────────────────────
+docs
+infrastructure
+# The shop and admin run on Vercel; only their package.json stays (the workspace needs it).
+apps/storefront/**
+!apps/storefront/package.json
+apps/admin/**
+!apps/admin/package.json
+**/test-results
+**/playwright-report
+# The e2e package's files aren't needed — only its package.json, so the
+# workspace (and pnpm-lock.yaml) stay complete for `pnpm install --frozen-lockfile`.
+tests/**
+!tests/e2e/package.json
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+apps/api/test
+workers/*/test
