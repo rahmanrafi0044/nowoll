@@ -44,3 +44,6 @@ export const DHAKA_DELIVERY = '60'
 
 /** Made-up tracking IDs (step 39a): the shop shows the cookie banner and would load the tools. */
 export const TRACKING = { ga4: 'G-E2ETEST01', pixel: '1234567890' }
+
+/** A live blog post (step 43). */
+export const BLOG_POST = { title: 'Style the oxford shirt', slug: 'style-the-oxford-shirt' }

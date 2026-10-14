@@ -261,11 +261,12 @@ model Product {
   // would try to drop the index and the generated expression.
   searchVector     Unsupported("tsvector")? @default(dbgenerated()) @map("search_vector")
 
-  category   Category         @relation(fields: [categoryId], references: [id])
+  category   Category          @relation(fields: [categoryId], references: [id])
   variants   ProductVariant[]
   images     ProductImage[]
   reviews    Review[]
   orderItems OrderItem[]
+  blogPosts  BlogPostProduct[]
 
   @@index([categoryId])
   @@index([status, createdAt]) // storefront "new arrivals": active products, newest first
@@ -729,10 +730,30 @@ model BlogPost {
   updatedAt      DateTime      @updatedAt @map("updated_at")
   deletedAt      DateTime?     @map("deleted_at")
 
-  author User? @relation(fields: [authorId], references: [id])
+  author   User?             @relation(fields: [authorId], references: [id])
+  products BlogPostProduct[]
 
   @@index([status, publishedAt])
   @@map("blog_posts")
+}
+
+/**
+ * "Shop the look" (step 43): up to 4 products under a blog post, in order.
+ * A join table (many-to-many): a post shows several products, a product can
+ * appear in several posts. Deleting either side removes just the link
+ * (CASCADE) — never the post or the product.
+ */
+model BlogPostProduct {
+  postId    String @map("post_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  sortOrder Int    @default(0) @map("sort_order")
+
+  post    BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  product Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([postId, productId]) // the same product once per post
+  @@index([productId])
+  @@map("blog_post_products")
 }
 
 // Privacy Policy, Terms, Return Policy… editable by admin, so they're rows

@@ -78,7 +78,7 @@
 |---|---|---|
 | 21 | Static pages (privacy, terms, returns, about, contact) — Markdown, draft / published, SEO | ✅ (step 36) |
 | 22 | FAQ page (a static page) | ✅ (step 36) |
-| 23 | Blog | 🛠 43 |
+| 23 | Blog | ✅ (step 43) |
 
 ### H. Checkout and payments
 | # | What | Status |
@@ -103,6 +103,7 @@
 | Meta server events on/off (Conversions API); Admin → Marketing: setup checklist, "send test event" (Meta's test code), delivery log | 🛠 39b |
 | Meta catalogue feed on/off (Admin → Marketing → Catalog feed: address to copy, item count, products left out and why) | 🛠 39c |
 | Newsletter: footer form on/off, checkout "email me" box on/off, copy to Resend on/off + segment id; Admin → Newsletter (list, unsubscribe, erase, CSV, sync). Newsletters themselves are written in Resend | 🛠 42 |
+| Blog posts: write, photos (uploaded here only), tags, "Shop the look", publish now or on a date, archive (Content → Blog) | 🛠 43 |
 | 33 | Redirects: an old web address sends visitors to the new one | 🛠 43c |
 
 ### K. Staff

@@ -17,12 +17,17 @@ export function JsonLd({ data }: { data: object }) {
 
 const absolute = (path: string) => new URL(path, publicEnv.siteUrl).toString()
 
-/** BreadcrumbList: Home › Men › Shirts (› product). Lets Google show the path in results. */
-export function breadcrumbJsonLd(trail: BreadcrumbItem[], last?: { name: string; path: string }) {
+type Crumb = { name: string; path: string }
+
+/**
+ * BreadcrumbList: Home › Men › Shirts (› product), or Home › Blog › post.
+ * Lets Google show the path in results.
+ */
+export function breadcrumbJsonLd(trail: BreadcrumbItem[], last?: Crumb | Crumb[]) {
   const items = [
     { name: 'Home', path: '/' },
     ...trail.map((c) => ({ name: c.name, path: `/shop/${c.slug}` })),
-    ...(last ? [last] : []),
+    ...(last ? [last].flat() : []),
   ]
   return {
     '@context': 'https://schema.org',

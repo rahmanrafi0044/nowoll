@@ -20,6 +20,7 @@ import { PagesModule } from './pages/pages.module.js'
 import { StaffModule } from './staff/staff.module.js'
 import { MarketingModule } from './marketing/marketing.module.js'
 import { FeedsModule } from './feeds/feeds.module.js'
+import { BlogModule } from './blog/blog.module.js'
 import { SubscribersModule } from './subscribers/subscribers.module.js'
 import { DiscountsModule } from './discounts/discounts.module.js'
 import { CartModule } from './cart/cart.module.js'
@@ -59,6 +60,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     StaffModule,
     MarketingModule,
     FeedsModule,
+    BlogModule,
     SubscribersModule,
     DiscountsModule,
     CartModule,

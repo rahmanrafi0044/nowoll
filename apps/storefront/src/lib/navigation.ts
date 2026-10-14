@@ -102,7 +102,12 @@ const link = (label: string, href: string): NavLink => ({
 })
 
 /** The footer's link columns: the admin's columns, then (if on) the help + pages column. */
-export function footerColumns(footer: Footer, pages: PageLinkView[]): FooterColumn[] {
+export function footerColumns(
+  footer: Footer,
+  pages: PageLinkView[],
+  /** Step 43: at least one blog post is live → a "Blog" link. */
+  hasBlog = false,
+): FooterColumn[] {
   const columns: FooterColumn[] = footer.columns.map((c) => ({
     key: c.id,
     title: c.title,
@@ -110,7 +115,11 @@ export function footerColumns(footer: Footer, pages: PageLinkView[]): FooterColu
   }))
   // Before step 38b the footer had exactly this list — still the default.
   const auto = footer.autoPages
-    ? [link('Track your order', '/orders/track'), ...pages.map((p) => link(p.title, `/${p.slug}`))]
+    ? [
+        link('Track your order', '/orders/track'),
+        ...(hasBlog ? [link('Blog', '/blog')] : []),
+        ...pages.map((p) => link(p.title, `/${p.slug}`)),
+      ]
     : []
   if (auto.length > 0)
     columns.push({

@@ -19,7 +19,10 @@ import { IMAGE_STORAGE, type ImageStorage } from '../storage/image-storage.js'
 export class ContentImagesService {
   constructor(@Inject(IMAGE_STORAGE) private readonly storage: ImageStorage) {}
 
-  async upload(file: { buffer: Buffer } | undefined): Promise<{ url: string }> {
+  /** Also the size (step 43): blog photos carry it, so the shop reserves their space. */
+  async upload(
+    file: { buffer: Buffer } | undefined,
+  ): Promise<{ url: string; width: number; height: number }> {
     if (!file || file.buffer.length === 0)
       throw new BadRequestException('Attach an image file in the "file" field.')
     const kind = detectImageKind(file.buffer)
@@ -32,6 +35,6 @@ export class ContentImagesService {
     })
     const path = `content/${randomUUID()}.${processed.extension}`
     await this.storage.upload(path, processed.data, processed.contentType)
-    return { url: this.storage.publicUrl(path) }
+    return { url: this.storage.publicUrl(path), width: processed.width, height: processed.height }
   }
 }

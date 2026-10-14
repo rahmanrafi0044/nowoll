@@ -3,6 +3,7 @@
 // those shapes, this file stops compiling and `pnpm typecheck` fails —
 // long before a customer sees a broken page.
 import type {
+  BlogPostView,
   CatalogFeedReportView,
   MarketingStatusView,
   MetaEventLogView,
@@ -70,6 +71,7 @@ import type { AdminShippingZone, ShippingRate } from './shipping/shipping.servic
 import type { AdminStaffPage } from './staff/staff.service.js'
 import type { MarketingService } from './marketing/marketing.service.js'
 import type { CatalogFeedService } from './feeds/catalog-feed.service.js'
+import type { BlogPost } from './blog/blog.service.js'
 import type { WishlistEntry } from './wishlist/wishlist.service.js'
 import type { PublicVariant } from './products/product-view.js'
 import type { ProductCard, ProductDetail, ProductFacets } from './products/products.service.js'
@@ -154,6 +156,8 @@ describe('API ↔ storefront contract', () => {
     expectTypeOf<
       Serialized<Awaited<ReturnType<CatalogFeedService['report']>>>
     >().toEqualTypeOf<CatalogFeedReportView>()
+    // Blog (step 43): the post page relies on this shape (incl. its product cards).
+    expectTypeOf<Serialized<BlogPost>>().toEqualTypeOf<BlogPostView>()
     type M = MarketingService
     expectTypeOf<
       Serialized<Awaited<ReturnType<M['status']>>>
