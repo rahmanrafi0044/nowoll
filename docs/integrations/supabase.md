@@ -214,6 +214,24 @@ API tests use `apps/api/test/utils/fake-auth-provider.ts` (tokens expire, refres
 reset links work once; each authenticator app's code is fixed — `codeOnPhone(userId)`) — no test creates a
 real account. Admin sign-in: `apps/api/test/admin-auth.e2e-spec.ts`; helper `test/utils/admin.ts`.
 
+## Production database connection (step 47)
+
+Checked against the official guide "Connect to your database" (supabase.com/docs/guides/database/connecting-to-postgres, 14 Oct 2026):
+
+| Type | Host | Port | Network |
+|---|---|---|---|
+| Direct connection | `db.[PROJECT-REF].supabase.co` | 5432 | **IPv6 only** (IPv4 needs the paid add-on) |
+| **Session pooler** | `aws-[INDEX]-[REGION].pooler.supabase.com` (copy it — `[INDEX]` can't be guessed) | 5432 | IPv4 on every plan |
+| Transaction pooler | same pooler host | 6543 | IPv4 — **no prepared statements** (Prisma would need `pgbouncer=true`) |
+
+Pooled connections use the user name `postgres.[PROJECT-REF]`; direct ones use `postgres`.
+
+**We use the Session pooler string for both:**
+- `PROD_DATABASE_URL` (GitHub secret) — CI runs `prisma migrate deploy`; GitHub's machines have no IPv6.
+- `DATABASE_URL` in `/opt/nowoll/.env` — the API and workers run in Docker, whose network is IPv4 by default.
+
+Where: Supabase dashboard → **Connect** → "Session pooler" → copy the URI and put in the database password.
+
 ---
 
 *Claude Code: read this file before any Supabase-related change. If the official Supabase docs disagree with it, update this file and tell Rafi.*

@@ -10,9 +10,15 @@
 # Certificates: Let's Encrypt via certbot (step 49 — docs/deployment.md).
 # ============================================================================
 
+# Docker's own DNS. Every deploy creates a NEW api container with a new
+# address, so nginx must look "api" up again (every 10 s) instead of keeping
+# the address it found at start-up — otherwise: 502 after each deploy.
+resolver 127.0.0.11 valid=10s ipv6=off;
+
 # The API trusts ONE proxy hop ('trust proxy' 1) — this one — for the real IP.
 upstream nowoll_api {
-    server api:3001;
+    zone nowoll_api 64k;          # shared memory, needed by "resolve"
+    server api:3001 resolve;      # re-resolved via the resolver above (nginx ≥ 1.27.3)
     keepalive 16;
 }
 

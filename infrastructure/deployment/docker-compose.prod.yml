@@ -1,14 +1,17 @@
 # ============================================================================
 # Production on the Hostinger VPS — step 45 (guide: docs/deployment.md).
+# Started by deploy.sh on every deploy from GitHub (step 47). By hand:
 #   cd /opt/nowoll/app
 #   docker compose -f infrastructure/deployment/docker-compose.prod.yml \
-#     --env-file /opt/nowoll/.env up -d --build
+#     --env-file /opt/nowoll/.env ps
 #
 # Only nginx is reachable from the internet (80/443). The API, the two
 # workers and Redis talk on a private Docker network. The database is
 # Supabase (not here); the shop and admin are on Vercel (not here).
 # Every secret comes from /opt/nowoll/.env on the server — never from git.
 # Migrations are NOT run here: CI runs `prisma migrate deploy` (step 47).
+# Images: CI builds them and deploy.sh sets IMAGE_PREFIX (ghcr.io/<owner>/nowoll)
+# and IMAGE_TAG (the git commit). Without them: local images nowoll-*:latest.
 # Memory limits assume a 2–4 GB VPS (adjust if the plan differs).
 # ============================================================================
 
@@ -34,7 +37,7 @@ services:
     build:
       context: ../..
       dockerfile: infrastructure/docker/api.Dockerfile
-    image: nowoll-api:latest
+    image: ${IMAGE_PREFIX:-nowoll}-api:${IMAGE_TAG:-latest}
     environment:
       <<: *app-env
       PORT: '3001'
@@ -54,7 +57,7 @@ services:
       context: ../..
       dockerfile: infrastructure/docker/worker.Dockerfile
       args: { WORKER: order-worker }
-    image: nowoll-order-worker:latest
+    image: ${IMAGE_PREFIX:-nowoll}-order-worker:${IMAGE_TAG:-latest}
     environment: *app-env
     depends_on:
       redis: { condition: service_healthy }
@@ -71,7 +74,7 @@ services:
       context: ../..
       dockerfile: infrastructure/docker/worker.Dockerfile
       args: { WORKER: notification-worker }
-    image: nowoll-notification-worker:latest
+    image: ${IMAGE_PREFIX:-nowoll}-notification-worker:${IMAGE_TAG:-latest}
     environment: *app-env
     depends_on:
       redis: { condition: service_healthy }
@@ -116,7 +119,8 @@ services:
     # No ports: Redis is never reachable from outside.
 
   nginx:
-    image: nginx:1.27-alpine
+    # Exact version: the config needs "server … resolve" (nginx 1.27.3 or newer).
+    image: nginx:1.27.5-alpine
     restart: unless-stopped
     networks: [backend]
     logging:

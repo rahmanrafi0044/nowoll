@@ -1,0 +1,185 @@
+# ============================================================================
+# Deploy — step 47. Puts a new version of the API + workers on the VPS.
+#
+# Starts by itself when CI passes on main (after a PR is merged), or by hand:
+# GitHub → Actions → Deploy → "Run workflow" (pick a branch, or type an older
+# commit to ROLL BACK to it).
+#
+#   build    — builds the 3 Docker images here on GitHub (not on the small
+#              VPS) and stores them in GitHub's image storage (ghcr.io)
+#   deploy   — 1. database migrations on production (prisma migrate deploy)
+#              2. uploads the compose file + nginx template to the VPS
+#              3. runs deploy.sh there: pull, restart, health check, and an
+#                 automatic rollback if the new version is unhealthy
+#              4. checks https://<API_DOMAIN>/api/v1/health from outside
+#
+# OFF until the VPS is ready: set the repository variable DEPLOY_ENABLED=true
+# (Settings → Secrets and variables → Actions → Variables) and add the secrets
+# listed in docs/deployment.md. Secrets are never printed in the logs.
+# ============================================================================
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit or branch to deploy (an older commit = rollback)'
+        required: true
+        default: main
+
+# One deploy at a time; a second one waits instead of interrupting the first.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # ghcr.io names must be lowercase.
+  IMAGE_PREFIX: ghcr.io/rahmanrafi0044/nowoll
+
+jobs:
+  build:
+    name: Build images
+    # Only after a green CI run of a push to main (not a PR), or by hand — and
+    # only once the deploy is switched on.
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write # push images to ghcr.io
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    strategy:
+      # The 3 images are independent; build them side by side.
+      matrix:
+        image: [api, order-worker, notification-worker]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Log in to ghcr.io
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+      - name: Build and push (skipped if this commit's image already exists — e.g. a rollback)
+        env:
+          NAME: ${{ matrix.image }}
+          SHA: ${{ steps.sha.outputs.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          IMAGE="$IMAGE_PREFIX-$NAME"
+          if docker manifest inspect "$IMAGE:$SHA" > /dev/null 2>&1; then
+            echo "$IMAGE:$SHA already exists — not rebuilding."
+            exit 0
+          fi
+          if [ "$NAME" = api ]; then
+            args=(-f infrastructure/docker/api.Dockerfile)
+          else
+            args=(-f infrastructure/docker/worker.Dockerfile --build-arg "WORKER=$NAME")
+          fi
+          docker buildx create --use --name nowoll > /dev/null
+          # The layer cache lives next to the images (":buildcache"), so an
+          # unchanged lockfile doesn't download every package again.
+          docker buildx build "${args[@]}" \
+            --label "org.opencontainers.image.source=https://github.com/$REPO" \
+            --label "org.opencontainers.image.revision=$SHA" \
+            --cache-from "type=registry,ref=$IMAGE:buildcache" \
+            --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max" \
+            -t "$IMAGE:$SHA" --push .
+
+  deploy:
+    name: Migrate and deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read # the VPS pulls the images with this job's short-lived token
+    env:
+      SHA: ${{ needs.build.outputs.sha }}
+      SSH: ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+
+      # 1. Migrations BEFORE the new version starts (CLAUDE.md Rules 4 and 7).
+      #    A migration must still work with the version that is running now
+      #    (e.g. drop a column only in a LATER release) — docs/deployment.md.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter "@nowoll/database..."
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build # only to generate the client
+      - name: Database migrations (production)
+        working-directory: packages/database
+        env:
+          # Supabase "Session pooler" string — GitHub's machines have no IPv6 (docs/integrations/supabase.md).
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: pnpm exec prisma migrate deploy
+
+      # 2. SSH with a deploy-only key; the server's fingerprint is pinned, so
+      #    GitHub refuses to talk to any other machine.
+      - name: Set up SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Upload the release to the VPS
+        run: |
+          printf 'IMAGE_PREFIX=%s\nIMAGE_TAG=%s\n' "$IMAGE_PREFIX" "$SHA" > release.env
+          tar -czf - infrastructure/deployment infrastructure/nginx release.env \
+            | $SSH 'rm -rf /opt/nowoll/app.new && mkdir -p /opt/nowoll/app.new && tar -xzf - -C /opt/nowoll/app.new'
+
+      # 3. Log the VPS in to ghcr.io with this job's token (it expires when the
+      #    job ends), deploy, and always log out again.
+      - name: Deploy (pull, restart, health check, rollback if unhealthy)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          echo "$TOKEN" | $SSH "docker login ghcr.io -u '$ACTOR' --password-stdin" > /dev/null
+          status=0
+          $SSH 'bash /opt/nowoll/app.new/infrastructure/deployment/deploy.sh' || status=$?
+          $SSH 'docker logout ghcr.io' > /dev/null || true
+          exit $status
+
+      # 4. From the outside, through Nginx and HTTPS.
+      - name: Check https://<API_DOMAIN>/api/v1/health
+        env:
+          API_DOMAIN: ${{ vars.API_DOMAIN }}
+        run: |
+          for _ in $(seq 1 10); do
+            if curl -fsS "https://$API_DOMAIN/api/v1/health"; then echo; echo "Live: $SHA"; exit 0; fi
+            sleep 6
+          done
+          echo "::error::https://$API_DOMAIN/api/v1/health did not answer"
+          exit 1
+
+  # Shown instead when the deploy is switched off, so it's clear why nothing happened.
+  disabled:
+    name: Deploy is switched off
+    if: vars.DEPLOY_ENABLED != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "::notice::Deploy is off. When the VPS is ready, set the repository variable DEPLOY_ENABLED=true (docs/deployment.md)."
