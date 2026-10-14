@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { createPrismaClient, Prisma } from '@nowoll/database'
 import { E2E_DATABASE_URL } from './env.js'
-import { CATEGORY, DISCOUNT, SHIRT, TRACKING } from './fixtures.js'
+import { BLOG_POST, CATEGORY, DISCOUNT, SHIRT, TRACKING } from './fixtures.js'
 
 const DATABASE_PACKAGE = path.resolve(import.meta.dirname, '../../../packages/database')
 
@@ -97,6 +97,19 @@ export async function seedE2eDatabase(): Promise<void> {
         code: DISCOUNT.code,
         type: 'PERCENTAGE',
         value: new Prisma.Decimal(DISCOUNT.percent),
+      },
+    })
+    // Step 43: one live blog post, with the shirt as "Shop the look".
+    await db.blogPost.create({
+      data: {
+        title: BLOG_POST.title,
+        slug: BLOG_POST.slug,
+        excerpt: 'How to wear the oxford shirt three ways.',
+        content: '## Three ways\n\nWith chinos, with jeans, or under a blazer.',
+        tags: ['styling'],
+        status: 'PUBLISHED',
+        publishedAt: new Date(Date.now() - 24 * 3600_000),
+        products: { create: { productId: SHIRT.id } },
       },
     })
   } finally {

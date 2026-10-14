@@ -63,4 +63,27 @@ describe('Markdown', () => {
     render(<Markdown>{'# Section'}</Markdown>)
     expect(screen.getByRole('heading', { level: 2, name: 'Section' })).toBeInTheDocument()
   })
+
+  it('photos (step 43): only when the page passes `photo`, which decides; otherwise the description', () => {
+    const md =
+      'Look:\n\n![Two panjabis](https://own.example/a.jpg#w=10&h=10)\n\n![Bad](https://evil.example/b.jpg)'
+    const { container } = render(
+      <Markdown
+        photo={({ src, alt }) =>
+          src.startsWith('https://own.example/') ? (
+            <img src={src} alt={alt} data-testid="photo" />
+          ) : null
+        }
+      >
+        {md}
+      </Markdown>,
+    )
+    expect(screen.getAllByTestId('photo')).toHaveLength(1)
+    expect(screen.getByAltText('Two panjabis')).toHaveAttribute(
+      'src',
+      'https://own.example/a.jpg#w=10&h=10',
+    )
+    expect(screen.getByText('Bad')).toBeInTheDocument() // refused → its words only
+    expect(container.querySelector('p img, p div')).toBeNull() // a lone photo isn't wrapped in <p>
+  })
 })

@@ -4,6 +4,7 @@ import { Button, Input } from '@nowoll/ui'
 import Image from 'next/image'
 import { useId, useState } from 'react'
 import { imageFileProblem } from '@/components/product-edit/images-section'
+import type { ApiCallResult } from '@/lib/api'
 import { uploadContentImage } from '@/lib/content-api'
 
 // Shared pieces of the content editors (step 36).
@@ -21,8 +22,8 @@ export function ImageField({
   url: string | null
   onChange: (url: string | null) => void
   required?: boolean
-  /** Where the file goes (default: the homepage pictures upload). */
-  upload?: typeof uploadContentImage
+  /** Where the file goes (default: the homepage pictures upload). Only the address is needed. */
+  upload?: (file: File) => Promise<ApiCallResult<{ url: string }>>
   /** Extra advice under the field, e.g. the best size. */
   hint?: string
 }) {

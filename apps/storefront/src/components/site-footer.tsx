@@ -33,12 +33,15 @@ export function SiteFooter({
   pages,
   settings: s,
   footer,
+  hasBlog = false,
 }: {
   pages: PageLinkView[]
   settings: PublicSettings
   footer: Footer
+  /** At least one blog post is live (step 43). */
+  hasBlog?: boolean
 }) {
-  const columns = footerColumns(footer, pages)
+  const columns = footerColumns(footer, pages, hasBlog)
   const badges = paymentBadges(footer.payments)
   const socials = (Object.keys(SOCIAL_SITES) as SocialKey[]).filter((k) => s[k])
   const hasContact =

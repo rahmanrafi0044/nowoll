@@ -337,7 +337,9 @@ describe('homepage', () => {
 
   it('banners: a picture is uploaded and kept; refusals from the API are shown', async () => {
     load({ sections: [] })
-    mocked.uploadContentImage.mockResolvedValue(ok({ url: 'https://cdn.example/content/a.webp' }))
+    mocked.uploadContentImage.mockResolvedValue(
+      ok({ url: 'https://cdn.example/content/a.webp', width: 1200, height: 800 }),
+    )
     mocked.saveContentBlock.mockResolvedValueOnce({
       ok: false,
       status: 400,
@@ -362,7 +364,9 @@ describe('homepage', () => {
 
   it('hero: saves heading and button; asks for a description when there is a picture', async () => {
     load()
-    mocked.uploadContentImage.mockResolvedValue(ok({ url: 'https://cdn.example/content/h.webp' }))
+    mocked.uploadContentImage.mockResolvedValue(
+      ok({ url: 'https://cdn.example/content/h.webp', width: 1200, height: 800 }),
+    )
     render(<HomepageEditor />)
     const hero = within(await screen.findByRole('region', { name: 'Hero' }))
     fireEvent.change(hero.getByLabelText('Heading'), { target: { value: 'Always new' } })

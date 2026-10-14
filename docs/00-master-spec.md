@@ -96,7 +96,9 @@ Everything the admin panel can and can't change — with the safety rules — is
 42. Newsletter: sign-up (homepage, footer, unticked checkout box — always double opt-in); Admin → Newsletter
     (list, unsubscribe, erase, CSV); confirmed people copied to a Resend segment, newsletters written
     and sent as Resend Broadcasts; Resend's unsubscribes come back by signed webhook
-43. Blog section (storefront + admin CRUD)
+43. Blog: /blog (tag filter, pages) and /blog/[slug] (BlogPosting JSON-LD, photos from our own uploads
+    only, "Shop the look" up to 4 products); Admin → Content → Blog (Staff + Admin: drafts, schedule,
+    archive, Insert photo); /sitemap.xml and /robots.txt
 43b. apps/admin: Email wording — subject lines, opening paragraphs, email footer/logo (layouts fixed)
 43c. apps/admin + storefront: Redirects (old web address → new one)
 ```
@@ -341,11 +343,15 @@ Everything the admin panel can and can't change — with the safety rules — is
 │   ├── GET    /customers   (admin — ADMIN role)
 │   └── GET    /orders      (admin — ADMIN role: outcomes, cancellation rate, splits)  — docs/analytics.md
 ├── blog/
-│   ├── GET    /            (public, published only)
-│   ├── GET    /:slug       (public)
-│   ├── POST   /            (admin)
-│   ├── PATCH  /:id        (admin)
-│   └── DELETE /:id        (admin)
+│   ├── GET    /            (public, live only — ?page, ?tag)
+│   ├── GET    /sitemap     (public — live posts for /sitemap.xml)
+│   └── GET    /:slug       (public — 200 + null when not live)
+├── admin/blog/             (Staff + Admin)
+│   ├── GET    /            (?status=ARCHIVED for the archive)
+│   ├── GET    /:id
+│   ├── POST   /
+│   ├── PATCH  /:id        (also publish / schedule / unpublish / restore)
+│   └── DELETE /:id        (archive — soft)
 ├── subscribers/
 │   ├── POST   /           (public — newsletter sign-up; also /confirm, /unsubscribe)
 │   └── admin/subscribers   (ADMIN — list, export.csv, resend status + sync-all, unsubscribe, delete)

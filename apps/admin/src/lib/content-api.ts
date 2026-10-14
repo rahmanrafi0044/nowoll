@@ -37,5 +37,6 @@ export const clearContentBlock = (key: ContentKey) =>
 export function uploadContentImage(file: File) {
   const form = new FormData()
   form.append('file', file)
-  return call<{ url: string }>('POST', '/admin/content/images', form)
+  // Also the size (step 43): blog photos carry it, so the shop reserves their space.
+  return call<{ url: string; width: number; height: number }>('POST', '/admin/content/images', form)
 }

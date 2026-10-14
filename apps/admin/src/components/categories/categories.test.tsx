@@ -96,7 +96,7 @@ describe('new category', () => {
   it('address follows the name; picture needs a description; created → its page', async () => {
     mocked.createCategory.mockResolvedValue(ok({ id: 'new1', slug: 'eid-collection' }))
     vi.mocked((await import('@/lib/content-api')).uploadContentImage).mockResolvedValue(
-      ok({ url: 'https://cdn.example/content/eid.webp' }),
+      ok({ url: 'https://cdn.example/content/eid.webp', width: 1200, height: 800 }),
     )
     render(<NewCategory />)
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Eid Collection' } })

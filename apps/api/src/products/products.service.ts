@@ -330,6 +330,30 @@ export class ProductsService {
     return { id }
   }
 
+  /**
+   * Product cards for these ids, in that order — only products the shop shows
+   * (active, not deleted, in a visible category; the same rule as the list).
+   * Used by blog posts' "Shop the look" (step 43): a hidden product just drops out.
+   */
+  async cardsByIds(ids: string[]): Promise<ProductCard[]> {
+    if (ids.length === 0) return []
+    const visible = [...(await this.categories.visibleCategoryIds())]
+    const rows = await this.prisma.product.findMany({
+      where: {
+        id: { in: ids },
+        status: ProductStatus.ACTIVE,
+        deletedAt: null,
+        categoryId: { in: visible },
+      },
+      include: PUBLIC_INCLUDE,
+    })
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    return ids.flatMap((id) => {
+      const row = byId.get(id)
+      return row ? [this.toCard(row)] : []
+    })
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────
 
   private toCard(p: ProductWithRelations): ProductCard {

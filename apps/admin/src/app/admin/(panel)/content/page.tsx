@@ -23,6 +23,11 @@ const PARTS = [
     text: 'Privacy, terms, return policy, about, contact, FAQ — written here, shown in the footer.',
   },
   {
+    href: '/admin/content/blog',
+    title: 'Blog',
+    text: 'Stories, styling ideas and new arrivals — with photos, tags, “Shop the look” and scheduling.',
+  },
+  {
     href: '/admin/content/menu',
     title: 'Menu',
     text: 'The links in the shop’s header: categories in your order, plus your own links like “Sale”.',

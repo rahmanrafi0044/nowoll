@@ -1,5 +1,5 @@
 import { safeMarkdownHref } from '@nowoll/validation'
-import type { ComponentPropsWithoutRef } from 'react'
+import type { ComponentPropsWithoutRef, ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '../cn.js'
@@ -11,7 +11,9 @@ import { cn } from '../cn.js'
 //   • raw HTML in the text is skipped, never run (skipHtml)
 //   • links: only /shop paths, https, mailto: and tel: survive (the words of
 //     any other link stay, the link itself is dropped)
-//   • no pictures inside pages (only a picture's description is shown)
+//   • no pictures inside pages (only a picture's description is shown) —
+//     unless the caller passes `photo`, which decides itself (the blog shows
+//     only the shop's own uploads, step 43)
 // Styling: Tailwind classes per element (the project has no typography plugin).
 // ============================================================================
 
@@ -67,16 +69,39 @@ function strip<T extends { node?: unknown }>({ node: _node, ...rest }: T) {
 
 export interface MarkdownProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
   children: string
+  /**
+   * How to show a picture (its address and description). Without it, only the
+   * description is shown. Return null to show just the description.
+   */
+  photo?: (p: { src: string; alt: string }) => ReactNode | null
 }
 
-export function Markdown({ children, className, ...props }: MarkdownProps) {
+export function Markdown({ children, className, photo, ...props }: MarkdownProps) {
+  const withPhotos: Components = photo
+    ? {
+        ...components,
+        img: ({ src, alt }) => {
+          const shown = typeof src === 'string' && src ? photo({ src, alt: alt ?? '' }) : null
+          return shown ?? (alt ? <span>{alt}</span> : null)
+        },
+        // A picture alone in a paragraph would put a <figure>/<div> inside <p> — use a <div>.
+        p: ({ node, ...p }) =>
+          node?.children.length === 1 &&
+          node.children[0]?.type === 'element' &&
+          node.children[0].tagName === 'img' ? (
+            <div className="my-6" {...p} />
+          ) : (
+            <p className="my-3 leading-7" {...p} />
+          ),
+      }
+    : components
   return (
     <div className={cn('text-foreground', className)} {...props}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         skipHtml
         urlTransform={(url) => safeMarkdownHref(url) ?? ''}
-        components={components}
+        components={withPhotos}
       >
         {children}
       </ReactMarkdown>
