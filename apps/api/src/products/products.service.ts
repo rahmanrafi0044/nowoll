@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common'
 import { Prisma, type Product } from '@nowoll/database'
 import { InventoryChangeReason, ProductStatus } from '@nowoll/database/enums'
@@ -24,6 +25,7 @@ import {
   toPublicImage,
   toPublicVariant,
 } from './product-view.js'
+import { RedirectsService } from '../redirects/redirects.service.js'
 
 const FALLBACK_SLUG = 'product'
 
@@ -81,6 +83,8 @@ export class ProductsService {
     private readonly prisma: PrismaService,
     private readonly categories: CategoriesService,
     private readonly stock: StockService,
+    // Step 43c: old address → new one when the slug changes (optional for hand-built tests).
+    @Optional() private readonly redirects?: RedirectsService,
   ) {}
 
   // ── Public ─────────────────────────────────────────────────────────────
@@ -310,7 +314,7 @@ export class ProductsService {
     if (dto.slug && dto.slug !== existing.slug) await this.assertSlugAvailable(dto.slug)
     if (dto.status === ProductStatus.ACTIVE) await assertPublishable(this.prisma, id)
 
-    return this.prisma.product.update({
+    const updated = await this.prisma.product.update({
       where: { id },
       data: {
         ...dto,
@@ -318,6 +322,10 @@ export class ProductsService {
         compareAtPrice: toDecimalOrNull(dto.compareAtPrice),
       },
     })
+    // New address → the old one keeps working (step 43c).
+    if (updated.slug !== existing.slug)
+      await this.redirects?.moved(`/products/${existing.slug}`, `/products/${updated.slug}`)
+    return updated
   }
 
   /** Soft delete: hidden everywhere, but kept for order history and old links. */

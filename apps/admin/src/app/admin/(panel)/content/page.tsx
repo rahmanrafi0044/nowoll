@@ -43,6 +43,11 @@ const PARTS = [
     text: 'Subject lines, headings and opening words of every customer email; footer and logo. (Admins only)',
   },
   {
+    href: '/admin/content/redirects',
+    title: 'Redirects',
+    text: 'Old web addresses that send visitors to the new ones — added by itself when an address changes.',
+  },
+  {
     href: '/admin/content/product-info',
     title: 'Product info',
     text: 'The “Delivery and returns” box on every product page — fees, returns, cash on delivery.',

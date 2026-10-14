@@ -47,3 +47,5 @@ export const TRACKING = { ga4: 'G-E2ETEST01', pixel: '1234567890' }
 
 /** A live blog post (step 43). */
 export const BLOG_POST = { title: 'Style the oxford shirt', slug: 'style-the-oxford-shirt' }
+/** An old address of the shirt (step 43c) — redirects to its product page. */
+export const OLD_SHIRT_PATH = '/products/oxford-shirt-2025'

@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { createPrismaClient, Prisma } from '@nowoll/database'
 import { E2E_DATABASE_URL } from './env.js'
-import { BLOG_POST, CATEGORY, DISCOUNT, SHIRT, TRACKING } from './fixtures.js'
+import { BLOG_POST, CATEGORY, DISCOUNT, OLD_SHIRT_PATH, SHIRT, TRACKING } from './fixtures.js'
 
 const DATABASE_PACKAGE = path.resolve(import.meta.dirname, '../../../packages/database')
 
@@ -111,6 +111,10 @@ export async function seedE2eDatabase(): Promise<void> {
         publishedAt: new Date(Date.now() - 24 * 3600_000),
         products: { create: { productId: SHIRT.id } },
       },
+    })
+    // Step 43c: an old address that now leads to the shirt (what a renamed product gets).
+    await db.redirect.create({
+      data: { fromPath: OLD_SHIRT_PATH, toPath: `/products/${SHIRT.slug}`, source: 'AUTO' },
     })
   } finally {
     await db.$disconnect()

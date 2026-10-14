@@ -224,7 +224,8 @@ export function CategoryForm({
           />
           {slugChanged && saved.isActive && (
             <p className="text-sm text-warning">
-              Old links to /shop/{saved.slug} will stop working (Google, Facebook posts, bookmarks).
+              Old links to /shop/{saved.slug} will lead here automatically (a redirect is added —
+              see Content → Redirects).
             </p>
           )}
         </div>

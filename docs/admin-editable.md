@@ -104,7 +104,7 @@
 | Meta catalogue feed on/off (Admin → Marketing → Catalog feed: address to copy, item count, products left out and why) | 🛠 39c |
 | Newsletter: footer form on/off, checkout "email me" box on/off, copy to Resend on/off + segment id; Admin → Newsletter (list, unsubscribe, erase, CSV, sync). Newsletters themselves are written in Resend | 🛠 42 |
 | Blog posts: write, photos (uploaded here only), tags, "Shop the look", publish now or on a date, archive (Content → Blog) | 🛠 43 |
-| 33 | Redirects: an old web address sends visitors to the new one | 🛠 43c |
+| 33 | Redirects: an old web address sends visitors to the new one (Content → Redirects; added by itself when a product / category / page address changes; this shop's addresses only) | ✅ (step 43c) |
 
 ### K. Staff
 | # | What | Status |

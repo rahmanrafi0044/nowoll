@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common'
 import type { Page } from '@nowoll/database'
 import { pageInputSchema, pageSlugSchema } from '@nowoll/validation'
@@ -10,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service.js'
 import type { CreatePageDto } from './dto/create-page.dto.js'
 import type { UpdatePageDto } from './dto/update-page.dto.js'
 import { STARTER_PAGES } from './starter-pages.js'
+import { RedirectsService } from '../redirects/redirects.service.js'
 
 export type PageStatus = Page['status']
 
@@ -50,7 +52,11 @@ const ROW = { id: true, slug: true, title: true, status: true, createdAt: true, 
  */
 @Injectable()
 export class PagesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Step 43c: old address → new one when the slug changes (optional for hand-built tests).
+    @Optional() private readonly redirects?: RedirectsService,
+  ) {}
 
   // ── Shop ─────────────────────────────────────────────────────────────────
 
@@ -128,6 +134,9 @@ export class PagesService {
       where: { id },
       data: { ...input, ...(dto.status && { status: dto.status }) },
     })
+    // New address → the old one keeps working (step 43c).
+    if (input.slug !== current.slug)
+      await this.redirects?.moved(`/${current.slug}`, `/${input.slug}`)
     return this.detail(id)
   }
 

@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common'
 import type { Category } from '@nowoll/database'
 import { pickUniqueSlug, slugPrefixOf } from '../common/slugs.js'
@@ -17,6 +18,7 @@ import {
 } from './category-tree.js'
 import type { CreateCategoryDto } from './dto/create-category.dto.js'
 import type { UpdateCategoryDto } from './dto/update-category.dto.js'
+import { RedirectsService } from '../redirects/redirects.service.js'
 
 /** What customers see — no admin-only fields like isActive or deletedAt. */
 export interface PublicCategory {
@@ -86,7 +88,11 @@ const FALLBACK_SLUG = 'category'
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Step 43c: old address → new one when the slug changes (optional for hand-built tests).
+    @Optional() private readonly redirects?: RedirectsService,
+  ) {}
 
   // ── Public ─────────────────────────────────────────────────────────────
 
@@ -271,7 +277,11 @@ export class CategoriesService {
     // Admins can still change the slug explicitly.
     if (dto.slug && dto.slug !== existing.slug) await this.assertSlugAvailable(dto.slug)
 
-    return this.prisma.category.update({ where: { id }, data: dto })
+    const updated = await this.prisma.category.update({ where: { id }, data: dto })
+    // New address → the old one keeps working (step 43c).
+    if (updated.slug !== existing.slug)
+      await this.redirects?.moved(`/shop/${existing.slug}`, `/shop/${updated.slug}`)
+    return updated
   }
 
   /**

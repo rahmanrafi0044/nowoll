@@ -174,7 +174,9 @@ describe('edit page', () => {
     const save = await screen.findByRole('button', { name: 'Save changes' })
     expect(save).toBeDisabled()
     fireEvent.change(screen.getByLabelText('Web address'), { target: { value: 'returns' } })
-    expect(screen.getByText(/Old links to \/return-policy will stop working/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Old links to \/return-policy will lead here automatically/),
+    ).toBeInTheDocument()
     expect(save).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Unpublish' }))
     await waitFor(() =>
