@@ -36,7 +36,7 @@ jobs:
       - name: The compose files are valid (app and edge)
         run: |
           printf 'REDIS_PASSWORD=x\nAPI_DOMAIN=api.example.com\nSTAGING_API_DOMAIN=api.staging.example.com\n' > ci.env
-          NOWOLL_ENV_FILE=ci.env docker compose -f infrastructure/deployment/docker-compose.prod.yml --env-file ci.env config -q
+          NOWOLL_ENV_FILE="$PWD/ci.env" docker compose -f infrastructure/deployment/docker-compose.prod.yml --env-file ci.env config -q
           docker compose -f infrastructure/deployment/docker-compose.edge.yml --env-file ci.env config -q
       - name: deploy.sh passes shellcheck
         run: shellcheck infrastructure/deployment/deploy.sh
