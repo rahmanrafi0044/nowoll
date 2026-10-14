@@ -155,7 +155,7 @@ export function DetailsForm({
           value={form.slug}
           maxLength={120}
           onChange={(e) => set('slug')(e.target.value)}
-          hint={`nowoll.com/products/${form.slug || '…'} — changing it breaks links already shared.`}
+          hint={`nowoll.com/products/${form.slug || '…'} — if you change it, old links lead here automatically (Content → Redirects).`}
         />
         <SelectField
           label="Category"

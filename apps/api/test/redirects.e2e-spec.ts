@@ -116,6 +116,31 @@ describe('Redirects (step 43c)', () => {
     expect(back['/about-us']).toBe('/about')
   })
 
+  it('automatic: a blog post with a new address — the old link leads to the new', async () => {
+    const body = {
+      title: 'Eid looks',
+      slug: 'eid-looks',
+      excerpt: 'Panjabis for Eid.',
+      content: 'Crisp cotton.',
+      tags: [],
+      status: 'PUBLISHED',
+    }
+    const post = (await http().post('/api/v1/admin/blog').send(body).expect(201)).body.data
+    await http()
+      .patch(`/api/v1/admin/blog/${post.id}`)
+      .send({ ...body, slug: 'eid-looks-2026' })
+      .expect(200)
+    expect(await rules()).toEqual([
+      { from: '/blog/eid-looks', to: '/blog/eid-looks-2026', permanent: true },
+    ])
+    // Saving again without changing the address adds nothing.
+    await http()
+      .patch(`/api/v1/admin/blog/${post.id}`)
+      .send({ ...body, slug: 'eid-looks-2026', title: 'Eid looks 2026' })
+      .expect(200)
+    expect(await db.redirect.count()).toBe(1)
+  })
+
   it('a renamed product without a slug change makes no redirect', async () => {
     const c = await makeCategory()
     const p = await makeProduct({ categoryId: c.id })
