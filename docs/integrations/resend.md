@@ -75,6 +75,12 @@ Customer-typed text is escaped by React (never becomes HTML).
 
 **See them:** `pnpm email:preview` → http://localhost:8025.
 
+**Wording (step 43b):** Admin → Content → Emails changes each customer email's subject, heading and opening
+paragraph (plain text, `{name}`-style placeholders), the footer line, and shows the logo (PNG/JPEG only —
+Outlook can't show WebP). Stored as the private content block `email_wording`; the workers read it with
+`emailBrand()` (@nowoll/validation). The facts — amounts, receipts, tracking, instructions, buttons — and the
+layout are fixed in `packages/email/src/templates`.
+
 ## Newsletter — contacts, segment and webhook (step 42)
 
 Checked October 2026 against: https://resend.com/docs/api-reference/contacts/create-contact ·

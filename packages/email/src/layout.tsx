@@ -5,12 +5,13 @@ import {
   Head,
   Hr,
   Html,
+  Img,
   Preview,
   Section,
   Text,
 } from '@react-email/components'
 import { type ReactNode, useContext } from 'react'
-import { BRAND, safeColor, StoreContext } from './brand.js'
+import { BRAND, emailLogo, safeColor, StoreContext } from './brand.js'
 
 const c = BRAND.colors
 
@@ -46,17 +47,27 @@ export function Layout({
             borderRadius: '8px',
           }}
         >
-          <Text
-            style={{
-              fontSize: '22px',
-              fontWeight: 700,
-              letterSpacing: '-0.5px',
-              margin: 0,
-              color: c.foreground,
-            }}
-          >
-            {store.name}
-          </Text>
+          {emailLogo(store.logoUrl) ? (
+            // The logo (step 43b) — its text alternative is the store name.
+            <Img
+              src={emailLogo(store.logoUrl)!}
+              alt={store.name}
+              height="40"
+              style={{ height: '40px', width: 'auto', margin: '0 0 4px' }}
+            />
+          ) : (
+            <Text
+              style={{
+                fontSize: '22px',
+                fontWeight: 700,
+                letterSpacing: '-0.5px',
+                margin: 0,
+                color: c.foreground,
+              }}
+            >
+              {store.name}
+            </Text>
+          )}
           <Text style={{ fontSize: '13px', color: c.muted, margin: '0 0 24px' }}>
             {store.tagline || '\u00a0'}
           </Text>
@@ -64,7 +75,8 @@ export function Layout({
           <Hr style={{ borderColor: c.border, margin: '32px 0 16px' }} />
           <Text style={{ fontSize: '12px', color: c.muted, margin: 0 }}>
             {footer ??
-              `You're receiving this because you shopped at ${store.name}. Reply to this email if you need help.`}
+              (store.footer ||
+                `You're receiving this because you shopped at ${store.name}. Reply to this email if you need help.`)}
           </Text>
         </Container>
       </Body>

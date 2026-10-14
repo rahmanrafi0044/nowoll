@@ -119,3 +119,7 @@ export const EXAMPLES: Record<string, EmailContent> = {
   }),
   resetPassword: supabaseResetPasswordEmail(),
 }
+
+/** The example of a customer email by its tag, e.g. "order-shipped" (Admin → Emails → "Send me a test", step 43b). */
+export const exampleByTag = (tag: string): EmailContent | null =>
+  Object.values(EXAMPLES).find((e) => e.tag === tag) ?? null

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { emailWordingSchema } from './email-wording.js'
 import { productInfoSchema } from './product-info.js'
 
 // ============================================================================
@@ -207,7 +208,11 @@ export const CONTENT_BLOCK_SCHEMAS = {
   main_menu: mainMenuSchema,
   footer: footerSchema,
   product_info: productInfoSchema, // step 38d
+  email_wording: emailWordingSchema, // step 43b — PRIVATE (see PRIVATE_CONTENT_BLOCKS)
 } as const
+
+/** Blocks the shop never reads — the public /content-blocks route answers null for them. */
+export const PRIVATE_CONTENT_BLOCKS: readonly ContentBlockKey[] = ['email_wording']
 
 export type ContentBlockKey = keyof typeof CONTENT_BLOCK_SCHEMAS
 export type AnnouncementBar = z.output<typeof announcementBarSchema>

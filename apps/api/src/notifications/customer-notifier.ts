@@ -17,6 +17,8 @@ export interface CustomerNotifier {
   newsletterErase(email: string): Promise<void>
   /** Step 42: Admin → Newsletter → "Sync everyone now". */
   newsletterSyncAll(): Promise<void>
+  /** Step 43b: a test of one customer email, to the signed-in admin. */
+  emailTest(tag: string, to: string, wording: unknown): Promise<void>
 }
 
 export const CUSTOMER_NOTIFIER = Symbol('CUSTOMER_NOTIFIER')

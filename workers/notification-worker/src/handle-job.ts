@@ -2,6 +2,7 @@ import type { PrismaClient } from '@nowoll/database'
 import {
   type EmailContent,
   type EmailSender,
+  exampleByTag,
   newsletterConfirmEmail,
   orderDeliveredEmail,
   orderLink,
@@ -13,7 +14,7 @@ import {
   welcomeEmail,
 } from '@nowoll/email'
 import type { NotificationJobName, NotificationJobs } from '@nowoll/queues'
-import { readSettings } from '@nowoll/validation'
+import { emailBrand, readSettings } from '@nowoll/validation'
 import { UnrecoverableError } from 'bullmq'
 import { type ContactsLike, eraseContact, syncAll, syncSubscriber } from './newsletter-sync.js'
 
@@ -171,6 +172,29 @@ export async function handleNotificationJob(job: NotificationJob, deps: Deps): P
       )
     }
 
+    // Admin → Content → Emails → "Send me a test" (step 43b): the example email
+    // with the wording on the admin's screen (checked by the API), to the admin.
+    case 'email-test': {
+      const t = job.data as NotificationJobs['email-test']
+      const example = exampleByTag(t.tag)
+      if (!example) throw new UnrecoverableError(`No example for ${t.tag}`)
+      const settings = readSettings(await deps.db.setting.findMany())
+      const email = await renderEmail(
+        example,
+        emailBrand(settings, { isActive: true, data: t.wording }),
+      )
+      const result = await deps.sender.send({
+        to: t.to,
+        subject: `[Test] ${email.subject}`,
+        html: email.html,
+        text: email.text,
+        tag: 'email-test',
+      })
+      if (result.ok) return `sent test of ${t.tag}`
+      if (result.retryable) throw new Error(result.reason)
+      throw new UnrecoverableError(result.reason)
+    }
+
     // Newsletter → Resend (step 42) — no email; see newsletter-sync.ts.
     case 'newsletter-sync':
       return syncSubscriber(data.subscriberId!, newsletterDeps(deps), job)
@@ -190,13 +214,11 @@ async function send(
   to: string,
   content: EmailContent,
 ): Promise<string> {
-  // The store's name, tagline and reply-to address come from Admin → Settings (step 38).
+  // The store's name, tagline, colour and reply-to address come from Admin → Settings (step 38).
   const settings = readSettings(await deps.db.setting.findMany())
-  const email = await renderEmail(content, {
-    name: settings.store_name,
-    tagline: settings.store_tagline,
-    color: settings.brand_color,
-  })
+  // Step 43b: Admin → Content → Emails — wording, footer and (if switched on) the logo.
+  const wording = await deps.db.contentBlock.findUnique({ where: { key: 'email_wording' } })
+  const email = await renderEmail(content, emailBrand(settings, wording))
   const replyTo = settings.store_email
   const result = await deps.sender.send({
     to,
