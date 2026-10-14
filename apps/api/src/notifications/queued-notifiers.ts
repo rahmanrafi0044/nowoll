@@ -154,6 +154,9 @@ export class QueuedCustomerNotifier implements CustomerNotifier {
   async newsletterErase(email: string) {
     await this.queue.add('newsletter-erase', { email })
   }
+  async emailTest(tag: string, to: string, wording: unknown) {
+    await this.queue.add('email-test', { tag, to, wording }, { attempts: 2 })
+  }
   async newsletterSyncAll() {
     // One per minute at most (double clicks are one job).
     const minute = Math.floor(Date.now() / 60_000)

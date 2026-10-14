@@ -92,7 +92,7 @@
 ### I. Emails
 | # | What | Status |
 |---|---|---|
-| 29 | Subject lines and opening paragraphs of each customer email; email footer and logo (the layout stays fixed so emails always render well) | 🛠 43b |
+| 29 | Subject lines, headings and opening paragraphs of each customer email ({placeholders}); email footer and logo (PNG/JPEG). The facts and layout stay fixed so emails are always complete and render well. Admins only; "Send me a test" | ✅ (step 43b) |
 
 ### J. SEO and marketing
 | # | What | Status |

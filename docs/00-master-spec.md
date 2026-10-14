@@ -99,7 +99,9 @@ Everything the admin panel can and can't change — with the safety rules — is
 43. Blog: /blog (tag filter, pages) and /blog/[slug] (BlogPosting JSON-LD, photos from our own uploads
     only, "Shop the look" up to 4 products); Admin → Content → Blog (Staff + Admin: drafts, schedule,
     archive, Insert photo); /sitemap.xml and /robots.txt
-43b. apps/admin: Email wording — subject lines, opening paragraphs, email footer/logo (layouts fixed)
+43b. apps/admin: Email wording (Content → Emails, Admin only) — subject, heading, opening paragraph per
+     customer email with {placeholders}; footer; logo (PNG/JPEG — WebP logos now saved as PNG); "Send me
+     a test" to the signed-in admin. Facts and layout fixed.
 43c. apps/admin + storefront: Redirects (old web address → new one)
 ```
 

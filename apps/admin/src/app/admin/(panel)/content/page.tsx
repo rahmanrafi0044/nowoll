@@ -38,6 +38,11 @@ const PARTS = [
     text: 'About text, link columns, payment badges and the copyright line.',
   },
   {
+    href: '/admin/content/emails',
+    title: 'Emails',
+    text: 'Subject lines, headings and opening words of every customer email; footer and logo. (Admins only)',
+  },
+  {
     href: '/admin/content/product-info',
     title: 'Product info',
     text: 'The “Delivery and returns” box on every product page — fees, returns, cash on delivery.',

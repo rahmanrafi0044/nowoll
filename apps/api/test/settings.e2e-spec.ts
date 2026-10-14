@@ -126,6 +126,21 @@ describe('settings (step 38)', () => {
       expect(await stored(logo)).toMatchObject({ width: 600, height: 150, hasAlpha: true })
     })
 
+    it('WebP (step 43b — many email apps can’t show it): a logo becomes PNG, a share image JPEG', async () => {
+      const webpOf = (w: number, h: number) =>
+        sharp({ create: { width: w, height: h, channels: 4, background: '#1e3a8a80' } })
+          .webp()
+          .toBuffer()
+      const logo = (await upload('logo', await webpOf(1200, 300), 'l.webp').expect(201)).body.data
+        .url
+      expect(logo).toMatch(/\.png$/)
+      expect(await stored(logo)).toMatchObject({ format: 'png', hasAlpha: true })
+      const share = (await upload('share', await webpOf(2400, 1600), 's.webp').expect(201)).body
+        .data.url
+      expect(share).toMatch(/\.jpg$/)
+      expect(await stored(share)).toMatchObject({ format: 'jpeg' })
+    })
+
     it('refused: too small, not an image (an SVG), no file, unknown kind', async () => {
       const small = await upload('favicon', await png(32, 32)).expect(400)
       expect(small.body.message).toMatch(/at least 64×64 pixels — this one is 32×32/)

@@ -76,13 +76,18 @@ export class BrandImagesService {
     let pipeline = sharp(file.buffer, { limitInputPixels: 40_000_000, failOn: 'error' })
       .rotate()
       .resize(spec.resize)
-    const out: 'png' | 'webp' | 'jpeg' = kind === 'favicon' ? 'png' : type
+    // WebP isn't shown by many email apps (Outlook) or link previews (step 43b):
+    // a WebP logo becomes PNG (keeps see-through parts), a WebP share image JPEG.
+    const out: 'png' | 'jpeg' =
+      kind === 'favicon' || (kind === 'logo' && type === 'webp')
+        ? 'png'
+        : type === 'webp'
+          ? 'jpeg'
+          : type
     pipeline =
       out === 'png'
         ? pipeline.png({ compressionLevel: 9 })
-        : out === 'webp'
-          ? pipeline.webp({ quality: 90 })
-          : pipeline.jpeg({ quality: 88, mozjpeg: true })
+        : pipeline.flatten({ background: '#ffffff' }).jpeg({ quality: 88, mozjpeg: true })
     const data = await pipeline.toBuffer().catch(() => {
       throw new BadRequestException('This image file is damaged or could not be read.')
     })

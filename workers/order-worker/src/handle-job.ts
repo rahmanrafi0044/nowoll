@@ -8,7 +8,7 @@ import {
   renderEmail,
 } from '@nowoll/email'
 import type { OrderJobName, OrderJobs } from '@nowoll/queues'
-import { readSettings, type StoreSettings } from '@nowoll/validation'
+import { emailBrand, readSettings, type StoreSettings } from '@nowoll/validation'
 import { UnrecoverableError } from 'bullmq'
 import { loadReceipt } from './order-email-data.js'
 
@@ -86,13 +86,11 @@ export async function handleOrderJob(job: OrderJob, deps: Deps): Promise<string>
 }
 
 async function send(deps: Deps, job: OrderJob, to: string, content: EmailContent): Promise<string> {
-  // The store's name, tagline and reply-to address come from Admin → Settings (step 38).
+  // The store's name, tagline, colour and reply-to address come from Admin → Settings (step 38).
   const settings = await storeSettings(deps.db)
-  const email = await renderEmail(content, {
-    name: settings.store_name,
-    tagline: settings.store_tagline,
-    color: settings.brand_color,
-  })
+  // Step 43b: Admin → Content → Emails — wording, footer and (if switched on) the logo.
+  const wording = await deps.db.contentBlock.findUnique({ where: { key: 'email_wording' } })
+  const email = await renderEmail(content, emailBrand(settings, wording))
   const replyTo = settings.store_email || null
   const result = await deps.sender.send({
     to,

@@ -105,6 +105,12 @@ export interface NotificationJobs {
   'newsletter-erase': { email: string }
   /** Step 42: queue a sync for everyone Resend doesn't have up to date. */
   'newsletter-sync-all': Record<string, never>
+  /**
+   * Step 43b: Admin → Content → Emails → "Send me a test". The example email
+   * `tag` with the wording on the admin's screen (already checked by the API),
+   * to the signed-in admin's own address.
+   */
+  'email-test': { tag: string; to: string; wording: unknown }
 }
 export type NotificationJobName = keyof NotificationJobs
 
