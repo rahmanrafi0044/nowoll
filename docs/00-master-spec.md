@@ -102,7 +102,10 @@ Everything the admin panel can and can't change — with the safety rules — is
 43b. apps/admin: Email wording (Content → Emails, Admin only) — subject, heading, opening paragraph per
      customer email with {placeholders}; footer; logo (PNG/JPEG — WebP logos now saved as PNG); "Send me
      a test" to the signed-in admin. Facts and layout fixed.
-43c. apps/admin + storefront: Redirects (old web address → new one)
+43c. Redirects (old web address → new one): `redirects` table; the shop's Next.js proxy (301/302, rules
+     cached ≤ 1 min); automatic when a product / category / page address changes (and a blog
+     post's); Admin → Content → Redirects (Staff + Admin). This shop's addresses only; checkout,
+     cart, account, home can't be redirected; no loops, chains shortened to one hop.
 ```
 
 ### Phase 7 — Infrastructure & Polish
@@ -354,6 +357,9 @@ Everything the admin panel can and can't change — with the safety rules — is
 │   ├── POST   /
 │   ├── PATCH  /:id        (also publish / schedule / unpublish / restore)
 │   └── DELETE /:id        (archive — soft)
+├── redirects/
+│   └── GET    /            (public — active rules for the shop's proxy)
+├── admin/redirects/        (Staff + Admin — GET ?q, POST, PATCH /:id, DELETE /:id)
 ├── subscribers/
 │   ├── POST   /           (public — newsletter sign-up; also /confirm, /unsubscribe)
 │   └── admin/subscribers   (ADMIN — list, export.csv, resend status + sync-all, unsubscribe, delete)

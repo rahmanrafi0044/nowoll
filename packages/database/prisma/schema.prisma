@@ -908,3 +908,30 @@ model MetaEvent {
   @@index([createdAt]) // newest first in the admin log
   @@map("meta_events")
 }
+
+// ── Redirects (Phase 6, step 43c) ─────────────────────────────────────────
+
+enum RedirectSource {
+  MANUAL // added in Admin → Content → Redirects
+  AUTO // made when a product / category / page / post changed its web address
+}
+
+/**
+ * An old web address on the shop → its new one, so old links (Facebook posts,
+ * Google results) keep working. Only addresses on this shop (paths like
+ * /shop/eid) — never another website (that would be an open redirect).
+ * fromPath is stored cleaned (lowercase, no trailing slash, no ?query).
+ */
+model Redirect {
+  id        String         @id @default(uuid()) @db.Uuid
+  fromPath  String         @unique @map("from_path")
+  toPath    String         @map("to_path")
+  permanent Boolean        @default(true) // 301 (moved for good) or 302 (for now)
+  isActive  Boolean        @default(true) @map("is_active")
+  source    RedirectSource @default(MANUAL)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  @@index([toPath]) // chains: find redirects that point at an address that moved again
+  @@map("redirects")
+}

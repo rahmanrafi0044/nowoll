@@ -217,7 +217,11 @@ export function BlogEditor({ initial }: { initial: AdminBlogDetail | null }) {
             setSlugTouched(true)
             setSlug(e.target.value)
           }}
-          hint={`At ${publicEnv.siteUrl.replace(/^https?:\/\//, '')}/blog/${slug || '…'}`}
+          hint={
+            saved !== null && slug !== saved.slug
+              ? `Old links to /blog/${saved.slug} will lead here automatically (Content → Redirects).`
+              : `At ${publicEnv.siteUrl.replace(/^https?:\/\//, '')}/blog/${slug || '…'}`
+          }
         />
         <div className="sm:col-span-2">
           <TextArea

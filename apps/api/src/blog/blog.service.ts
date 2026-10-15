@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common'
 import type { Prisma } from '@nowoll/database'
 import type {
@@ -18,6 +19,7 @@ import type { ProductCard } from '../products/products.service.js'
 import { blogInputSchema, blogPhotoProblem, blogTagSchema } from '@nowoll/validation'
 import { PrismaService } from '../prisma/prisma.service.js'
 import { ProductsService } from '../products/products.service.js'
+import { RedirectsService } from '../redirects/redirects.service.js'
 import { IMAGE_STORAGE, type ImageStorage } from '../storage/image-storage.js'
 import { PAGE_SIZE, type SaveBlogPostDto } from './dto/blog.dto.js'
 
@@ -58,6 +60,8 @@ export class BlogService {
     private readonly prisma: PrismaService,
     private readonly products: ProductsService,
     @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
+    // Step 43c: old address → new one when the slug changes (optional for hand-built tests).
+    @Optional() private readonly redirects?: RedirectsService,
   ) {}
 
   // ── Shop ─────────────────────────────────────────────────────────────────
@@ -187,6 +191,9 @@ export class BlogService {
         },
       }),
     ])
+    // New address → the old one keeps working (step 43c), e.g. links shared on Facebook.
+    if (input.slug !== current.slug)
+      await this.redirects?.moved(`/blog/${current.slug}`, `/blog/${input.slug}`)
     return this.detail(id)
   }
 

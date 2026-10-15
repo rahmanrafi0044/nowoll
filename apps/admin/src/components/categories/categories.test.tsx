@@ -182,7 +182,9 @@ describe('edit category', () => {
   it('a new address on a live category warns; hiding one with subcategories says what else hides', async () => {
     render(<EditCategory id="c2" />)
     fireEvent.change(await screen.findByLabelText('Web address'), { target: { value: 'tops' } })
-    expect(screen.getByText(/Old links to \/shop\/shirts will stop working/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Old links to \/shop\/shirts will lead here automatically/),
+    ).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('Show on the shop'))
     expect(screen.getByText(/also hides its 1 subcategory/)).toBeInTheDocument()
   })

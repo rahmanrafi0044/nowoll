@@ -176,7 +176,8 @@ export function PageEditor({ initial }: { initial: AdminPageDetail | null }) {
           />
           {slugChanged && (
             <p className="text-sm text-warning">
-              Old links to /{saved!.slug} will stop working (on Facebook, in messages…).
+              Old links to /{saved!.slug} will lead here automatically (a redirect is added — see
+              Content → Redirects).
             </p>
           )}
         </div>
