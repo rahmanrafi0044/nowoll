@@ -14,12 +14,10 @@ test('an old address → 301 to the new one, keeping ?utm…; the page shows', a
   await expect(page.getByRole('heading', { level: 1, name: SHIRT.name })).toBeVisible()
 })
 
-test('unknown addresses still show “Page not found”; files (photos) are untouched', async ({
-  page,
-}) => {
+test('unknown addresses still show “Page not found”; files are untouched', async ({ page }) => {
   const res = await page.request.get('/no-such-page', { maxRedirects: 0 })
   expect(res.status()).toBe(404)
-  expect(
-    (await page.request.get('/demo/demo-cotton-panjabi-1.webp', { maxRedirects: 0 })).status(),
-  ).toBe(200)
+  // A file address (has an extension, like a photo) passes the proxy untouched.
+  // robots.txt always exists — the demo photos are generated locally, not in git.
+  expect((await page.request.get('/robots.txt', { maxRedirects: 0 })).status()).toBe(200)
 })
