@@ -232,6 +232,14 @@ Pooled connections use the user name `postgres.[PROJECT-REF]`; direct ones use `
 
 Where: Supabase dashboard → **Connect** → "Session pooler" → copy the URI and put in the database password.
 
+**Which project is which (decided 16 Oct 2026):**
+- **Staging:** the existing project (region **Singapore**). It already holds test data, and staging doesn't need
+  to be close to the server.
+- **Production:** a **new** project in **Mumbai** (`ap-south-1`), next to the VPS in India. Every page asks the
+  database several times, so the server and the database must be in the same region. It starts on the free
+  plan during the trial month. **Upgrade it to Pro ($25/month) before the ads start**, for daily backups and
+  no pausing.
+
 ---
 
 *Claude Code: read this file before any Supabase-related change. If the official Supabase docs disagree with it, update this file and tell Rafi.*

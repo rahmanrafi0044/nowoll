@@ -3,9 +3,10 @@
 # PR is merged), or by hand: GitHub → Actions → "Deploy to staging" →
 # "Run workflow" (type an older commit to roll staging back to it).
 #
-#   build    — builds the 3 Docker images here on GitHub (not on the small
-#              VPS) and stores them in GitHub's image storage (ghcr.io),
-#              tagged with the commit
+#   build    — builds the Docker images here on GitHub (not on the VPS) and
+#              stores them in GitHub's image storage (ghcr.io), tagged with
+#              the commit: API, 2 workers, and shop + admin for staging AND
+#              production (their public addresses are baked in)
 #   staging  — deploy-to.yml: migrations on the STAGING database, then the
 #              staging API at https://<STAGING_API_DOMAIN>
 #
@@ -36,7 +37,7 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.image }}
+    name: Build ${{ matrix.image }}${{ matrix.env && format(' ({0})', matrix.env) || '' }}
     # Only after a green CI run of a push to main (not a PR), or by hand — and
     # only once the deploy is switched on.
     if: >-
@@ -51,9 +52,19 @@ jobs:
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
     strategy:
-      # The 3 images are independent; build them side by side.
+      # The images are independent; build them side by side. The shop and the
+      # admin get one image per environment (step 48): their public addresses
+      # are baked in at build time. So production's images are built now too —
+      # "Promote to production" then reuses them instead of rebuilding.
       matrix:
-        image: [api, order-worker, notification-worker]
+        include:
+          - image: api
+          - image: order-worker
+          - image: notification-worker
+          - { image: storefront, env: staging }
+          - { image: storefront, env: production }
+          - { image: admin, env: staging }
+          - { image: admin, env: production }
     env:
       IMAGE_PREFIX: ghcr.io/rahmanrafi0044/nowoll # ghcr.io names must be lowercase
     steps:
@@ -70,19 +81,37 @@ jobs:
       - name: Build and push (skipped if this commit's image already exists — e.g. a rollback)
         env:
           NAME: ${{ matrix.image }}
+          WEB_ENV: ${{ matrix.env }}
           SHA: ${{ steps.sha.outputs.sha }}
           REPO: ${{ github.repository }}
+          # Public addresses for the shop / admin of that environment (repository
+          # variables — docs/deployment.md). Public by design: they end up in
+          # every visitor's browser. Never a secret here.
+          SITE_DOMAIN: ${{ matrix.env == 'staging' && vars.STAGING_SITE_DOMAIN || vars.SITE_DOMAIN }}
+          ADMIN_DOMAIN: ${{ matrix.env == 'staging' && vars.STAGING_ADMIN_DOMAIN || vars.ADMIN_DOMAIN }}
+          API_DOMAIN: ${{ matrix.env == 'staging' && vars.STAGING_API_DOMAIN || vars.API_DOMAIN }}
+          SUPABASE_URL: ${{ matrix.env == 'staging' && vars.STAGING_SUPABASE_URL || vars.PROD_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ matrix.env == 'staging' && vars.STAGING_SUPABASE_ANON_KEY || vars.PROD_SUPABASE_ANON_KEY }}
         run: |
-          IMAGE="$IMAGE_PREFIX-$NAME"
+          IMAGE="$IMAGE_PREFIX-$NAME${WEB_ENV:+-$WEB_ENV}"
           if docker manifest inspect "$IMAGE:$SHA" > /dev/null 2>&1; then
             echo "$IMAGE:$SHA already exists — not rebuilding."
             exit 0
           fi
-          if [ "$NAME" = api ]; then
-            args=(-f infrastructure/docker/api.Dockerfile)
-          else
-            args=(-f infrastructure/docker/worker.Dockerfile --build-arg "WORKER=$NAME")
-          fi
+          case "$NAME" in
+            api) args=(-f infrastructure/docker/api.Dockerfile) ;;
+            storefront | admin)
+              for v in SITE_DOMAIN ADMIN_DOMAIN API_DOMAIN SUPABASE_URL SUPABASE_ANON_KEY; do
+                [ -n "${!v}" ] || { echo "::error::The repository variable for $v ($WEB_ENV) is not set — docs/deployment.md"; exit 1; }
+              done
+              args=(-f infrastructure/docker/web.Dockerfile --build-arg "APP=$NAME"
+                --build-arg "NEXT_PUBLIC_SITE_URL=https://$SITE_DOMAIN"
+                --build-arg "NEXT_PUBLIC_ADMIN_URL=https://$ADMIN_DOMAIN"
+                --build-arg "NEXT_PUBLIC_API_URL=https://$API_DOMAIN"
+                --build-arg "NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL"
+                --build-arg "NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY") ;;
+            *) args=(-f infrastructure/docker/worker.Dockerfile --build-arg "WORKER=$NAME") ;;
+          esac
           docker buildx create --use --name nowoll > /dev/null
           # The layer cache lives next to the images (":buildcache"), so an
           # unchanged lockfile doesn't download every package again.

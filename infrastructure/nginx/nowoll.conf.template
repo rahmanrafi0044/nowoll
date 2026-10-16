@@ -1,25 +1,32 @@
 # ============================================================================
-# Nginx in front of the Nowoll API — steps 46–47. ONLY Nginx is reachable from
-# the internet (ports 80 and 443); the APIs, workers and Redis stay on Docker's
-# private networks. One nginx serves both copies of the API:
-#   ${API_DOMAIN}          → production (api-production)
-#   ${STAGING_API_DOMAIN}  → staging    (api-staging)
+# Nginx in front of Nowoll — steps 46–48. ONLY Nginx is reachable from the
+# internet (ports 80 and 443); everything else stays on Docker's private
+# networks. One nginx serves both copies (production and staging):
 #
-# A TEMPLATE: when the container starts, the official nginx image fills in
-# ${API_DOMAIN} and ${STAGING_API_DOMAIN} from the environment and writes the
-# result to /etc/nginx/conf.d/default.conf (replacing the image's stock site).
-# Nginx's own $variables are left alone.
-# Certificates: ONE Let's Encrypt certificate for both names, stored under
-# ${API_DOMAIN} (certbot, step 49 — docs/deployment.md).
+#   ${SITE_DOMAIN}, www.${SITE_DOMAIN}  → the shop        (storefront-production)
+#   ${ADMIN_DOMAIN}                     → the admin panel (admin-production)
+#   ${API_DOMAIN}                       → the API         (api-production)
+#   ${STAGING_SITE_DOMAIN}, ${STAGING_ADMIN_DOMAIN}, ${STAGING_API_DOMAIN}
+#                                       → the same three, staging (*-staging)
+#
+# A TEMPLATE: when the container starts, the official nginx image fills in the
+# ${…} names from the environment and writes the result to
+# /etc/nginx/conf.d/default.conf (replacing the image's stock site). Nginx's
+# own $variables are left alone. Shared TLS settings: tls.conf.
+# Certificate: ONE Let's Encrypt certificate for all the names above, named
+# "nowoll" (certbot --cert-name nowoll, step 49 — docs/deployment.md).
+# Visitors' real addresses behind Cloudflare: cloudflare-real-ip.conf.
 # ============================================================================
 
-# Docker's own DNS. Every deploy creates a NEW api container with a new
-# address, so nginx must look the API up again (every 10 s) instead of keeping
-# the address it found at start-up — otherwise: 502 after each deploy. It also
-# lets nginx start while one of the APIs isn't running (502 for that one only).
+# Visitors' real addresses when the request came through Cloudflare.
+include /etc/nginx/nowoll/cloudflare-real-ip.conf;
+
+# Docker's own DNS. Every deploy creates NEW containers with new addresses, so
+# nginx looks the names up again (every 10 s) instead of keeping the address it
+# found at start-up — otherwise: 502 after each deploy. It also lets nginx
+# start while something isn't running yet (502 for that one only).
 resolver 127.0.0.11 valid=10s ipv6=off;
 
-# Each API trusts ONE proxy hop ('trust proxy' 1) — this one — for the real IP.
 # "zone" is shared memory, needed by "resolve" (nginx ≥ 1.27.3).
 upstream nowoll_api_production {
     zone nowoll_api_production 64k;
@@ -31,16 +38,63 @@ upstream nowoll_api_staging {
     server api-staging:3001 resolve;
     keepalive 8;
 }
+upstream nowoll_storefront_production {
+    zone nowoll_storefront_production 64k;
+    server storefront-production:3000 resolve;
+    keepalive 16;
+}
+upstream nowoll_storefront_staging {
+    zone nowoll_storefront_staging 64k;
+    server storefront-staging:3000 resolve;
+    keepalive 8;
+}
+upstream nowoll_admin_production {
+    zone nowoll_admin_production 64k;
+    server admin-production:3000 resolve;
+    keepalive 8;
+}
+upstream nowoll_admin_staging {
+    zone nowoll_admin_staging 64k;
+    server admin-staging:3000 resolve;
+    keepalive 4;
+}
 
-# Which API answers, by the domain asked for (anything else → production).
+# Which copy answers, by the address asked for.
 map $host $nowoll_api {
     ${STAGING_API_DOMAIN}  nowoll_api_staging;
     default                nowoll_api_production;
 }
+map $host $nowoll_site {
+    ${STAGING_SITE_DOMAIN}  nowoll_storefront_staging;
+    default                 nowoll_storefront_production;
+}
+map $host $nowoll_admin {
+    ${STAGING_ADMIN_DOMAIN}  nowoll_admin_staging;
+    default                  nowoll_admin_production;
+}
 
-# An outer rate limit per visitor (a first shield; the API has finer limits,
-# e.g. 5/min on sign-in and payments). 20 requests/second, bursts of 40.
+# The TRIAL PASSWORD (before launch): SITE_PASSWORD=on in /opt/nowoll/.env asks
+# for a username + password (/opt/nowoll/htpasswd, mounted as /etc/nginx/htpasswd)
+# on the production shop,
+# and tells search engines not to list it. STAGING always asks — it's private.
+# The admin panel has its own sign-in + 2FA; the API stays open (SSLCommerz
+# must reach it, and the shop's browser code calls it).
+map "${SITE_PASSWORD}" $nowoll_shop_auth {
+    on       "Nowoll preview";
+    default  off;
+}
+map "${SITE_PASSWORD}" $nowoll_shop_robots {
+    on       "noindex, nofollow";
+    default  "";   # an empty header is not sent
+}
+
+# Outer rate limits per visitor — a first shield; the API has finer limits
+# (e.g. 5/min on sign-in and payments).
+#   api   20 requests/second, bursts of 40
+#   pages 10 pages/second, bursts of 40 (photos and code files aren't counted:
+#         they're cached by Cloudflare and the browser)
 limit_req_zone $binary_remote_addr zone=per_ip:10m rate=20r/s;
+limit_req_zone $binary_remote_addr zone=pages:10m rate=10r/s;
 limit_req_status 429;
 
 # Don't say which nginx version runs here.
@@ -48,11 +102,11 @@ server_tokens off;
 
 # ── Port 80: only the certificate check, everything else → HTTPS ────────────
 server {
-    listen 80;
-    listen [::]:80;
-    server_name ${API_DOMAIN} ${STAGING_API_DOMAIN};
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
 
-    # Let's Encrypt proves we own the domain by fetching a file from here.
+    # Let's Encrypt proves we own the domains by fetching a file from here.
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
@@ -62,21 +116,21 @@ server {
     }
 }
 
-# ── Port 443: the APIs ────────────────────────────────────────────────────────
+# ── Port 443, an address that isn't ours (e.g. the bare IP): refuse ─────────
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+}
+
+# ── The APIs ──────────────────────────────────────────────────────────────────
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
     http2 on;
     server_name ${API_DOMAIN} ${STAGING_API_DOMAIN};
-
-    ssl_certificate     /etc/letsencrypt/live/${API_DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${API_DOMAIN}/privkey.pem;
-    # Modern TLS only (Mozilla "intermediate" settings).
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers off;
-    ssl_session_timeout 1d;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_tickets off;
+    include /etc/nginx/nowoll/tls.conf;
 
     # Browsers: always use HTTPS for this domain for 2 years. The API's own
     # Helmet middleware adds the other security headers; its shorter HSTS
@@ -100,9 +154,10 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Connection "";
         proxy_set_header Host $host;
-        # The visitor's real address (the API's rate limits and Meta events use it).
+        # The visitor's real address (the API's rate limits and Meta events
+        # use it). The API trusts exactly this one hop ('trust proxy' 1).
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_connect_timeout 5s;
         proxy_read_timeout 60s;
@@ -111,5 +166,76 @@ server {
 
     location / {
         return 404;
+    }
+}
+
+# ── The shop ──────────────────────────────────────────────────────────────────
+# www → the plain address (one address for Google and for cookies).
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name www.${SITE_DOMAIN};
+    include /etc/nginx/nowoll/tls.conf;
+    return 301 https://${SITE_DOMAIN}$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${SITE_DOMAIN} ${STAGING_SITE_DOMAIN};
+    include /etc/nginx/nowoll/tls.conf;
+
+    # The shop's forms are small (search, newsletter); orders go to the API.
+    client_max_body_size 1m;
+
+    # Production: only while SITE_PASSWORD=on. Staging: always.
+    set $nowoll_auth $nowoll_shop_auth;
+    set $nowoll_robots $nowoll_shop_robots;
+    if ($host = ${STAGING_SITE_DOMAIN}) {
+        set $nowoll_auth "Nowoll staging";
+        set $nowoll_robots "noindex, nofollow";
+    }
+    auth_basic $nowoll_auth;
+    auth_basic_user_file /etc/nginx/htpasswd;
+    add_header X-Robots-Tag $nowoll_robots always;
+
+    # Code files have the version in their name: cached for a year by the
+    # browser and Cloudflare (Next.js sets that), so no rate limit here.
+    location /_next/static/ {
+        proxy_pass http://$nowoll_site;
+        include /etc/nginx/nowoll/proxy-next.conf;
+    }
+
+    location / {
+        limit_req zone=pages burst=40 nodelay;
+        proxy_pass http://$nowoll_site;
+        include /etc/nginx/nowoll/proxy-next.conf;
+    }
+}
+
+# ── The admin panel ───────────────────────────────────────────────────────────
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${ADMIN_DOMAIN} ${STAGING_ADMIN_DOMAIN};
+    include /etc/nginx/nowoll/tls.conf;
+
+    client_max_body_size 1m; # photo uploads go straight to the API
+
+    # Staging admin: the staging password too (production has sign-in + 2FA).
+    set $nowoll_auth off;
+    if ($host = ${STAGING_ADMIN_DOMAIN}) {
+        set $nowoll_auth "Nowoll staging";
+    }
+    auth_basic $nowoll_auth;
+    auth_basic_user_file /etc/nginx/htpasswd;
+
+    location / {
+        limit_req zone=per_ip burst=40 nodelay;
+        proxy_pass http://$nowoll_admin;
+        include /etc/nginx/nowoll/proxy-next.conf;
     }
 }

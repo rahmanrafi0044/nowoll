@@ -114,8 +114,10 @@ Everything the admin panel can and can't change — with the safety rules — is
 45. Docker: docker-compose.prod.yml for VPS (api + workers + nginx)
 46. infrastructure/nginx/nowoll.conf: reverse proxy config for api.nowoll.com
 47. CI/CD: GitHub Actions workflow (lint → typecheck → test → build → deploy)
-48. Vercel: Connect storefront and admin apps, set environment variables
-49. VPS: Certbot SSL for api.nowoll.com
+48. Shop + admin on the VPS (owner's decision instead of Vercel — CLAUDE.md §2): Next.js standalone
+    Docker images per environment, Nginx for all six addresses (www → plain, trial password,
+    Cloudflare real IP), internal API calls exempt from the per-visitor limit, COOKIE_PREFIX for staging
+49. VPS: Certbot SSL — one certificate (--cert-name nowoll) for all six addresses + www
 50. Playwright E2E test suite: all critical flows
 51. Lighthouse audit: achieve ≥ 90 mobile on homepage, PLP, PDP
 52. Accessibility audit: WCAG 2.1 AA
@@ -377,13 +379,13 @@ Everything the admin panel can and can't change — with the safety rules — is
 Run through every item before going live:
 
 **DNS & SSL**
-- [ ] `nowoll.com` pointing to Vercel
-- [ ] `api.nowoll.com` pointing to Hostinger VPS
-- [ ] SSL certificate active on `api.nowoll.com` (Certbot)
-- [ ] HTTPS enforced on both domains (no HTTP access)
+- [ ] DNS at Cloudflare: `nowoll.com`, `www`, `admin`, `api` (+ the three `staging` names) → Hostinger VPS
+- [ ] SSL certificate active for all of them (Certbot, `--cert-name nowoll`); Cloudflare SSL "Full (strict)"
+- [ ] HTTPS enforced everywhere (no HTTP access)
+- [ ] Trial password OFF (`SITE_PASSWORD=off`) before the ads start
 
 **Environment Variables**
-- [ ] All production env vars set in Vercel (storefront + admin)
+- [ ] GitHub repository variables set (domains, Supabase URL + anon key per environment — docs/deployment.md)
 - [ ] All production env vars set in `.env` on VPS
 - [ ] No dev/sandbox keys in production config
 

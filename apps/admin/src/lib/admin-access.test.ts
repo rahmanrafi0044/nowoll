@@ -15,6 +15,13 @@ describe('getAccessLevel', () => {
     expect(getAccessLevel(jar('nw_admin_access'))).toBe('has-session')
     expect(getAccessLevel(jar('nw_admin_refresh'))).toBe('has-session')
   })
+
+  it('staging (COOKIE_PREFIX=nws): only its own cookies count, never production’s (step 48)', () => {
+    vi.stubEnv('COOKIE_PREFIX', 'nws')
+    expect(getAccessLevel(jar('nw_admin_access'))).toBe('anonymous')
+    expect(getAccessLevel(jar('nws_admin_refresh'))).toBe('has-session')
+    vi.unstubAllEnvs()
+  })
 })
 
 describe('decideAccess', () => {

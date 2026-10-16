@@ -28,6 +28,14 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
 const nextConfig: NextConfig = {
   poweredByHeader: false, // don't advertise "X-Powered-By: Next.js" to attackers
 
+  // Docker images (step 48, infrastructure/docker/web.Dockerfile) build with
+  // NEXT_OUTPUT=standalone: Next.js copies only the files the server needs
+  // into .next/standalone (with server.js). The monorepo root is the tracing
+  // root so the shared packages (@nowoll/ui, …) are included. Dev and the
+  // browser tests don't set it and keep the normal `next start`.
+  output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
+  outputFileTracingRoot: path.resolve(import.meta.dirname, '../..'),
+
   // The browser tests (tests/e2e) build into .next-e2e: that build points at
   // the e2e API (its address is baked in), so it must never replace yours.
   distDir: process.env.NEXT_DIST_DIR ?? '.next',
