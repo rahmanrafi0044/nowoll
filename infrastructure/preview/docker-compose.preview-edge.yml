@@ -1,0 +1,39 @@
+# ============================================================================
+# The $0 TRIAL on Rafi's PC (step 48b) — added on top of docker-compose.edge.yml
+# by preview.sh. Guide: docs/preview.md.
+#
+# Differences from the VPS:
+#   - nginx opens NO ports on the PC: visitors come through the Cloudflare
+#     Tunnel below, which connects OUT to Cloudflare (no router settings).
+#   - the HTTPS certificate is a self-signed one made by preview.sh (Cloudflare
+#     shows visitors its own certificate; the tunnel accepts ours).
+#   - no certbot (nothing to renew).
+# ============================================================================
+
+services:
+  nginx:
+    ports: !reset []
+    volumes:
+      - ${NOWOLL_PREVIEW_DIR:?run this through preview.sh}/le:/etc/letsencrypt:ro
+
+  certbot:
+    profiles: [never]
+
+  # The Cloudflare Tunnel: carries visits for nowoll.com, www, admin and api
+  # from Cloudflare to nginx on this PC. Its routes (which address → nginx) are
+  # set in the Cloudflare dashboard; the token in the .env says which tunnel.
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3
+    restart: unless-stopped
+    command: ['tunnel', '--no-autoupdate', 'run']
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in the preview .env (docs/preview.md)}
+    networks: [edge]
+    depends_on: [nginx]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: { max-size: '5m', max-file: '2' }
+    deploy:
+      resources:
+        limits: { memory: 128m }

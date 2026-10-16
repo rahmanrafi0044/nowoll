@@ -34,6 +34,11 @@ visitor ──▶ Cloudflare (cache, protection) ──▶ Nginx on the VPS ─�
   Compare with `cloudflare-real-ip.conf`. If they differ, ask Claude to update the file (a normal PR → staging →
   promote).
 
+**During the $0 trial** (step 48b, `docs/preview.md`) the same domain points to a **Cloudflare Tunnel** from Rafi's
+PC instead of `A` records. Checked against Cloudflare's docs (17 Oct 2026): Tunnel works on all plans and connects
+out, so no open ports are needed. Each route's **Additional application settings → TLS** has **Origin Server Name**
+and **Disable TLS certificate verification** (the PC's nginx uses a self-signed certificate).
+
 ## Setup (Rafi, once; before step 49)
 
 1. **Cloudflare account** (free) → **Domains → Onboard a domain** → `nowoll.com` → **Free** plan.

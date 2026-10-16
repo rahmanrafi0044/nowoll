@@ -18,6 +18,8 @@ photos are Supabase (one project each).
 | `.github/workflows/promote.yml` | **Promote to production**: the one-click button |
 | `.github/workflows/deploy-to.yml` | the deploy steps both of them use |
 | `.github/workflows/docker-build.yml` | on PRs that touch Docker files: build the images, check compose/Nginx/deploy.sh |
+| `.github/workflows/db-tasks.yml` | **Database tasks**: migrate, seed, grant / revoke admin, reset 2FA, for production or staging (buttons) |
+| `infrastructure/preview/` | the **$0 trial** on Rafi's PC through a Cloudflare Tunnel (step 48b, `docs/preview.md`) |
 | `.env.production.example` | every setting the server needs, with **no real values** |
 | `.dockerignore`, `web.Dockerfile.dockerignore` | keep `.env` files, keys, certificates, git history and tests out of every image |
 | `docs/integrations/cloudflare.md` | Cloudflare: facts checked against its docs, and the setup steps |
@@ -171,6 +173,7 @@ the VPS (docs/integrations/supabase.md). Staging gets test data only, never cust
 | `VPS_KNOWN_HOSTS` | output of `ssh-keyscan -t ed25519 <VPS IP>`. Compare its fingerprint with Hostinger's console (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the VPS) |
 | `PROD_DATABASE_URL` | the same Session pooler string as in `/opt/nowoll/.env` |
 | `STAGING_DATABASE_URL` | the same Session pooler string as in `/opt/nowoll-staging/.env` |
+| `PROD_SUPABASE_SERVICE_ROLE_KEY`, `STAGING_SUPABASE_SERVICE_ROLE_KEY` | each project's service role key: only **Database tasks → reset-2fa** uses it |
 
 | Variable (not secret; baked into the shop/admin) | Value |
 |---|---|
@@ -183,8 +186,9 @@ the VPS (docs/integrations/supabase.md). Staging gets test data only, never cust
 The anon key is public by design (it's in every visitor's browser). **Never** put the service role key in a
 variable; it stays a secret in the server's `.env`.
 
-Then, for the first time: **Actions → Deploy to staging → Run workflow** (branch `main`), check staging, then
-**Actions → Promote to production → Run workflow**.
+Then, for the first time: **Actions → Database tasks** (`seed`, each environment; the deploy runs the migrations),
+**Actions → Deploy to staging → Run workflow** (branch `main`), check staging, then **Actions → Promote to
+production → Run workflow**. The first admin: sign up on the shop, then **Database tasks → grant-admin**.
 
 ## Useful commands on the VPS
 

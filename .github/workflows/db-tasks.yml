@@ -1,0 +1,91 @@
+# ============================================================================
+# Database tasks — step 48b. Buttons for the jobs a database needs outside a
+# deploy: GitHub → Actions → "Database tasks" → Run workflow.
+#
+#   migrate       apply new database changes (prisma migrate deploy) — a deploy
+#                 does this too; needed by hand while the site runs on Rafi's PC
+#   seed          the starting data: settings, shipping zones, starter pages,
+#                 content blocks. Safe to run again: it never overwrites what
+#                 was changed in the admin panel (packages/database/prisma/seed.ts)
+#   grant-admin / grant-staff / revoke / reset-2fa
+#                 who may use the admin panel (apps/api/scripts/admin-access.ts).
+#                 The account must exist first: sign up on the shop.
+#
+# Why here and not from a PC: CLAUDE.md Rules 4 and 7 — the production database
+# is changed only from CI. The VPS has no source code, so these can't run there.
+# The database address and keys are GitHub secrets (docs/deployment.md);
+# nothing is printed in the log, and the email is masked.
+# ============================================================================
+name: Database tasks
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which database
+        type: choice
+        options: [production, staging]
+        required: true
+      task:
+        description: What to do
+        type: choice
+        options: [migrate, seed, grant-admin, grant-staff, revoke, reset-2fa]
+        required: true
+      email:
+        description: 'The account (for grant / revoke / reset-2fa only)'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  task:
+    name: ${{ inputs.task }} (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Never at the same time as a deploy to the same environment.
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      TASK: ${{ inputs.task }}
+      EMAIL: ${{ inputs.email }}
+      DATABASE_URL: ${{ inputs.environment == 'production' && secrets.PROD_DATABASE_URL || secrets.STAGING_DATABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ inputs.environment == 'production' && vars.PROD_SUPABASE_URL || vars.STAGING_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ inputs.environment == 'production' && vars.PROD_SUPABASE_ANON_KEY || vars.STAGING_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ inputs.environment == 'production' && secrets.PROD_SUPABASE_SERVICE_ROLE_KEY || secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Check the inputs
+        run: |
+          [ -n "$DATABASE_URL" ] || { echo "::error::The database secret for this environment is not set (docs/deployment.md)"; exit 1; }
+          case "$TASK" in
+            grant-admin | grant-staff | revoke | reset-2fa)
+              [ -n "$EMAIL" ] || { echo "::error::'$TASK' needs the account's email"; exit 1; }
+              echo "::add-mask::$EMAIL" ;;
+          esac
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install
+        run: |
+          case "$TASK" in
+            migrate | seed) pnpm install --frozen-lockfile --filter "@nowoll/database..." ;;
+            *) pnpm install --frozen-lockfile --filter "@nowoll/api..." ;;
+          esac
+
+      - name: Run
+        run: |
+          case "$TASK" in
+            migrate) cd packages/database && pnpm exec prisma migrate deploy ;;
+            seed) cd packages/database && pnpm exec prisma db seed ;;
+            grant-admin) pnpm --filter @nowoll/api admin grant "$EMAIL" ADMIN ;;
+            grant-staff) pnpm --filter @nowoll/api admin grant "$EMAIL" STAFF ;;
+            revoke) pnpm --filter @nowoll/api admin revoke "$EMAIL" ;;
+            reset-2fa)
+              [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || { echo "::error::reset-2fa needs the Supabase service role key secret (docs/deployment.md)"; exit 1; }
+              pnpm --filter @nowoll/api admin reset-2fa "$EMAIL" ;;
+          esac
