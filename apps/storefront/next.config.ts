@@ -8,7 +8,8 @@ import type { NextConfig } from 'next'
 // app's folder, so we read the root file ourselves — but copy ONLY the
 // NEXT_PUBLIC_* values. Least privilege: the storefront never needs (and so
 // never holds) server secrets like the Supabase service role key.
-// On Vercel there is no .env file; variables come from the project settings.
+// On the server (Docker, step 48) there is no .env file: web.Dockerfile passes
+// the NEXT_PUBLIC_* values in as build arguments.
 const rootEnvFile = path.resolve(import.meta.dirname, '../../.env')
 if (existsSync(rootEnvFile)) {
   const vars = parseEnv(readFileSync(rootEnvFile, 'utf8'))

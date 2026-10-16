@@ -43,7 +43,8 @@ id_rsa*
 # ── Not needed to run the API or workers ────────────────────────────────────
 docs
 infrastructure
-# The shop and admin run on Vercel; only their package.json stays (the workspace needs it).
+# The shop and admin have their own image (web.Dockerfile, with its own ignore
+# file); here only their package.json stays (the workspace needs it).
 apps/storefront/**
 !apps/storefront/package.json
 apps/admin/**
