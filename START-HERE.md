@@ -194,9 +194,9 @@ Create accounts at all of these. All have free tiers to start with:
 | **Supabase** | Database + Storage + Auth | https://supabase.com |
 | **SSLCommerz** | Bangladesh payment gateway | https://developer.sslcommerz.com/registration/ |
 | **Resend** | Transactional emails | https://resend.com |
-| **Vercel** | Frontend hosting | https://vercel.com |
+| **Cloudflare** | DNS, speed (caching near Bangladesh), protection — free plan | https://cloudflare.com |
 | **Sentry** | Error tracking | https://sentry.io |
-| **Hostinger** | VPS for backend | https://hostinger.com (VPS plan) |
+| **Hostinger** | VPS for the whole site: shop, admin, API, workers | https://hostinger.com (VPS plan) |
 
 **SSLCommerz note:** You get **sandbox credentials immediately** after registration — use those for development. Live credentials require a merchant application with business documents (trade license). Apply for live credentials when you're ready to launch.
 
@@ -417,8 +417,8 @@ Explain this code in simple terms. Why is it written this way? What would break 
 - [ ] SSLCommerz — sandbox store_id and store_password received
 - [ ] Resend — account created, API key noted
 - [ ] Sentry — project created, DSN noted
-- [ ] Vercel — account created
-- [ ] Hostinger — VPS ordered (Ubuntu 22.04, minimum 2GB RAM)
+- [ ] Cloudflare — account created, `nowoll.com` added (docs/integrations/cloudflare.md)
+- [ ] Hostinger — VPS ordered: **KVM 2** (8 GB RAM), location **India**, Ubuntu 24.04
 
 **Project:**
 - [ ] Starter files copied into `~/projects/nowoll/`

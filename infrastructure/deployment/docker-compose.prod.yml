@@ -9,8 +9,8 @@
 # Nginx (docker-compose.edge.yml) is shared: it reaches each API through the
 # "edge" network as api-production / api-staging.
 #
-# Only nginx is reachable from the internet (80/443). The shop and admin are on
-# Vercel (not here). Every secret comes from the .env on the server — never git.
+# Only nginx is reachable from the internet (80/443), behind Cloudflare. Every
+# secret comes from the .env on the server — never git.
 # Migrations are NOT run here: the Deploy workflow runs `prisma migrate deploy`.
 # Images: CI builds them; deploy.sh sets IMAGE_PREFIX (ghcr.io/<owner>/nowoll)
 # and IMAGE_TAG (the git commit). Without them: local images nowoll-*:latest.

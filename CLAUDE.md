@@ -29,7 +29,7 @@
 | Payments | **SSLCommerz** (primary) + **Cash on Delivery** | Bangladesh market |
 | Email | **Resend** | Transactional, branded HTML |
 | Job queues | **BullMQ + Redis** | Background workers (orders, emails, notifications) |
-| Backend hosting | **Hostinger VPS** — Docker Compose + Nginx + Certbot | Ubuntu, containerized |
+| Backend hosting | **Hostinger VPS** — Docker Compose + Nginx + Certbot, behind **Cloudflare** (free) | Ubuntu, containerized; docs/deployment.md |
 | Frontend hosting | **Hostinger VPS** (Docker, behind Nginx + Cloudflare free) | Owner's decision, Oct 2026: no extra cost (Vercel Pro would be $20/month — Hobby is non-commercial only); customers are all in Bangladesh and buying needs the VPS anyway. Vercel stays an easy option later (standard Next.js) |
 | Error tracking | **Sentry** | Both frontend and backend |
 | Testing | **Vitest** (unit) + **Playwright** (E2E) | All critical flows tested |
@@ -70,11 +70,14 @@ nowoll/
 ├── infrastructure/
 │   ├── docker/
 │   │   ├── api.Dockerfile
-│   │   └── worker.Dockerfile
+│   │   ├── worker.Dockerfile
+│   │   └── web.Dockerfile      # the shop and the admin (Next.js standalone)
 │   ├── nginx/
-│   │   └── nowoll.conf
+│   │   └── nowoll.conf.template   # + tls.conf, proxy-next.conf, cloudflare-real-ip.conf
 │   └── deployment/
-│       └── docker-compose.prod.yml
+│       ├── docker-compose.prod.yml   # shop, admin, API, workers, Redis (× staging, production)
+│       ├── docker-compose.edge.yml   # Nginx + certbot, shared
+│       └── deploy.sh                 # runs on the VPS: restart, health check, rollback
 │
 ├── docs/                    # ALL architecture and integration documentation
 │   ├── 00-master-spec.md

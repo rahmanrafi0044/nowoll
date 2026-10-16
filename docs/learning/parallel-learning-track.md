@@ -259,7 +259,8 @@ Push to main branch
 → GitHub runs your workflow
 → Install dependencies
 → Run lint + typecheck + tests
-→ If all pass → deploy to Vercel (frontend) + VPS (backend)
+→ If all pass → deploy to STAGING on the VPS (shop, admin, API)
+→ One click ("Promote to production") → the same images go live
 ```
 
 **What is SSL/HTTPS?**
