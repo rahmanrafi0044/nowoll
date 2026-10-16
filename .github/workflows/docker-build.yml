@@ -69,6 +69,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
+      # Each image reports its own result: one failure doesn't cancel the others.
+      fail-fast: false
       matrix:
         image: [api, order-worker, notification-worker, storefront, admin]
     steps:

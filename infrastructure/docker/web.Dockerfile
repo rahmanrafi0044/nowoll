@@ -33,6 +33,9 @@ ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 ARG APP
 RUN test "$APP" = storefront || test "$APP" = admin || (echo "APP must be storefront or admin" && exit 1)
 RUN pnpm install --offline --frozen-lockfile --filter "@nowoll/${APP}..."
+# public/ may hold no tracked files (git doesn't keep empty folders) — the run
+# stage copies it, so make sure it exists.
+RUN mkdir -p "apps/${APP}/public"
 
 # Public settings, baked into the browser code (see above).
 ARG NEXT_PUBLIC_SITE_URL
