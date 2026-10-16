@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common'
-import { ConfigModule } from '@nestjs/config'
+import { ConfigModule, ConfigService } from '@nestjs/config'
 import { APP_GUARD } from '@nestjs/core'
 import { ScheduleModule } from '@nestjs/schedule'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
@@ -9,7 +9,8 @@ import { AnalyticsModule } from './analytics/analytics.module.js'
 import { AuthModule } from './auth/auth.module.js'
 import { CategoriesModule } from './categories/categories.module.js'
 import { CustomersModule } from './customers/customers.module.js'
-import { validateEnv } from './config/env.validation.js'
+import { type EnvironmentVariables, validateEnv } from './config/env.validation.js'
+import { isInternalRequest } from './config/internal-request.js'
 import { GLOBAL_RATE_LIMIT } from './config/rate-limit.js'
 import { HealthModule } from './health/health.module.js'
 import { ProductsModule } from './products/products.module.js'
@@ -48,7 +49,19 @@ import { PrismaModule } from './prisma/prisma.module.js'
     }),
     // Runs timed jobs like the unpaid-order sweep (until BullMQ in Phase 4).
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([{ name: 'default', ...GLOBAL_RATE_LIMIT }]),
+    // Per-visitor limit — except the shop's own server building pages (step 48,
+    // config/internal-request.ts), which would otherwise be one "visitor" for all.
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<EnvironmentVariables, true>) => ({
+        throttlers: [{ name: 'default', ...GLOBAL_RATE_LIMIT }],
+        skipIf: (ctx) =>
+          isInternalRequest(
+            ctx.switchToHttp().getRequest<{ headers: Record<string, string> }>().headers,
+            config.get('INTERNAL_API_KEY', { infer: true }),
+          ),
+      }),
+    }),
     PrismaModule,
     NotificationsModule,
     StorageModule,

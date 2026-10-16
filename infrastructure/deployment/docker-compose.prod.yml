@@ -1,6 +1,6 @@
 # ============================================================================
-# The APP on the Hostinger VPS — steps 45 and 47 (guide: docs/deployment.md):
-# the API, the two workers and their own Redis.
+# The APP on the Hostinger VPS — steps 45, 47 and 48 (guide: docs/deployment.md):
+# the shop, the admin panel, the API, the two workers and their own Redis.
 #
 # The SAME file runs twice, side by side (deploy.sh picks which):
 #   production  project "nowoll-production"  settings /opt/nowoll/.env
@@ -14,7 +14,7 @@
 # Migrations are NOT run here: the Deploy workflow runs `prisma migrate deploy`.
 # Images: CI builds them; deploy.sh sets IMAGE_PREFIX (ghcr.io/<owner>/nowoll)
 # and IMAGE_TAG (the git commit). Without them: local images nowoll-*:latest.
-# Memory limits: both copies + nginx fit a 4 GB VPS (use ~0.8 GB at rest).
+# Memory: both copies + nginx use ~2 GB at rest — an 8 GB VPS (Hostinger KVM 2) has room.
 # ============================================================================
 
 # A distinct name, never plain "nowoll": that is the local dev setup (docker-compose.yml),
@@ -88,6 +88,54 @@ services:
     depends_on:
       redis: { condition: service_healthy }
     read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    deploy:
+      resources:
+        limits: { memory: 256m }
+
+  # ── The shop and the admin panel (step 48) ──────────────────────────────
+  # Images from web.Dockerfile, one per environment (their public addresses
+  # are baked in at build time). NOT given the .env file: they only need the
+  # few server settings below — never database, payment or email secrets.
+  # Writable: only their page/photo cache inside the image (see web.Dockerfile).
+  storefront:
+    image: ${IMAGE_PREFIX:-nowoll}-storefront-${DEPLOY_ENV:-production}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+    environment:
+      # Page data from the API over the private network (fast; see
+      # apps/storefront/src/lib/server-env.ts), with the shared secret so the
+      # shop's own page builds aren't counted as one huge visitor.
+      API_INTERNAL_URL: http://api:3001
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in the .env (openssl rand -hex 32)}
+      COOKIE_PREFIX: ${COOKIE_PREFIX:-nw}
+    networks:
+      backend: {}
+      edge:
+        aliases: ['storefront-${DEPLOY_ENV:-production}']
+    depends_on:
+      api: { condition: service_healthy }
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    deploy:
+      resources:
+        limits: { memory: 384m }
+
+  admin:
+    image: ${IMAGE_PREFIX:-nowoll}-admin-${DEPLOY_ENV:-production}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+    environment:
+      COOKIE_PREFIX: ${COOKIE_PREFIX:-nw}
+    # The admin talks to the API only from the browser — no private network needed.
+    networks:
+      edge:
+        aliases: ['admin-${DEPLOY_ENV:-production}']
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     deploy:

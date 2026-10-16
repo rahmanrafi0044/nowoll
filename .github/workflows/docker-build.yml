@@ -18,6 +18,8 @@ on:
       - .github/workflows/deploy.yml
       - .github/workflows/deploy-to.yml
       - .github/workflows/promote.yml
+      - apps/storefront/next.config.ts
+      - apps/admin/next.config.ts
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -35,18 +37,30 @@ jobs:
       - uses: actions/checkout@v5
       - name: The compose files are valid (app and edge)
         run: |
-          printf 'REDIS_PASSWORD=x\nAPI_DOMAIN=api.example.com\nSTAGING_API_DOMAIN=api.staging.example.com\n' > ci.env
+          {
+            echo REDIS_PASSWORD=x
+            echo "INTERNAL_API_KEY=$(openssl rand -hex 32)"
+            echo SITE_DOMAIN=example.com
+            echo ADMIN_DOMAIN=admin.example.com
+            echo API_DOMAIN=api.example.com
+            echo STAGING_SITE_DOMAIN=staging.example.com
+            echo STAGING_ADMIN_DOMAIN=admin.staging.example.com
+            echo STAGING_API_DOMAIN=api.staging.example.com
+          } > ci.env
           NOWOLL_ENV_FILE="$PWD/ci.env" docker compose -f infrastructure/deployment/docker-compose.prod.yml --env-file ci.env config -q
           docker compose -f infrastructure/deployment/docker-compose.edge.yml --env-file ci.env config -q
       - name: deploy.sh passes shellcheck
         run: shellcheck infrastructure/deployment/deploy.sh
       - name: nginx -t (with a throwaway self-signed certificate)
         run: |
-          mkdir -p le/live/api.example.com
-          openssl req -x509 -nodes -newkey rsa:2048 -days 1 -subj /CN=api.example.com \
-            -keyout le/live/api.example.com/privkey.pem -out le/live/api.example.com/fullchain.pem 2> /dev/null
-          docker run --rm -e API_DOMAIN=api.example.com -e STAGING_API_DOMAIN=api.staging.example.com \
+          mkdir -p le/live/nowoll
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 -subj /CN=example.com \
+            -keyout le/live/nowoll/privkey.pem -out le/live/nowoll/fullchain.pem 2> /dev/null
+          touch htpasswd
+          docker run --rm --env-file ci.env -e SITE_PASSWORD=on \
             -v "$PWD/infrastructure/nginx/nowoll.conf.template:/etc/nginx/templates/default.conf.template:ro" \
+            -v "$PWD/infrastructure/nginx:/etc/nginx/nowoll:ro" \
+            -v "$PWD/htpasswd:/etc/nginx/htpasswd:ro" \
             -v "$PWD/le:/etc/letsencrypt:ro" \
             nginx:1.27.5-alpine sh -c '/docker-entrypoint.d/20-envsubst-on-templates.sh && nginx -t'
 
@@ -56,18 +70,26 @@ jobs:
     timeout-minutes: 40
     strategy:
       matrix:
-        image: [api, order-worker, notification-worker]
+        image: [api, order-worker, notification-worker, storefront, admin]
     steps:
       - uses: actions/checkout@v5
       - name: Build (not pushed)
         env:
           NAME: ${{ matrix.image }}
         run: |
-          if [ "$NAME" = api ]; then
-            docker build -f infrastructure/docker/api.Dockerfile -t "nowoll-$NAME:ci" .
-          else
-            docker build -f infrastructure/docker/worker.Dockerfile --build-arg "WORKER=$NAME" -t "nowoll-$NAME:ci" .
-          fi
+          case "$NAME" in
+            api) docker build -f infrastructure/docker/api.Dockerfile -t "nowoll-$NAME:ci" . ;;
+            storefront | admin)
+              # Test addresses only — the real ones are baked in by deploy.yml.
+              docker build -f infrastructure/docker/web.Dockerfile --build-arg "APP=$NAME" \
+                --build-arg NEXT_PUBLIC_SITE_URL=https://example.com \
+                --build-arg NEXT_PUBLIC_ADMIN_URL=https://admin.example.com \
+                --build-arg NEXT_PUBLIC_API_URL=https://api.example.com \
+                --build-arg NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co \
+                --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=public-test-key \
+                -t "nowoll-$NAME:ci" . ;;
+            *) docker build -f infrastructure/docker/worker.Dockerfile --build-arg "WORKER=$NAME" -t "nowoll-$NAME:ci" . ;;
+          esac
       - name: Runs as non-root, with no .env files or keys inside
         env:
           NAME: ${{ matrix.image }}

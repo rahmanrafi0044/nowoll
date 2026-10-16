@@ -16,8 +16,22 @@ describe('apiGet', () => {
     vi.stubGlobal('fetch', fetchMock)
     await expect(apiGet('/x')).resolves.toEqual({ hello: 'world' })
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:3001/api/v1/x', {
+      headers: {},
       next: { revalidate: 60 },
     })
+  })
+
+  it('on the server: the private API address and the shared secret, when set (step 48)', async () => {
+    vi.stubEnv('API_INTERNAL_URL', 'http://api:3001')
+    vi.stubEnv('INTERNAL_API_KEY', 'k'.repeat(40))
+    const fetchMock = vi.fn(() => json(200, { success: true, data: 1 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await apiGet('/x')
+    expect(fetchMock).toHaveBeenCalledWith('http://api:3001/api/v1/x', {
+      headers: { 'x-internal-key': 'k'.repeat(40) },
+      next: { revalidate: 60 },
+    })
+    vi.unstubAllEnvs()
   })
 
   it('returns null quietly for 404 (e.g. a switched-off section)', async () => {

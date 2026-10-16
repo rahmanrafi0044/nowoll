@@ -131,6 +131,33 @@ describe('API (integration)', () => {
     expect(res.body).toMatchObject({ success: false, error: 'TOO_MANY_REQUESTS' })
   })
 
+  it('the shop’s own server (secret header) is not limited; a wrong secret is (step 48)', async () => {
+    const key = 'k'.repeat(40)
+    process.env.INTERNAL_API_KEY = key
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+      controllers: [ProbeController],
+    })
+      .overrideProvider(PrismaService)
+      .useValue(fakePrisma)
+      .compile()
+    const internal = moduleRef.createNestApplication<NestExpressApplication>({ logger: false })
+    configureApp(internal)
+    await internal.init()
+    try {
+      const get = () => request(internal.getHttpServer()).get('/api/v1/test-probe')
+      for (let i = 0; i < 110; i++) await get().set('x-internal-key', key).expect(200)
+      for (let i = 0; i < 100; i++) await get().set('x-internal-key', 'k'.repeat(39) + 'x')
+      await get()
+        .set('x-internal-key', 'k'.repeat(39) + 'x')
+        .expect(429)
+      await get().expect(429) // no header: an ordinary visitor
+    } finally {
+      delete process.env.INTERNAL_API_KEY
+      await internal.close()
+    }
+  })
+
   it('limits @StrictRateLimit() routes to 5 requests per minute', async () => {
     for (let i = 0; i < 5; i++) await http().get('/api/v1/test-probe/strict').expect(200)
     await http().get('/api/v1/test-probe/strict').expect(429)

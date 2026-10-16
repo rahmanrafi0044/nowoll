@@ -14,7 +14,7 @@
 # This script:
 #   1. swaps the folders: app → app.prev, app.new → app
 #   2. pulls the new images and restarts the app (docker compose up --wait)
-#   3. checks: API healthy + both workers still running (not crash-looping)
+#   3. checks: API, shop and admin healthy + both workers still running (not crash-looping)
 #   4. starts the shared nginx (docker-compose.edge.yml): always for production
 #      — so nginx changes go live only with a production deploy — and for
 #      staging only if nginx isn't running yet
@@ -37,6 +37,8 @@ esac
 export DEPLOY_ENV="$ENVIRONMENT" # the API's name for nginx: api-production / api-staging
 export NOWOLL_ENV_FILE="$ROOT/.env"
 EDGE_ENV_FILE="$BASE/nowoll/.env" # nginx always uses production's settings (both domains)
+EDGE_HTPASSWD="$BASE/nowoll/htpasswd" # the trial / staging password (nginx)
+export NOWOLL_HTPASSWD="$EDGE_HTPASSWD"
 WORKERS=(order-worker notification-worker)
 
 log() { echo "[deploy $ENVIRONMENT] $*"; }
@@ -66,12 +68,21 @@ load_release() {
 start_and_check() {
   load_release
   log "starting ${IMAGE_TAG}"
-  # --wait: returns only when every service is running and the API's health
-  # check passes (or fails after the timeout).
+  # --wait: returns only when every service is running and every health
+  # check (API, shop, admin) passes — or fails after the timeout.
   if ! compose up -d --no-build --remove-orphans --wait --wait-timeout 180; then
     log "containers did not become healthy"
     return 1
   fi
+  # Warm-up (step 48): pages built into the image may be older than the
+  # 60-second refresh, or empty if the API couldn't be reached during the
+  # build. The first request starts a fresh rebuild in the background, so ask
+  # for the main pages now, from inside the shop's container, before customers do.
+  local p
+  for p in / /shop /blog; do
+    compose exec -T storefront node -e \
+      "fetch('http://127.0.0.1:3000$p').then(r=>r.text()).catch(()=>{})" > /dev/null 2>&1 || true
+  done
   # A worker with a bad setting starts, crashes and restarts — give it time
   # to show that, then require it to be running with no restarts.
   sleep "${NOWOLL_WORKER_SETTLE_SECONDS:-20}"
@@ -99,6 +110,9 @@ start_and_check() {
 [[ -d "$ROOT/app.new" ]] || { log "nothing to deploy: $ROOT/app.new is missing"; exit 1; }
 [[ -f "$NOWOLL_ENV_FILE" ]] || { log "missing $NOWOLL_ENV_FILE (copy .env.production.example)"; exit 1; }
 docker network create nowoll_edge > /dev/null 2>&1 || true # shared with nginx; exists after the first deploy
+# Nginx mounts the password file; an empty one means "nobody can sign in" to
+# the password-protected sites until you add someone (docs/deployment.md).
+[[ -f "$EDGE_HTPASSWD" ]] || { mkdir -p "$(dirname "$EDGE_HTPASSWD")" && : > "$EDGE_HTPASSWD"; }
 
 # 1. Swap the folders (the previous release stays for a rollback).
 rm -rf "$ROOT/app.prev"
@@ -108,7 +122,7 @@ mv "$ROOT/app.new" "$ROOT/app"
 # 2. Pull the new images (GitHub logged this server in for the length of the deploy).
 load_release
 log "pulling ${IMAGE_PREFIX}-*:${IMAGE_TAG}"
-compose pull --quiet api "${WORKERS[@]}"
+compose pull --quiet api storefront admin "${WORKERS[@]}"
 
 # 3–4. Start and check.
 if start_and_check; then
@@ -129,7 +143,7 @@ fi
 
 # 5b. Rollback.
 log "logs of the failed release:"
-compose logs --tail 40 api "${WORKERS[@]}" || true
+compose logs --tail 40 api storefront admin "${WORKERS[@]}" || true
 if [[ ! -d "$ROOT/app.prev" ]]; then
   log "FAILED, and there is no previous release to go back to"
   exit 1

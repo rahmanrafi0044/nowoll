@@ -85,7 +85,7 @@ jobs:
           SHA: ${{ steps.pick.outputs.sha }}
         run: |
           echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin > /dev/null
-          for name in api order-worker notification-worker; do
+          for name in api order-worker notification-worker storefront-production admin-production; do
             docker manifest inspect "$IMAGE_PREFIX-$name:$SHA" > /dev/null 2>&1 \
               || { echo "::error::$IMAGE_PREFIX-$name:$SHA does not exist — deploy this commit to staging first."; exit 1; }
           done

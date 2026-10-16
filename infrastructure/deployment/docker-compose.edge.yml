@@ -1,9 +1,11 @@
 # ============================================================================
-# The EDGE on the Hostinger VPS — steps 46 and 47: Nginx (HTTPS) and certbot,
+# The EDGE on the Hostinger VPS — steps 46–48: Nginx (HTTPS) and certbot,
 # shared by production and staging (guide: docs/deployment.md).
 #
-#   api.nowoll.com          → api-production   (project "nowoll-production")
-#   api.staging.nowoll.com  → api-staging      (project "nowoll-staging")
+#   nowoll.com, admin.nowoll.com, api.nowoll.com
+#       → storefront / admin / api -production   (project "nowoll-production")
+#   staging.nowoll.com, admin.staging.nowoll.com, api.staging.nowoll.com
+#       → storefront / admin / api -staging      (project "nowoll-staging")
 #
 # Project "nowoll-edge", settings from /opt/nowoll/.env (production's). Started
 # by deploy.sh: on every PRODUCTION deploy (so nginx changes reach production
@@ -25,11 +27,22 @@ services:
     ports: ['80:80', '443:443']
     environment:
       # Filled into the template when nginx starts.
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in /opt/nowoll/.env, e.g. nowoll.com}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?Set ADMIN_DOMAIN in /opt/nowoll/.env, e.g. admin.nowoll.com}
       API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in /opt/nowoll/.env, e.g. api.nowoll.com}
+      STAGING_SITE_DOMAIN: ${STAGING_SITE_DOMAIN:?Set STAGING_SITE_DOMAIN in /opt/nowoll/.env, e.g. staging.nowoll.com}
+      STAGING_ADMIN_DOMAIN: ${STAGING_ADMIN_DOMAIN:?Set STAGING_ADMIN_DOMAIN in /opt/nowoll/.env, e.g. admin.staging.nowoll.com}
       STAGING_API_DOMAIN: ${STAGING_API_DOMAIN:?Set STAGING_API_DOMAIN in /opt/nowoll/.env, e.g. api.staging.nowoll.com}
+      # The trial password on the production shop: on | off (staging always asks).
+      SITE_PASSWORD: ${SITE_PASSWORD:-off}
     volumes:
       # Mounted as default.conf so it REPLACES the image's stock "Welcome to nginx" site.
       - ../nginx/nowoll.conf.template:/etc/nginx/templates/default.conf.template:ro
+      # tls.conf, proxy-next.conf, cloudflare-real-ip.conf (included by the template).
+      - ../nginx:/etc/nginx/nowoll:ro
+      # Usernames + passwords for the trial / staging password (htpasswd file;
+      # deploy.sh creates an empty one if it's missing). docs/deployment.md.
+      - ${NOWOLL_HTPASSWD:-/opt/nowoll/htpasswd}:/etc/nginx/htpasswd:ro
       - letsencrypt:/etc/letsencrypt:ro
       - certbot_www:/var/www/certbot:ro
     security_opt: [no-new-privileges:true]

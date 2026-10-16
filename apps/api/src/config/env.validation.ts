@@ -107,6 +107,24 @@ export class EnvironmentVariables {
   })
   COOKIE_DOMAIN?: string
 
+  // The start of the login cookies' names (step 48): "nw" → nw_access. Staging
+  // uses another ("nws"): production's cookies (Domain=.nowoll.com) also reach
+  // the staging sites, and the same names would mix the two sessions.
+  // Set it in the SERVER's .env (Docker passes it as a real environment
+  // variable before the app starts); development keeps the default.
+  @IsOptional()
+  @Matches(/^[a-z]{2,8}$/, { message: 'COOKIE_PREFIX must be 2–8 lowercase letters, e.g. nws' })
+  COOKIE_PREFIX?: string
+
+  // Shared secret for the shop's own server (config/internal-request.ts) —
+  // skips the per-visitor rate limit. Unset = nobody skips it.
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @Matches(/^[A-Za-z0-9_-]{32,}$/, {
+    message: 'INTERNAL_API_KEY must be at least 32 letters/digits (openssl rand -hex 32)',
+  })
+  INTERNAL_API_KEY?: string
+
   // Redis: the background job queues (BullMQ, step 27 — CLAUDE.md §10).
   @Matches(/^rediss?:\/\/.+/, { message: 'REDIS_URL must look like redis://host:6379' })
   REDIS_URL: string = 'redis://localhost:6379'

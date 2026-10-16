@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { AccountNav } from '@/components/account/account-nav'
+import { loginCookieNames } from '@/lib/server-env'
 
 // Spec: every /account page is "Server + auth guard". This guard is a quick,
 // OPTIMISTIC check — "is there a login cookie at all?" — so visitors without
@@ -11,7 +12,8 @@ import { AccountNav } from '@/components/account/account-nav'
 // never get the new cookies — and the old refresh token would be used up.)
 export default async function AccountLayout({ children }: { children: ReactNode }) {
   const jar = await cookies()
-  if (!jar.has('nw_refresh') && !jar.has('nw_access')) redirect('/login?next=/account')
+  const names = loginCookieNames()
+  if (!jar.has(names.refresh) && !jar.has(names.access)) redirect('/login?next=/account')
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 md:grid md:grid-cols-[13rem_1fr] md:gap-10">
       <AccountNav />

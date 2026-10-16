@@ -1,5 +1,5 @@
 import { findRedirect, type RedirectRule } from '@nowoll/validation'
-import { publicEnv } from '@/lib/env'
+import { internalHeaders, serverApiUrl } from '@/lib/server-env'
 
 // ============================================================================
 // Redirects for the shop (step 43c): old web address → new one. The rules come
@@ -28,7 +28,8 @@ export async function redirectRules(
 }
 
 async function loadRules(): Promise<RedirectRule[] | null> {
-  const res = await fetch(`${publicEnv.apiUrl}/api/v1/redirects`, {
+  const res = await fetch(`${serverApiUrl()}/api/v1/redirects`, {
+    headers: internalHeaders(),
     signal: AbortSignal.timeout(2000),
     next: { revalidate: 60 },
   })

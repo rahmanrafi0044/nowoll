@@ -1,5 +1,5 @@
 import type { ApiResult } from '@nowoll/types'
-import { publicEnv } from '@/lib/env'
+import { internalHeaders, serverApiUrl } from '@/lib/server-env'
 
 // How long a cached API response may be reused before Next.js fetches it
 // again in the background. Matches the spec's "ISR (60s)": a product added
@@ -14,9 +14,12 @@ export const REVALIDATE_SECONDS = 60
  * API that's unreachable during `next build`) never breaks the whole page.
  */
 export async function apiGet<T>(path: string): Promise<T | null> {
-  const url = `${publicEnv.apiUrl}/api/v1${path}`
+  const url = `${serverApiUrl()}/api/v1${path}`
   try {
-    const res = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS } })
+    const res = await fetch(url, {
+      headers: internalHeaders(),
+      next: { revalidate: REVALIDATE_SECONDS },
+    })
     if (res.status === 404) return null
     const body = (await res.json()) as ApiResult<T>
     if (!res.ok || !body.success) {

@@ -42,6 +42,8 @@ jobs:
       IMAGE_PREFIX: ghcr.io/rahmanrafi0044/nowoll
       ROOT: ${{ inputs.environment == 'production' && '/opt/nowoll' || '/opt/nowoll-staging' }}
       DOMAIN: ${{ inputs.environment == 'production' && vars.API_DOMAIN || vars.STAGING_API_DOMAIN }}
+      SITE_HOST: ${{ inputs.environment == 'production' && vars.SITE_DOMAIN || vars.STAGING_SITE_DOMAIN }}
+      ADMIN_HOST: ${{ inputs.environment == 'production' && vars.ADMIN_DOMAIN || vars.STAGING_ADMIN_DOMAIN }}
       SSH: ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
     steps:
       - name: Check the environment name
@@ -99,14 +101,21 @@ jobs:
           $SSH 'docker logout ghcr.io' > /dev/null || true
           exit $status
 
-      # 4. From the outside, through Nginx and HTTPS.
-      - name: Check https://<domain>/api/v1/health
+      # 4. From the outside, through Cloudflare / Nginx and HTTPS.
+      #    The shop may answer 401 (the trial / staging password) — that's up too.
+      - name: Check the API, the shop and the admin from outside
         run: |
+          answer() { curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$1" || true; }
           for _ in $(seq 1 10); do
-            if curl -fsS "https://$DOMAIN/api/v1/health"; then
-              echo; echo "::notice::$ENVIRONMENT is running $SHA"; exit 0
+            api=$(answer "https://$DOMAIN/api/v1/health")
+            shop=$(answer "https://$SITE_HOST/")
+            admin=$(answer "https://$ADMIN_HOST/admin/login")
+            echo "api $api · shop $shop · admin $admin"
+            if [ "$api" = 200 ] && { [ "$shop" = 200 ] || [ "$shop" = 401 ]; } \
+              && { [ "$admin" = 200 ] || [ "$admin" = 401 ]; }; then
+              echo "::notice::$ENVIRONMENT is running $SHA"; exit 0
             fi
             sleep 6
           done
-          echo "::error::https://$DOMAIN/api/v1/health did not answer"
+          echo "::error::$ENVIRONMENT did not answer from outside (api $api, shop $shop, admin $admin)"
           exit 1

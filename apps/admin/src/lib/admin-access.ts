@@ -12,13 +12,16 @@ export const LOGIN_PATH = '/admin/login'
 export const HOME_PATH = '/admin/dashboard'
 
 // Set by the API (apps/api/src/auth/auth-cookies.ts → ADMIN_COOKIES). The
-// shop's own cookies (nw_access) never count here.
-export const ADMIN_SESSION_COOKIES = ['nw_admin_access', 'nw_admin_refresh'] as const
+// shop's own cookies (nw_access) never count here. "nw" is COOKIE_PREFIX
+// (step 48: staging uses "nws") — read on the server, must match the API's.
+export function adminSessionCookies(prefix = process.env.COOKIE_PREFIX || 'nw') {
+  return [`${prefix}_admin_access`, `${prefix}_admin_refresh`] as const
+}
 
 export type AccessLevel = 'anonymous' | 'has-session'
 
 export function getAccessLevel(cookies: { has(name: string): boolean }): AccessLevel {
-  return ADMIN_SESSION_COOKIES.some((name) => cookies.has(name)) ? 'has-session' : 'anonymous'
+  return adminSessionCookies().some((name) => cookies.has(name)) ? 'has-session' : 'anonymous'
 }
 
 export type AccessDecision = { type: 'allow' } | { type: 'redirect'; to: string }
