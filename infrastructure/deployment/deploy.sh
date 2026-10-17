@@ -113,6 +113,9 @@ docker network create nowoll_edge > /dev/null 2>&1 || true # shared with nginx; 
 # Nginx mounts the password file; an empty one means "nobody can sign in" to
 # the password-protected sites until you add someone (docs/deployment.md).
 [[ -f "$EDGE_HTPASSWD" ]] || { mkdir -p "$(dirname "$EDGE_HTPASSWD")" && : > "$EDGE_HTPASSWD"; }
+# nginx runs as its own user inside its container and must be able to read it
+# (only bcrypt hashes inside, never passwords); a private 600 file = 500 errors.
+chmod 644 "$EDGE_HTPASSWD"
 
 # 1. Swap the folders (the previous release stays for a rollback).
 rm -rf "$ROOT/app.prev"
