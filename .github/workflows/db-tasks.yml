@@ -74,7 +74,10 @@ jobs:
         run: |
           case "$TASK" in
             migrate | seed) pnpm install --frozen-lockfile --filter "@nowoll/database..." ;;
-            *) pnpm install --frozen-lockfile --filter "@nowoll/api..." ;;
+            # The admin command imports the shared packages (database, types…),
+            # which must be BUILT first — a fresh checkout has no dist/ folders.
+            *) pnpm install --frozen-lockfile --filter "@nowoll/api..." \
+                 && pnpm --filter "@nowoll/api^..." run build ;;
           esac
 
       - name: Run
