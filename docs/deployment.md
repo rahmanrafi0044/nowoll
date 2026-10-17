@@ -123,6 +123,9 @@ docker run --rm -it httpd:2.4-alpine htpasswd -nB owner >> /opt/nowoll/htpasswd
 # remove someone: delete their line in /opt/nowoll/htpasswd
 ```
 
+The file holds only hashed passwords and must stay readable (`644`, never `600` like the `.env`): nginx reads it
+as its own user, and a private file makes every visit fail with 500. `deploy.sh` sets it on every deploy.
+
 Keep `-B`'s default strength: Nginx checks the password on every request (each page and file), so a
 stronger setting would make every page slower during the trial.
 

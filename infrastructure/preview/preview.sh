@@ -80,6 +80,10 @@ up() {
   check_env SITE_DOMAIN ADMIN_DOMAIN API_DOMAIN DATABASE_URL REDIS_PASSWORD INTERNAL_API_KEY CLOUDFLARE_TUNNEL_TOKEN
   docker image inspect nowoll-storefront-production:preview > /dev/null 2>&1 || fail "no images yet — run: preview.sh build"
   [[ -s "$NOWOLL_HTPASSWD" ]] || fail "no trial password yet — add one to $NOWOLL_HTPASSWD (docs/preview.md)"
+  # nginx runs as its own user inside its container, so it must be able to read
+  # the file. It holds only bcrypt HASHES, never the passwords themselves — but
+  # a private (600) file, like the .env, made every visit fail with 500.
+  chmod 644 "$NOWOLL_HTPASSWD"
   # The certificate nginx shows the tunnel (self-signed; visitors see Cloudflare's).
   local le="$NOWOLL_PREVIEW_DIR/le/live/nowoll" site
   site="$(val SITE_DOMAIN)"
@@ -104,7 +108,7 @@ up() {
   # The tunnel needs a few seconds to reach Cloudflare.
   local _
   for _ in $(seq 1 15); do
-    edge logs tunnel 2> /dev/null | grep -q "Registered tunnel connection" && break
+    edge logs tunnel 2> /dev/null | grep "Registered tunnel connection" > /dev/null && break
     sleep 2
   done
   status
@@ -112,9 +116,11 @@ up() {
 }
 
 status() {
+  # (grep without -q: with "pipefail", -q stops reading early, the log command
+  # then fails on the closed pipe, and the check would wrongly say "not connected".)
   app ps --format '  {{.Service}}: {{.Status}}'
   edge ps --format '  {{.Service}}: {{.Status}}'
-  if edge logs tunnel 2> /dev/null | grep -q "Registered tunnel connection"; then
+  if edge logs tunnel 2> /dev/null | grep "Registered tunnel connection" > /dev/null; then
     say "✓ tunnel connected to Cloudflare"
   else
     say "tunnel not connected (yet) — preview.sh logs tunnel"

@@ -84,6 +84,8 @@ Fill it in like the **production** file (docs/deployment.md), with these trial c
 docker run --rm -it httpd:2.4-alpine htpasswd -nB owner >> ~/nowoll-preview/htpasswd   # asks for the password
 docker run --rm -it httpd:2.4-alpine htpasswd -nB rafi  >> ~/nowoll-preview/htpasswd
 ```
+The file holds only scrambled (hashed) passwords. Unlike the `.env`, it must stay **readable** (`644`): nginx reads
+it as its own user, and a private (`600`) file makes every visit fail with **500**. `preview.sh up` sets this.
 
 ### 7. Start it
 ```bash
