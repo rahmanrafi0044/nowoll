@@ -15,7 +15,7 @@
 
 # node:24-slim (Debian), not Alpine: the photo library (sharp) and Prisma
 # ship ready-made builds for it.
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 ENV CI=1 \
     TURBO_TELEMETRY_DISABLED=1 \
     # Prisma's config needs a DATABASE_URL just to generate its code — no connection is made.
@@ -45,7 +45,7 @@ RUN cd /out/node_modules/.pnpm \
            @img+sharp-libvips-linuxmusl-* @img+sharp-linuxmusl-* \
  && find /out/node_modules -xtype l -delete
 
-FROM node:24-slim AS run
+FROM node:26-slim AS run
 ENV NODE_ENV=production \
     PORT=3001
 # Security audit (step 53, docs/security-audit.md): Debian's security fixes,

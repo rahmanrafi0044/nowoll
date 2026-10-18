@@ -8,7 +8,7 @@
 # image; no migrations here (CI does them).
 # ============================================================================
 
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 ARG WORKER
 ENV CI=1 \
     TURBO_TELEMETRY_DISABLED=1 \
@@ -34,7 +34,7 @@ RUN cd /out/node_modules/.pnpm \
            @img+sharp-libvips-linuxmusl-* @img+sharp-linuxmusl-* \
  && find /out/node_modules -xtype l -delete
 
-FROM node:24-slim AS run
+FROM node:26-slim AS run
 ENV NODE_ENV=production
 # Security audit (step 53, docs/security-audit.md): Debian's security fixes,
 # even before the node:24-slim image is rebuilt with them (Trivy found perl-base

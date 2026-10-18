@@ -15,7 +15,7 @@
 # Files kept out of the build: web.Dockerfile.dockerignore (next to this file).
 # ============================================================================
 
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 ENV CI=1 NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable
 WORKDIR /repo
@@ -47,7 +47,7 @@ ENV NEXT_OUTPUT=standalone
 # The shared packages first (in order), then the app — pnpm follows the "..." graph.
 RUN pnpm --filter "@nowoll/${APP}..." run build
 
-FROM node:24-slim AS run
+FROM node:26-slim AS run
 ARG APP
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 # Security audit (step 53, docs/security-audit.md): Debian's security fixes,
