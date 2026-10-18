@@ -5,7 +5,16 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { createPrismaClient, Prisma } from '@nowoll/database'
 import { E2E_DATABASE_URL } from './env.js'
-import { BLOG_POST, CATEGORY, DISCOUNT, OLD_SHIRT_PATH, SHIRT, TRACKING } from './fixtures.js'
+import {
+  BLOG_POST,
+  CATEGORY,
+  DISCOUNT,
+  OLD_SHIRT_PATH,
+  SHIRT,
+  SHOPPER,
+  STAFF_ACCOUNTS,
+  TRACKING,
+} from './fixtures.js'
 
 const DATABASE_PACKAGE = path.resolve(import.meta.dirname, '../../../packages/database')
 
@@ -115,6 +124,15 @@ export async function seedE2eDatabase(): Promise<void> {
     // Step 43c: an old address that now leads to the shirt (what a renamed product gets).
     await db.redirect.create({
       data: { fromPath: OLD_SHIRT_PATH, toPath: `/products/${SHIRT.slug}`, source: 'AUTO' },
+    })
+    // Step 50: an Admin and a normal shop account (their sign-in lives in the
+    // e2e API's pretend Supabase Auth, with these same ids).
+    for (const a of STAFF_ACCOUNTS)
+      await db.user.create({
+        data: { id: a.id, email: a.email, fullName: a.fullName, role: 'ADMIN' },
+      })
+    await db.user.create({
+      data: { id: SHOPPER.id, email: SHOPPER.email, fullName: SHOPPER.fullName },
     })
   } finally {
     await db.$disconnect()

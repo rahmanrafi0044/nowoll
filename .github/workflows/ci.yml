@@ -97,6 +97,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
+      # The notification worker's emails land here; the admin test (step 50)
+      # reads them through Mailpit's search API (port 8025).
+      mailpit:
+        image: axllent/mailpit:latest
+        ports: ['1025:1025', '8025:8025']
       postgres:
         image: postgres:16-alpine
         env:
