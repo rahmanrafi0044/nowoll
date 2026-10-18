@@ -94,7 +94,9 @@ nowoll/
 │   └── e2e/                 # Playwright — all critical customer flows
 │
 ├── .claude/
-│   └── commands/            # Reusable Claude Code slash commands
+│   ├── commands/            # Reusable Claude Code slash commands
+│   └── skills/              # Project skills Claude loads when a task matches:
+│                            #   verify-step, ship-pr, docker-change, ci-change
 │
 ├── CLAUDE.md                ← you are here
 ├── AGENTS.md
