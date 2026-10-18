@@ -42,143 +42,62 @@
 ```
 nowoll/
 ├── apps/
-│   ├── storefront/          # Next.js — public customer-facing store
-│   ├── admin/               # Next.js — internal admin panel
-│   └── api/                 # NestJS — REST API server
-│
+│   ├── storefront/          # Next.js — the public shop (nowoll.com)
+│   ├── admin/               # Next.js — the admin panel (admin.nowoll.com)
+│   └── api/                 # NestJS — REST API (api.nowoll.com); also SSLCommerz IPN
 ├── packages/
-│   ├── database/            # Prisma schema + migrations + generated client
-│   │   ├── prisma/
-│   │   │   └── schema.prisma   ← SINGLE SOURCE OF TRUTH for DB
-│   │   └── src/
-│   │       └── index.ts     # Re-exports PrismaClient
-│   ├── types/               # Shared TypeScript interfaces (Order, Product, etc.)
-│   ├── validation/          # Shared Zod schemas (used on both frontend and backend)
+│   ├── database/            # Prisma: prisma/schema.prisma ← SINGLE SOURCE OF TRUTH, migrations, seed
+│   ├── types/               # Shared TypeScript types (Order, Product, …)
+│   ├── validation/          # Shared Zod schemas (frontend + backend)
 │   ├── ui/                  # Shared React components (design system)
-│   ├── config/              # Shared tsconfig, eslint, tailwind configs
-│   ├── auth/                # Auth utilities (token parsing, role checks)
-│   ├── payments/            # Payment provider adapters (SSLCommerz, COD)
-│   ├── shipping/            # Courier adapters (manual phase 1, Pathao phase 2)
-│   ├── email/               # Resend client + all email templates
-│   └── analytics/           # GA4, Meta Pixel event helpers
-│
+│   ├── config/              # Shared tsconfig / eslint / tailwind config
+│   ├── payments/            # Payment adapters (SSLCommerz, COD)
+│   ├── email/               # Resend / SMTP senders + all email templates
+│   ├── queues/              # BullMQ queue names and job types
+│   └── analytics/           # GA4, Meta Pixel / Conversions API helpers
 ├── workers/
-│   ├── order-worker/        # Handles order.confirmed → email + courier booking
-│   ├── notification-worker/ # Low stock alerts, return status updates
-│   └── payment-worker/      # SSLCommerz IPN processing, reconciliation
-│
+│   ├── order-worker/        # orders queue: confirmation, payment received, low-stock alert (docs/workers.md)
+│   └── notification-worker/ # shipped / delivered / returns / refund / welcome emails, newsletter, Meta events
 ├── infrastructure/
-│   ├── docker/
-│   │   ├── api.Dockerfile
-│   │   ├── worker.Dockerfile
-│   │   └── web.Dockerfile      # the shop and the admin (Next.js standalone)
-│   ├── nginx/
-│   │   └── nowoll.conf.template   # + tls.conf, proxy-next.conf, cloudflare-real-ip.conf
-│   └── deployment/
-│       ├── docker-compose.prod.yml   # shop, admin, API, workers, Redis (× staging, production)
-│       ├── docker-compose.edge.yml   # Nginx + certbot, shared
-│       └── deploy.sh                 # runs on the VPS: restart, health check, rollback
-│
-├── docs/                    # ALL architecture and integration documentation
-│   ├── 00-master-spec.md
-│   ├── learning/            # Personal learning track (parallel to building)
-│   └── integrations/
-│       ├── sslcommerz.md
-│       ├── courier.md
-│       ├── supabase.md
-│       └── resend.md
-│
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/                 # Playwright — all critical customer flows
-│
+│   ├── docker/              # api / worker / web (shop + admin) Dockerfiles
+│   ├── nginx/               # nowoll.conf.template + tls / proxy / Cloudflare real-IP
+│   ├── deployment/          # docker-compose.prod.yml, docker-compose.edge.yml, deploy.sh
+│   └── preview/             # the $0 trial on Rafi's PC (docs/preview.md)
+├── docs/                    # 00-master-spec.md, deployment.md, preview.md, admin-editable.md,
+│                            # integrations/ (read before touching an external service), learning/
+├── tests/e2e/               # Playwright — the critical customer flows
+├── .github/workflows/       # CI, Docker check, deploy to staging, promote, Database tasks
 ├── .claude/
 │   ├── commands/            # Reusable Claude Code slash commands
 │   └── skills/              # Project skills Claude loads when a task matches:
 │                            #   verify-step, ship-pr, docker-change, ci-change
-│
-├── CLAUDE.md                ← you are here
-├── AGENTS.md
-├── README.md
-├── turbo.json               ← Turborepo task configuration
-├── docker-compose.yml       ← Local dev (postgres + redis + mailpit)
-├── pnpm-workspace.yaml
-└── package.json
+├── docker-compose.yml       # Local dev only: Postgres + Redis + Mailpit (compose project "nowoll")
+└── turbo.json               # Turborepo tasks
 ```
 
 ---
 
-## 4. TURBOREPO TASK CONFIGURATION
+## 4. COMMANDS (repo root)
 
-The `turbo.json` in the root defines how tasks run across all apps and packages.
-
-```json
-{
-  "$schema": "https://turbo.build/schema.json",
-  "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true
-    },
-    "typecheck": {
-      "dependsOn": ["^typecheck"]
-    },
-    "lint": {},
-    "test": {
-      "dependsOn": ["^build"]
-    },
-    "db:generate": {
-      "cache": false
-    },
-    "db:migrate": {
-      "cache": false
-    },
-    "clean": {
-      "cache": false
-    }
-  }
-}
-```
-
-**Key commands (run from repo root):**
 ```bash
-pnpm dev          # Starts ALL apps concurrently (storefront + admin + api)
-pnpm build        # Builds all apps in dependency order
-pnpm typecheck    # Type-checks all packages
-pnpm lint         # Lints all packages
-pnpm test         # Runs all unit tests
-pnpm db:generate  # Regenerates Prisma client after schema change
-pnpm db:migrate   # Runs pending migrations
+pnpm dev                       # shop :3000, API :3001, admin :3002, workers
+pnpm typecheck && pnpm lint && pnpm test    # the checks (full procedure: .claude/skills/verify-step)
+pnpm test:e2e                  # Playwright browser tests
+pnpm format                    # Prettier
+pnpm db:generate               # after a schema.prisma change
+pnpm db:migrate                # local dev only: prisma migrate dev (production: CI, Rule 4)
 ```
+
+Task order and caching live in `turbo.json` — read it rather than assuming.
 
 ---
 
 ## 5. SHARED PRISMA PACKAGE
 
-The Prisma schema lives in `packages/database/` and is shared across all apps. This means:
-- NestJS API imports `PrismaClient` from `@nowoll/database`
-- Next.js apps can import Prisma types (not the client itself — server only)
-- One schema = one source of truth = no type drift between frontend and backend
-
-```typescript
-// packages/database/src/index.ts
-import { PrismaClient } from '@prisma/client'
-
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
-
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({ log: process.env.NODE_ENV === 'development' ? ['query'] : [] })
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
-
-export * from '@prisma/client'  // Re-export all generated types
-```
+- One schema (`packages/database/prisma/schema.prisma`) = one source of truth for every app.
+- The API uses `PrismaService` (`apps/api/src/prisma/`) — a NestJS provider that extends the Prisma client, so
+  it can be injected and closes cleanly. Workers and scripts use `createPrismaClient()` from `@nowoll/database`.
+- The Next.js apps import Prisma **types** only — never the client (server-side database access is the API's job).
 
 ---
 
