@@ -1,3 +1,6 @@
+// MUST stay the first import: Zod reads this switch when each schema is
+// created, and the files below create their schemas as they load.
+import './jitless.js'
 export * from './auth.js'
 export * from './bangladesh.js'
 export * from './content.js'

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common'
@@ -50,8 +51,22 @@ const INVALID_CREDENTIALS = {
 }
 const UNAVAILABLE = 'Sign-in is not available right now. Please try again shortly.'
 
+/**
+ * "owner@nowoll.com" → "o***@nowoll.com": enough to recognise an account in
+ * the logs, without the logs becoming a list of addresses.
+ */
+export const maskEmail = (email: string) => {
+  const [name = '', domain = ''] = email.split('@')
+  return `${name.slice(0, 1)}***@${domain}`
+}
+
 @Injectable()
 export class AdminAuthService {
+  // Security audit (step 53, OWASP A09): every FAILED admin sign-in is written
+  // to the log — someone guessing passwords or 2FA codes leaves a trace (and,
+  // once Sentry is set up, an alert). Never the password or the code itself.
+  private readonly logger = new Logger(AdminAuthService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(AUTH_PROVIDER) private readonly provider: AuthProvider,
@@ -65,8 +80,10 @@ export class AdminAuthService {
   async login(dto: LoginDto): Promise<{ session: AuthSession; next: 'enroll' | 'verify' }> {
     const result = await this.provider.signIn(dto.email, dto.password)
     if (!result.ok) {
-      if (result.reason === 'INVALID_CREDENTIALS')
+      if (result.reason === 'INVALID_CREDENTIALS') {
+        this.logger.warn(`Admin sign-in failed: wrong email or password (${maskEmail(dto.email)})`)
         throw new UnauthorizedException(INVALID_CREDENTIALS)
+      }
       throw new ServiceUnavailableException(UNAVAILABLE)
     }
     const { session } = result
@@ -77,6 +94,8 @@ export class AdminAuthService {
       return { session, next: enrolled ? 'verify' : 'enroll' }
     } catch (error) {
       // Not staff (or Supabase down): the session Supabase just made is useless — end it.
+      if (error instanceof ForbiddenException)
+        this.logger.warn(`Admin sign-in refused: not staff or disabled (${maskEmail(dto.email)})`)
       await this.provider.signOut(session.accessToken).catch(() => {})
       throw error
     }
@@ -125,11 +144,13 @@ export class AdminAuthService {
   ): Promise<AuthSession> {
     const result = await this.provider.verifyTotp(tokens, code)
     if (result.ok) return result.session
-    if (result.reason === 'WRONG_CODE')
+    if (result.reason === 'WRONG_CODE') {
+      this.logger.warn('Admin sign-in failed: wrong 2FA code')
       throw new BadRequestException({
         message: 'That code didn’t work. Check the time on your phone and try the newest code.',
         code: 'WRONG_CODE',
       })
+    }
     if (result.reason === 'NO_FACTOR')
       throw new ConflictException({
         message: 'Set up your authenticator app first.',

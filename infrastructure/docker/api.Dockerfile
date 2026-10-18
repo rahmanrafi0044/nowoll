@@ -48,6 +48,15 @@ RUN cd /out/node_modules/.pnpm \
 FROM node:24-slim AS run
 ENV NODE_ENV=production \
     PORT=3001
+# Security audit (step 53, docs/security-audit.md): Debian's security fixes,
+# even before the node:24-slim image is rebuilt with them (Trivy found perl-base
+# fixes missing), and no npm / corepack: the running app never installs
+# anything, and their bundled packages (undici, brace-expansion) had open CVEs.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 WORKDIR /app
 # Owned by root, run as the unprivileged "node" user: the app can't change its own code.
 COPY --from=build /out/package.json ./package.json

@@ -4,6 +4,7 @@
 //   • staff only (users.role ADMIN/STAFF), checked in OUR database every request
 //   • 2FA done (aal2) — a password-only session can only set up the app / enter a code
 //   • the admin session is separate from the shop's
+import { Logger } from '@nestjs/common'
 import type { NestExpressApplication } from '@nestjs/platform-express'
 import request from 'supertest'
 import { AUTH_PROVIDER } from '../src/auth/auth-provider.js'
@@ -158,6 +159,23 @@ describe('admin sign-in (step 29a)', () => {
       const wrong = await login('rafi@nowoll.com', 'not-the-password').expect(401)
       const unknown = await login('nobody@nowoll.com').expect(401)
       expect(wrong.body).toEqual(unknown.body)
+    })
+
+    it('failed sign-ins are logged with the email partly hidden — never the password (security audit)', async () => {
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {})
+      await staffAccount(app, 'rafi@nowoll.com')
+      await staffAccount(app, 'shopper@example.com', 'CUSTOMER')
+      await login('rafi@nowoll.com', 'not-the-password').expect(401)
+      await login('shopper@example.com').expect(403)
+      const lines = warn.mock.calls.map((c) => String(c[0]))
+      warn.mockRestore()
+      expect(lines).toEqual(
+        expect.arrayContaining([
+          'Admin sign-in failed: wrong email or password (r***@nowoll.com)',
+          'Admin sign-in refused: not staff or disabled (s***@example.com)',
+        ]),
+      )
+      expect(lines.join(' ')).not.toMatch(/not-the-password|rafi@|shopper@/)
     })
 
     it('the SHOP session never opens the admin panel — even for an admin', async () => {

@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: The compose files are valid (app and edge)
         run: |
           {
@@ -74,7 +74,7 @@ jobs:
       matrix:
         image: [api, order-worker, notification-worker, storefront, admin]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Build (not pushed)
         env:
           NAME: ${{ matrix.image }}
@@ -102,3 +102,17 @@ jobs:
             'find / -xdev \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name ".git" \) 2>/dev/null | grep -v /node_modules/ || true')"
           [ -z "$found" ] || { echo "::error::found in image: $found"; exit 1; }
           docker images "nowoll-$NAME:ci" --format 'Size: {{.Size}}'
+      # Security audit (step 53): known vulnerabilities in the image. A CRITICAL
+      # one that already has a fix fails the check (rebuild / update to get it);
+      # HIGH ones are listed in the log to act on. Trivy runs as a container
+      # (no third-party action), version pinned.
+      - name: Vulnerability scan (Trivy)
+        env:
+          NAME: ${{ matrix.image }}
+        run: |
+          scan() {
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.75.0 \
+              image --quiet --ignore-unfixed "$@" "nowoll-$NAME:ci"
+          }
+          scan --severity HIGH,CRITICAL --exit-code 0
+          scan --severity CRITICAL --exit-code 1

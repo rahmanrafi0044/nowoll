@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { parseEnv } from 'node:util'
 import type { NextConfig } from 'next'
+import { buildCsp } from './src/lib/csp'
 
 // ── Environment variables ─────────────────────────────────────────────────
 // The monorepo keeps ONE .env at the repo root. Next.js only looks in this
@@ -47,18 +48,21 @@ const nextConfig: NextConfig = {
       : [],
   },
 
-  // Security headers on every page (CLAUDE.md §11).
-  // TODO(phase 6): add a Content-Security-Policy once the GA4 / GTM / Meta Pixel
-  // script origins are known — a CSP added now would just be rewritten then.
-  // Note for that CSP: the brand colour / font from Admin → Settings → Look is an
-  // inline <style> block in the root layout (lib/theme.ts) — allow it with a hash or nonce.
-  // Note for that CSP: product color swatches use inline style attributes
-  // (style="background-color: …"), so style-src-attr must allow them.
+  // Security headers on every page (CLAUDE.md §11). The Content-Security-Policy
+  // is built in src/lib/csp.ts (security audit, step 53 — why it has no nonces).
   async headers() {
     return [
       {
         source: '/:path*',
         headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: buildCsp({
+              apiUrl: process.env.NEXT_PUBLIC_API_URL,
+              supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+              dev: process.env.NODE_ENV === 'development',
+            }),
+          },
           { key: 'X-Frame-Options', value: 'DENY' }, // no embedding in other sites (clickjacking)
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

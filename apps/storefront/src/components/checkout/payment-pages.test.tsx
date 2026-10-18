@@ -129,6 +129,11 @@ describe('thank-you page (PaymentConfirmation)', () => {
     unmount()
     render(<PaymentConfirmation orderId={null} />)
     expect(screen.getByRole('heading')).toHaveTextContent("We couldn't find that order")
+    // The receipt answers for 24 hours (security audit) — older orders: tracking.
+    expect(screen.getByRole('link', { name: 'Track your order' })).toHaveAttribute(
+      'href',
+      '/orders/track',
+    )
   })
 })
 

@@ -116,10 +116,16 @@ export function OrderNotFound() {
   return (
     <section className="flex flex-col items-center gap-4 text-center">
       <h1 className="text-2xl font-semibold">We couldn&apos;t find that order</h1>
+      {/* The confirmation page shows an order for 24 hours only (it holds the
+          delivery address — docs/security-audit.md). After that: tracking. */}
       <p className="text-muted-foreground">
-        Please check the link, or contact us with your order number.
+        This page shows an order for 24 hours after it&apos;s placed. To see it now, track it with
+        its order number and your mobile number or email.
       </p>
-      <Link href="/shop" className={linkClass}>
+      <Link href="/orders/track" className={linkClass}>
+        Track your order
+      </Link>
+      <Link href="/shop" className="text-sm text-muted-foreground underline underline-offset-4">
         Continue shopping
       </Link>
     </section>

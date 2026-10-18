@@ -140,6 +140,10 @@ the VPS (docs/integrations/supabase.md). Staging gets test data only, never cust
 **On the VPS** (Hostinger **KVM 2**, location **India**)
 1. **Ubuntu + Docker:** install Docker Engine and the compose plugin (https://docs.docker.com/engine/install/ubuntu/).
    Open only ports 22, 80 and 443 in the firewall (`ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw enable`).
+   **Hardening** (security audit, `docs/security-audit.md`):
+   - Ubuntu's automatic security updates: `sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades`.
+   - SSH with keys only, **after** you can sign in with your own key (otherwise you lock yourself out): set
+     `PasswordAuthentication no` in `/etc/ssh/sshd_config`, then `sudo systemctl restart ssh`.
 2. **A deploy user** (GitHub signs in as this user, never as root):
    ```bash
    sudo adduser --disabled-password --gecos "" deploy
