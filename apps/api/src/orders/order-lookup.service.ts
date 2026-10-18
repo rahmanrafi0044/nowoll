@@ -127,6 +127,9 @@ const include = {
 
 type FullOrder = Prisma.OrderGetPayload<{ include: typeof include }>
 
+/** How long the public receipt answers after an order is placed (see receipt()). */
+export const RECEIPT_WINDOW_MS = 24 * 60 * 60 * 1000
+
 @Injectable()
 export class OrderLookupService {
   constructor(
@@ -134,10 +137,22 @@ export class OrderLookupService {
     private readonly payments: PaymentsService,
   ) {}
 
-  /** GET /orders/:id/receipt */
-  async receipt(orderId: string): Promise<OrderReceipt> {
+  /**
+   * GET /orders/:id/receipt — the confirmation page's receipt, by the random
+   * order id, with NO sign-in. Security audit (docs/security-audit.md, A01):
+   * that id travels in the page's address (/checkout/success?order=…), which
+   * browser history, screenshots and — after cookie consent — analytics tools
+   * record. The receipt holds the customer's name and street address, so it
+   * answers only for RECEIPT_WINDOW_MS after the order is placed: long enough
+   * for the confirmation page, a refresh and the return from online payment.
+   * Later, customers use "Track your order" (number + phone/email, no street)
+   * or their account — both need something only the customer knows.
+   */
+  async receipt(orderId: string, now = Date.now()): Promise<OrderReceipt> {
     const order = await this.prisma.order.findUnique({ where: { id: orderId }, include })
-    if (!order) throw new NotFoundException('Order not found')
+    // Too old = "not found", the same answer as a wrong id (nothing to learn from it).
+    if (!order || now - order.createdAt.getTime() > RECEIPT_WINDOW_MS)
+      throw new NotFoundException('Order not found')
     return this.toReceipt(order)
   }
 

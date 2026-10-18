@@ -97,6 +97,16 @@ describe('order lookup', () => {
       expect(JSON.stringify(res.body.data)).not.toMatch(/adminNotes|idempotency/i)
     })
 
+    it('answers for 24 hours only — after that "not found", like an unknown id (security audit)', async () => {
+      const id = await placeOrder()
+      const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000)
+      await db.order.update({ where: { id }, data: { createdAt: hoursAgo(23) } })
+      await http().get(`/api/v1/orders/${id}/receipt`).expect(200)
+      await db.order.update({ where: { id }, data: { createdAt: hoursAgo(25) } })
+      const res = await http().get(`/api/v1/orders/${id}/receipt`).expect(404)
+      expect(JSON.stringify(res.body)).not.toMatch(/House 12/)
+    })
+
     it('400 for a malformed id, 404 for an unknown one', async () => {
       await http().get('/api/v1/orders/abc/receipt').expect(400)
       await http().get(`/api/v1/orders/${randomUUID()}/receipt`).expect(404)
