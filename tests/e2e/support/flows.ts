@@ -2,6 +2,7 @@
 // by visible labels and buttons, never by CSS classes or test ids.
 import type { Page } from '@playwright/test'
 import { expect } from './test.js'
+import { ADMIN_URL } from './env.js'
 import { CUSTOMER, SHIRT } from './fixtures.js'
 
 /**
@@ -74,4 +75,44 @@ export async function buyShirtCashOnDelivery(page: Page, size: keyof typeof SHIR
   await checkoutToReview(page, 'Cash on delivery')
   await page.getByRole('button', { name: 'Place order', exact: true }).click()
   return orderNumberOnConfirmation(page)
+}
+
+// ── The admin panel (step 50) ───────────────────────────────────────────────
+
+/**
+ * The 2FA code the authenticator app would show for a set-up key. The e2e API
+ * signs in through a PRETEND Supabase (apps/api/test/e2e-server.ts) whose
+ * "authenticator app" always shows the key's last 6 characters
+ * (FakeAuthProvider.codeFor) — the test reads the key off the page like a person.
+ */
+export const codeFor = (setupKey: string) => setupKey.slice(-6)
+
+/** Types email + password on the admin sign-in page and presses Continue. */
+export async function enterAdminPassword(page: Page, account: { email: string; password: string }) {
+  await page.goto(`${ADMIN_URL}/admin/login`)
+  await page.getByLabel('Email').fill(account.email)
+  await page.getByLabel('Password').fill(account.password)
+  await page.getByRole('button', { name: 'Continue' }).click()
+}
+
+/**
+ * First sign-in of an admin (no authenticator app yet): password → the 2FA
+ * set-up page → reads the key under "Can't scan it?" → types the code → the
+ * dashboard. Returns the key, for a later sign-in in the same spec file.
+ */
+export async function firstAdminSignIn(
+  page: Page,
+  account: { email: string; password: string },
+): Promise<string> {
+  await enterAdminPassword(page, account)
+  await expect(
+    page.getByRole('heading', { name: 'Set up two-factor authentication' }),
+  ).toBeVisible()
+  await page.getByText('Can’t scan it?').click()
+  const setupKey = (await page.locator('details code').textContent())?.trim() ?? ''
+  expect(setupKey).not.toBe('')
+  await page.getByLabel('6-digit code').fill(codeFor(setupKey))
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page).toHaveURL(/\/admin\/dashboard/)
+  return setupKey
 }

@@ -155,9 +155,17 @@ export class FakeAuthProvider implements AuthProvider {
     for (const t of this.access.values()) t.expiresAt = 0
   }
 
-  /** An account that exists in Supabase but not (yet) in our users table. */
-  addAccount(email: string, password: string, fullName: string | null = null): Account {
-    const a = { id: randomUUID(), email, password, fullName }
+  /**
+   * An account that exists in Supabase but not (yet) in our users table. The
+   * browser tests (test/e2e-server.ts) pass the id their seeded user row has.
+   */
+  addAccount(
+    email: string,
+    password: string,
+    fullName: string | null = null,
+    id: string = randomUUID(),
+  ): Account {
+    const a = { id, email, password, fullName }
     this.accounts.set(email, a)
     return a
   }

@@ -24,6 +24,10 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
 const nextConfig: NextConfig = {
   poweredByHeader: false,
 
+  // The browser tests (tests/e2e, step 50) build into .next-e2e: that build
+  // points at the e2e API (its address is baked in), so it must never replace yours.
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
+
   // Docker images (step 48, infrastructure/docker/web.Dockerfile) build with
   // NEXT_OUTPUT=standalone: Next.js copies only the files the server needs
   // into .next/standalone (with server.js). The monorepo root is the tracing
