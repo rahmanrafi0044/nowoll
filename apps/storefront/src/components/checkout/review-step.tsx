@@ -173,19 +173,22 @@ export function ReviewStep({
     <div className="flex flex-col gap-5">
       <dl className="flex flex-col gap-3 text-sm">
         {rows.map((r) => (
-          <div key={r.label} className="flex items-start justify-between gap-4">
-            <div>
-              <dt className="font-medium">{r.label}</dt>
-              <dd className="text-muted-foreground">{r.value}</dd>
-            </div>
-            <button
-              type="button"
-              onClick={() => goTo(r.step)}
-              className="text-sm underline underline-offset-4"
-              aria-label={`Change ${r.label.toLowerCase()}`}
-            >
-              Change
-            </button>
+          // A <dl> may only hold label/value pairs (screen readers read them as
+          // "Delivery: Inside Dhaka"), so the button is a second value of the
+          // pair, placed on the right by the grid (WCAG 1.3.1, step 52).
+          <div key={r.label} className="grid grid-cols-[1fr_auto] items-start gap-x-4">
+            <dt className="font-medium">{r.label}</dt>
+            <dd className="col-start-1 text-muted-foreground">{r.value}</dd>
+            <dd className="col-start-2 row-span-2 row-start-1">
+              <button
+                type="button"
+                onClick={() => goTo(r.step)}
+                className="text-sm underline underline-offset-4"
+                aria-label={`Change ${r.label.toLowerCase()}`}
+              >
+                Change
+              </button>
+            </dd>
           </div>
         ))}
       </dl>

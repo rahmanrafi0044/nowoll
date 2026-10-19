@@ -16,6 +16,7 @@ import { addressSummary } from '@/components/checkout/address-step'
 import { useAccountData } from '@/hooks/use-account-data'
 import { createAddress, deleteAddress, fetchAddresses, updateAddress } from '@/lib/account-api'
 import { useSessionStore } from '@/stores/session-store'
+import { useFocusFirstError } from '@/lib/use-focus-first-error'
 
 const MAX = 10 // same limit as the API
 
@@ -156,6 +157,8 @@ function AddressForm({
   const [sending, setSending] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
+  const { formRef, focusFirstError } = useFocusFirstError()
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     const phone = bdPhoneSchema.safeParse(details.phone)
@@ -168,7 +171,7 @@ function AddressForm({
       ...(!phone.success && { phone: 'Enter a valid Bangladeshi mobile number, e.g. 01712345678' }),
     }
     setErrors(found)
-    if (Object.keys(found).length > 0 || !phone.success) return
+    if (Object.keys(found).length > 0 || !phone.success) return focusFirstError()
     const body = {
       label: details.label.trim() || null,
       fullName: details.fullName.trim(),
@@ -190,7 +193,7 @@ function AddressForm({
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex max-w-xl flex-col gap-4">
+    <form ref={formRef} onSubmit={submit} noValidate className="flex max-w-xl flex-col gap-4">
       <h2 className="text-xl font-semibold">{address ? 'Edit address' : 'New address'}</h2>
       <Input
         label="Label (optional)"

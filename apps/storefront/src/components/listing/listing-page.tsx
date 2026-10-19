@@ -169,12 +169,19 @@ export async function ListingPage({
           {filterForm}
         </aside>
 
-        <section aria-label="Products">
+        <section aria-labelledby="products-heading">
+          {/* For screen-reader users, who move through a page by its headings: the
+              product cards are <h3>s, so the list needs an <h2> above them (step 52). */}
+          <h2 id="products-heading" className="sr-only">
+            Products
+          </h2>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground" aria-live="polite">
               {total} {total === 1 ? 'product' : 'products'}
             </p>
-            <div className="flex items-center gap-3">
+            {/* flex-wrap: on a 320 px phone (or 200% zoom) "Sort by" moves under
+                "Filters" instead of making the page scroll sideways (WCAG 1.4.10). */}
+            <div className="flex flex-wrap items-center gap-3">
               <MobileFilters activeCount={chips.length}>{filterForm}</MobileFilters>
               <SortSelect options={sortOptions} current={sort} />
             </div>
