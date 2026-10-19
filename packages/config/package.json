@@ -14,7 +14,7 @@
     "./eslint/next": "./eslint/next.js"
   },
   "dependencies": {
-    "@eslint/js": "^9.39.0",
+    "@eslint/js": "^10.0.1",
     "eslint-config-prettier": "^10.1.0",
     "globals": "^16.0.0",
     "typescript-eslint": "^8.71.0",
