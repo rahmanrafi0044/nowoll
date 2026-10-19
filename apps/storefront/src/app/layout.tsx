@@ -84,6 +84,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en" className={fontVariables}>
       <body className="flex min-h-screen flex-col">
+        {/* Keyboard users: the first Tab shows this link, Enter jumps past the header and
+            menu to the page itself (WCAG 2.4.1, step 52). Hidden until focused. */}
+        <a
+          href="#main-content"
+          className="sr-only z-50 rounded-control bg-surface px-4 py-2 text-sm font-medium text-foreground shadow focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus-visible:outline-2 focus-visible:outline-brand"
+        >
+          Skip to main content
+        </a>
         {/* Before anything is drawn: has this visitor already answered the cookie
             banner? (A fixed script, no visitor data in it — @nowoll/analytics.) */}
         <script dangerouslySetInnerHTML={{ __html: consentCheckScript() }} />
@@ -92,7 +100,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <CartHydrator />
         {announcement && <AnnouncementBar data={announcement.data} />}
         <SiteHeader links={links} storeName={settings.store_name} logoUrl={settings.logo_url} />
-        <main className="flex-1">{children}</main>
+        <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
+          {children}
+        </main>
         <SiteFooter
           pages={pages ?? []}
           settings={settings}

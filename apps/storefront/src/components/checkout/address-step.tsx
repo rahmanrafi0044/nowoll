@@ -13,6 +13,7 @@ import {
 import { fetchAddresses } from '@/lib/account-api'
 import { useCheckoutStore } from '@/stores/checkout-store'
 import { useSessionStore } from '@/stores/session-store'
+import { useFocusFirstError } from '@/lib/use-focus-first-error'
 
 const NEW = 'new'
 
@@ -50,6 +51,8 @@ export function AddressStep() {
     }
   }, [signedIn, saved])
 
+  const { formRef, focusFirstError } = useFocusFirstError()
+
   function submit(event: FormEvent) {
     event.preventDefault()
     const picked = book.find((a) => a.id === choice)
@@ -69,13 +72,13 @@ export function AddressStep() {
       phone: contact?.phone ?? '',
     })
     setErrors(found)
-    if (Object.keys(found).length > 0) return
+    if (Object.keys(found).length > 0) return focusFirstError()
     setAddress(form, signedIn && save)
     complete('address')
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-4">
       {book.length > 0 && (
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-medium">Deliver to</legend>

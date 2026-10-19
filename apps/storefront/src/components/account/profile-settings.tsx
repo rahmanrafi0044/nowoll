@@ -6,6 +6,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { FormProblem, problemText } from '@/components/account/auth-card'
 import { changePassword, updateProfile } from '@/lib/account-api'
 import { useSessionStore } from '@/stores/session-store'
+import { useFocusFirstError } from '@/lib/use-focus-first-error'
 
 /** /account/profile — name and mobile; password change. (Email change: step 26.) */
 export function ProfileSettings() {
@@ -46,6 +47,8 @@ function DetailsForm({
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [problem, setProblem] = useState<string | null>(null)
 
+  const { formRef, focusFirstError } = useFocusFirstError()
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     const phone = form.phone.trim() ? bdPhoneSchema.safeParse(form.phone) : null
@@ -55,7 +58,7 @@ function DetailsForm({
         !phone.success && { phone: 'Enter a valid Bangladeshi mobile number, e.g. 01712345678' }),
     }
     setErrors(found)
-    if (Object.keys(found).length > 0) return
+    if (Object.keys(found).length > 0) return focusFirstError()
     setState('saving')
     setProblem(null)
     const r = await updateProfile({
@@ -71,7 +74,7 @@ function DetailsForm({
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-4">
       <h2 className="text-xl font-semibold">Your details</h2>
       <Input
         label="Full name"

@@ -50,10 +50,11 @@ export function ProductCard({
       <div className="mt-3 flex flex-1 flex-col gap-1">
         <h3 className="text-sm font-medium text-foreground">
           {/* The ::after stretches the link over the whole card, so the entire card is clickable
-              while screen readers still hear a single, clearly named link. */}
+              while screen readers still hear a single, clearly named link. The keyboard focus
+              mark is drawn around that whole card (WCAG 2.4.7, step 52) — not on the name. */}
           <Link
             href={`/products/${product.slug}`}
-            className="after:absolute after:inset-0 focus-visible:outline-none"
+            className="after:absolute after:inset-0 after:rounded-control focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-brand"
           >
             {product.name}
           </Link>

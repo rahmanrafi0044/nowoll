@@ -12,6 +12,7 @@
     "report": "playwright show-report playwright-report"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@nowoll/analytics": "workspace:*",
     "@nowoll/api": "workspace:*",
     "@nowoll/config": "workspace:*",

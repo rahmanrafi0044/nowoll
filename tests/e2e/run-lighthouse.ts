@@ -5,6 +5,8 @@
 // its default MOBILE mode it pretends to be a mid-range phone on slow 4G, so
 // the score is close to what an ad visitor in Bangladesh feels. Goal: ≥ 90 on
 // the homepage, the shop listing, a category page and a product page.
+// It also reports Lighthouse's accessibility score (step 52, docs/accessibility.md),
+// also ≥ 90 — the full accessibility checks are in specs/accessibility.spec.ts.
 //
 // Two ways to run it:
 //   pnpm lighthouse
@@ -79,6 +81,8 @@ async function pagesOf(
 
 interface Result {
   score: number
+  /** Lighthouse's accessibility score (step 52) — not affected by how busy the PC is. */
+  a11y: number
   lcp: number
   tbt: number
   cls: number
@@ -93,7 +97,7 @@ async function measure(url: string, port: number, headers: Record<string, string
     port,
     output: 'html',
     logLevel: 'error',
-    onlyCategories: ['performance'],
+    onlyCategories: ['performance', 'accessibility'],
     extraHeaders: headers,
   })
   if (!result) throw new Error(`Lighthouse returned nothing for ${url}`)
@@ -102,6 +106,7 @@ async function measure(url: string, port: number, headers: Record<string, string
   const audit = (id: string) => lhr.audits[id]?.numericValue ?? NaN
   return {
     score: Math.round((lhr.categories.performance?.score ?? 0) * 100),
+    a11y: Math.round((lhr.categories.accessibility?.score ?? 0) * 100),
     lcp: audit('largest-contentful-paint'),
     tbt: audit('total-blocking-time'),
     cls: audit('cumulative-layout-shift'),
@@ -215,6 +220,7 @@ async function main(): Promise<number> {
     rows.map((r) => ({
       Page: r.name,
       Score: r.score,
+      Accessibility: r.a11y,
       'Main content (LCP)': `${(r.lcp / 1000).toFixed(1)} s`,
       'First paint (FCP)': `${(r.fcp / 1000).toFixed(1)} s`,
       'Frozen (TBT)': `${Math.round(r.tbt)} ms`,
@@ -232,7 +238,7 @@ async function main(): Promise<number> {
       `⚠ The PC was busy (speed ${slowest} < ${BUSY_PC_SPEED}): these scores are not reliable.\n` +
         '  Close other programs (and the trial site: infrastructure/preview/preview.sh down), then run again.',
     )
-  const below = rows.filter((r) => r.score < TARGET_SCORE)
+  const below = rows.filter((r) => r.score < TARGET_SCORE || r.a11y < TARGET_SCORE)
   if (below.length) {
     console.log(`✗ Below ${TARGET_SCORE}: ${below.map((r) => r.name).join(', ')}`)
     return 1

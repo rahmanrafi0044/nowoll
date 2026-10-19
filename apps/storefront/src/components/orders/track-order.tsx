@@ -9,6 +9,7 @@ import { formatBdt } from '@/lib/format'
 import { OrderLines } from './order-lines'
 import { OrderProgress } from './order-progress'
 import { formatDate, paymentText } from './order-status'
+import { useFocusFirstError } from '@/lib/use-focus-first-error'
 
 /** The "Track your order" form, then the result. */
 export function TrackOrder() {
@@ -17,6 +18,8 @@ export function TrackOrder() {
   const [sending, setSending] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [order, setOrder] = useState<OrderTrackingView | null>(null)
+
+  const { formRef, focusFirstError } = useFocusFirstError()
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -27,7 +30,7 @@ export function TrackOrder() {
       }),
     }
     setErrors(missing)
-    if (Object.keys(missing).length > 0) return
+    if (Object.keys(missing).length > 0) return focusFirstError()
     setSending(true)
     setProblem(null)
     const result = await trackOrder(form)
@@ -52,7 +55,7 @@ export function TrackOrder() {
     )
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-4">
       <Input
         label="Order number"
         placeholder="NW-10001"

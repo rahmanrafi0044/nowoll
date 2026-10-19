@@ -75,8 +75,15 @@ export const ORDERS_ADMIN = {
   password: 'e2e-admin-password-3',
   fullName: 'Orders Admin',
 }
+/** Step 52: the accessibility scan of the admin panel. */
+export const A11Y_ADMIN = {
+  id: 'e2e00000-0000-4000-8000-0000000000a5',
+  email: 'a11y.e2e@example.com',
+  password: 'e2e-admin-password-4',
+  fullName: 'Access Checker',
+}
 /** Every staff account the seed creates (role ADMIN). */
-export const STAFF_ACCOUNTS = [ADMIN, CATALOG_ADMIN, ORDERS_ADMIN]
+export const STAFF_ACCOUNTS = [ADMIN, CATALOG_ADMIN, ORDERS_ADMIN, A11Y_ADMIN]
 /** A normal shop account: must never get into the admin panel. */
 export const SHOPPER = {
   id: 'e2e00000-0000-4000-8000-0000000000a2',

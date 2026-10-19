@@ -116,11 +116,14 @@ function Form({ block }: { block: AdminContentBlock }) {
         Show it on the shop
       </label>
       <div>
-        <p className="mb-1 text-xs text-muted-foreground">Preview</p>
-        {/* Same look as the shop's bar. */}
+        <p className="mb-1 text-xs text-muted-foreground">
+          Preview{on ? '' : ' — hidden on the shop (“Show it on the shop” is off)'}
+        </p>
+        {/* Same look as the shop's bar. When it's off, the note above says so: dimming
+            the bar made its text unreadable (WCAG 1.4.3 contrast, step 52). */}
         <div
           aria-label="Preview of the announcement bar"
-          className={`bg-brand px-4 py-2 text-center text-sm text-brand-foreground ${on ? '' : 'opacity-40'}`}
+          className={`bg-brand px-4 py-2 text-center text-sm text-brand-foreground ${on ? '' : 'outline-2 outline-offset-2 outline-border-strong outline-dashed'}`}
         >
           {text.trim() || 'Your announcement'}
           {href.trim() && <span className="underline underline-offset-4"> →</span>}

@@ -5,6 +5,7 @@ import { Button, Input } from '@nowoll/ui'
 import { type FormEvent, useState } from 'react'
 import { FormProblem, problemText } from '@/components/account/auth-card'
 import { submitReview } from '@/lib/review-api'
+import { useFocusFirstError } from '@/lib/use-focus-first-error'
 
 const BODY_MIN = 10
 const BODY_MAX = 2000
@@ -30,6 +31,8 @@ export function ReviewForm({
   const [sending, setSending] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
+  const { formRef, focusFirstError } = useFocusFirstError()
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     const text = body.trim()
@@ -38,7 +41,7 @@ export function ReviewForm({
       ...(text.length < BODY_MIN && { body: `Please write at least ${BODY_MIN} characters` }),
     }
     setErrors(found)
-    if (Object.keys(found).length > 0) return
+    if (Object.keys(found).length > 0) return focusFirstError()
     setSending(true)
     setProblem(null)
     const r = await submitReview({ productId, rating, title: title.trim() || null, body: text })
@@ -49,6 +52,7 @@ export function ReviewForm({
 
   return (
     <form
+      ref={formRef}
       onSubmit={submit}
       noValidate
       className="flex flex-col gap-4 rounded-control border border-border p-4"

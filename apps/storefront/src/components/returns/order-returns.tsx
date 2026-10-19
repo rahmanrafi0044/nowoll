@@ -6,6 +6,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { FormProblem, problemText } from '@/components/account/auth-card'
 import { formatBdt } from '@/lib/format'
 import { fetchMyReturns, fetchReturnEligibility, requestReturn } from '@/lib/return-api'
+import { useFocusFirstError } from '@/lib/use-focus-first-error'
 
 export const REASON_LABEL: Record<ReturnReasonView, string> = {
   WRONG_SIZE: 'Wrong size',
@@ -154,6 +155,8 @@ function ReturnForm({
   const [sending, setSending] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
+  const { formRef, focusFirstError } = useFocusFirstError()
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     const items = Object.entries(chosen)
@@ -164,7 +167,7 @@ function ReturnForm({
       ...(!reason && { reason: 'Choose a reason' }),
     }
     setErrors(found)
-    if (Object.keys(found).length > 0 || !reason) return
+    if (Object.keys(found).length > 0 || !reason) return focusFirstError()
     setSending(true)
     setProblem(null)
     const r = await requestReturn({ orderNumber, items, reason, note: note.trim() || null })
@@ -175,6 +178,7 @@ function ReturnForm({
 
   return (
     <form
+      ref={formRef}
       onSubmit={submit}
       noValidate
       className="flex flex-col gap-4 rounded-control border border-border p-4"
@@ -233,7 +237,8 @@ function ReturnForm({
           value={reason}
           onChange={(e) => setReason(e.target.value as ReturnReasonView)}
           aria-invalid={errors.reason ? true : undefined}
-          className="h-11 rounded-control border border-border-strong bg-surface px-3 text-base"
+          aria-describedby={errors.reason ? 'return-reason-error' : undefined}
+          className={`h-11 rounded-control border bg-surface px-3 text-base ${errors.reason ? 'border-danger' : 'border-border-strong'}`}
         >
           <option value="">Choose…</option>
           {Object.entries(REASON_LABEL).map(([value, label]) => (
@@ -242,7 +247,11 @@ function ReturnForm({
             </option>
           ))}
         </select>
-        {errors.reason && <span className="text-danger">{errors.reason}</span>}
+        {errors.reason && (
+          <span id="return-reason-error" className="text-danger">
+            {errors.reason}
+          </span>
+        )}
       </div>
       <div className="flex flex-col gap-1.5 text-sm">
         <label htmlFor="return-note" className="font-medium">

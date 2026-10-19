@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { type FormEvent, useState } from 'react'
 import { useCheckoutStore } from '@/stores/checkout-store'
 import { useSessionStore } from '@/stores/session-store'
+import { useFocusFirstError } from '@/lib/use-focus-first-error'
 
 export function ContactStep() {
   const saved = useCheckoutStore((s) => s.contact)
@@ -21,6 +22,8 @@ export function ContactStep() {
   })
   const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({})
 
+  const { formRef, focusFirstError } = useFocusFirstError()
+
   function submit(event: FormEvent) {
     event.preventDefault()
     // The same rules the API uses (from @nowoll/validation).
@@ -34,13 +37,13 @@ export function ContactStep() {
         : 'Enter a valid Bangladeshi mobile number, e.g. 01712345678',
     }
     setErrors(next)
-    if (next.fullName || !email.success || !phone.success) return
+    if (next.fullName || !email.success || !phone.success) return focusFirstError()
     setContact({ fullName: form.fullName.trim(), email: email.data, phone: phone.data })
     complete('contact')
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-4">
       {account ? (
         <p className="text-sm text-muted-foreground">
           Signed in as {account.email} — this order will be saved to your account.

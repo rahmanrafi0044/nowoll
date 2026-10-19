@@ -7,6 +7,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { register, safeNext } from '@/lib/auth-api'
 import { useSessionStore } from '@/stores/session-store'
 import { FormProblem, problemText } from './auth-card'
+import { useFocusFirstError } from '@/lib/use-focus-first-error'
 
 type Field = 'fullName' | 'email' | 'phone' | 'password'
 
@@ -23,6 +24,8 @@ export function RegisterForm({ next }: { next: string | null }) {
     if (status === 'signed-in') window.location.replace(target)
   }, [status, target])
 
+  const { formRef, focusFirstError } = useFocusFirstError()
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     // The same rules as the API (@nowoll/validation).
@@ -37,7 +40,7 @@ export function RegisterForm({ next }: { next: string | null }) {
       ...(!password.success && { password: password.error.issues[0]?.message }),
     }
     setErrors(found)
-    if (Object.keys(found).length > 0 || !email.success) return
+    if (Object.keys(found).length > 0 || !email.success) return focusFirstError()
 
     setSending(true)
     setProblem(null)
@@ -61,7 +64,7 @@ export function RegisterForm({ next }: { next: string | null }) {
   const set = (field: Field) => (e: { target: { value: string } }) =>
     setForm({ ...form, [field]: e.target.value })
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-4">
       <Input
         label="Full name"
         autoComplete="name"
