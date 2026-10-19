@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@nowoll/config": "workspace:*",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.5",
     "eslint": "^9.39.0",
     "tsx": "^4.23.0",
     "typescript": "6.0.3",

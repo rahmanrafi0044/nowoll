@@ -19,7 +19,7 @@
     "@nowoll/notification-worker": "workspace:*",
     "@nowoll/ui": "workspace:*",
     "@playwright/test": "^1.63.0",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.5",
     "eslint": "^9.39.0",
     "lighthouse": "13.5.0",
     "sharp": "^0.35.5",

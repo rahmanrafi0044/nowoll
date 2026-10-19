@@ -26,7 +26,7 @@
   "devDependencies": {
     "@nowoll/config": "workspace:*",
     "@nowoll/validation": "workspace:*",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.5",
     "@types/pg": "^8.23.0",
     "dotenv": "^18.0.0",
     "eslint": "^9.39.0",
