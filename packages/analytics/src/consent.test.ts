@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   ACCEPT_ALL,
   allowedTargets,
+  CONSENT_CHOSEN_ATTRIBUTE,
+  CONSENT_STORAGE_KEY,
   CONSENT_VERSION,
+  consentCheckScript,
   cookieDomains,
   hasAnyTracking,
   isWithdrawal,
@@ -138,5 +141,50 @@ describe("reading Meta's cookies at checkout (step 39b)", () => {
     ).toEqual({ fbp: 'fb.1.1760000000000.1234567890', fbc: 'fb.1.1760000000000.IwAR_x-Y' })
     expect(readMetaCookies('_fbp=hello; _fbc=fb.1.1.<script>')).toEqual({})
     expect(readMetaCookies('')).toEqual({})
+  })
+})
+
+describe('consentCheckScript (runs before the first paint, step 51)', () => {
+  /** Runs the script against a pretend browser; true = it marked <html> as "chosen". */
+  function marks(saved: string | null, storageThrows = false): boolean {
+    const attributes = new Set<string>()
+    const localStorage = {
+      getItem: (key: string) => {
+        if (storageThrows) throw new Error('blocked')
+        return key === CONSENT_STORAGE_KEY ? saved : null
+      },
+    }
+    const document = { documentElement: { setAttribute: (name: string) => attributes.add(name) } }
+    new Function('localStorage', 'document', consentCheckScript())(localStorage, document)
+    return attributes.has(CONSENT_CHOSEN_ATTRIBUTE)
+  }
+
+  const cases: (string | null)[] = [
+    serializeConsent(ACCEPT_ALL, new Date()),
+    serializeConsent(ONLY_NECESSARY, new Date()),
+    serializeConsent({ analytics: true, marketing: false }, new Date()),
+    null,
+    '',
+    'not json',
+    'null',
+    '42',
+    '"text"',
+    '[]',
+    JSON.stringify({ v: CONSENT_VERSION + 1, analytics: true, marketing: true }), // older/newer version
+    JSON.stringify({ v: CONSENT_VERSION, analytics: 'yes', marketing: true }),
+    JSON.stringify({ v: CONSENT_VERSION, analytics: true }),
+  ]
+
+  it.each(cases)('agrees with parseConsent for %j', (saved) => {
+    expect(marks(saved)).toBe(parseConsent(saved) !== null)
+  })
+
+  it('a valid choice marks the page; nothing saved does not', () => {
+    expect(marks(serializeConsent(ACCEPT_ALL, new Date()))).toBe(true)
+    expect(marks(null)).toBe(false)
+  })
+
+  it('storage blocked (private mode) → not marked, so the banner asks — never an error', () => {
+    expect(marks(serializeConsent(ACCEPT_ALL, new Date()), true)).toBe(false)
   })
 })

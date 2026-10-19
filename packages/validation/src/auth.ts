@@ -1,4 +1,5 @@
-import { z } from 'zod'
+import './jitless.js' // first: Zod's no-eval switch (see jitless.ts)
+import * as z from 'zod'
 
 // ── Passwords (step 22) ───────────────────────────────────────────────────
 // At least 8 characters (Supabase's own minimum is 6 — we ask for more).

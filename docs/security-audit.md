@@ -49,8 +49,8 @@ findings fixed or accepted with a reason; tests added so the important rules can
 - **SQL:** ~35 raw queries, all Prisma tagged templates (`$queryRaw\`…${value}\``, `Prisma.sql`) — values are sent
   as parameters, never pasted into SQL. No `$queryRawUnsafe` / `$executeRawUnsafe`. The one user-chosen sort order
   picks from a fixed list.
-- **XSS:** one `dangerouslySetInnerHTML` in the shop — the Google structured data (JSON-LD), which escapes `<`
-  (`<`). Markdown and emails don't take raw HTML (pasted HTML is on the never-admin-editable list, Rule 9).
+- **XSS:** two `dangerouslySetInnerHTML` in the shop — the Google structured data (JSON-LD), which escapes `<`
+  (`<`), and the fixed cookie-banner check (step 51, `consentCheckScript`: a constant, no visitor data). Markdown and emails don't take raw HTML (pasted HTML is on the never-admin-editable list, Rule 9).
   The new CSP (A05) limits what an injected script could load or send.
 
 ## A04 — Insecure design

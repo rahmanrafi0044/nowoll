@@ -29,19 +29,35 @@ function toolsInUse(ids: TrackingIds) {
  * "Only necessary" is exactly as big and as easy as "Accept all": consent
  * must be freely given (Bangladesh PDPO 2025). Not a pop-up that blocks the
  * page: shopping works without answering.
+ *
+ * SPEED (step 51): the banner is in the page's HTML from the start (`ids`
+ * come from the layout), so a first-time visitor sees it at once instead of
+ * after all the JavaScript. For a returning visitor, consentCheckScript() in
+ * the layout has already marked <html> before the first paint, and CSS hides
+ * this first version (`data-consent-banner="before-load"`); once the saved
+ * choice is read, React removes it. No flash either way.
  */
-export function ConsentBanner() {
-  const { ids, consent, loaded, settingsOpen, choose, closeSettings } = useTrackingStore()
+export function ConsentBanner({ ids: layoutIds }: { ids: TrackingIds }) {
+  const {
+    ids: startedIds,
+    consent,
+    loaded,
+    settingsOpen,
+    choose,
+    closeSettings,
+  } = useTrackingStore()
   const [choosing, setChoosing] = useState(false)
+  const ids = startedIds ?? layoutIds
 
-  if (!loaded || !ids || !hasAnyTracking(ids)) return null
-  if (consent && !settingsOpen) return null
+  if (!hasAnyTracking(ids)) return null
+  if (loaded && consent && !settingsOpen) return null
   const detailed = choosing || settingsOpen
   const tools = toolsInUse(ids)
 
   return (
     <section
       aria-labelledby="consent-heading"
+      data-consent-banner={loaded ? undefined : 'before-load'}
       className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-surface shadow-[0_-4px_16px_rgba(0,0,0,0.08)]"
     >
       <div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 py-4 text-sm">

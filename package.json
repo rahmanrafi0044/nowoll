@@ -10,6 +10,7 @@
     "lint": "turbo run lint",
     "test": "turbo run test --concurrency=3",
     "test:e2e": "turbo run test:e2e",
+    "lighthouse": "pnpm --filter @nowoll/e2e lighthouse --",
     "db:generate": "turbo run db:generate --filter=@nowoll/database",
     "db:migrate": "turbo run db:migrate --filter=@nowoll/database",
     "db:studio": "turbo run db:studio --filter=@nowoll/database",

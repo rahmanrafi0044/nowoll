@@ -113,3 +113,25 @@ export function cookieDomains(hostname: string): string[] {
   for (let i = 0; i <= parts.length - 2; i++) out.push(parts.slice(i).join('.'))
   return out
 }
+
+/** Set on <html> before the first paint when a valid choice is already saved. */
+export const CONSENT_CHOSEN_ATTRIBUTE = 'data-consent-chosen'
+
+/**
+ * A tiny script for the page's HTML (speed audit, step 51). It runs before
+ * the page is drawn and marks <html> when the customer has already chosen, so
+ * the cookie banner — which is in the HTML from the start, for every first-time
+ * visitor — is hidden by CSS before it can flash for returning ones.
+ *
+ * WHY in the HTML and not after React starts: the banner is what a first-time
+ * visitor's phone shows first; waiting for all the JavaScript made it appear
+ * 1–3 s late (and Lighthouse counted the whole page as that slow).
+ * It must answer exactly like parseConsent() — a test checks that.
+ */
+export function consentCheckScript(): string {
+  return (
+    `try{var o=JSON.parse(localStorage.getItem(${JSON.stringify(CONSENT_STORAGE_KEY)})||'null');` +
+    `if(o&&typeof o==='object'&&o.v===${CONSENT_VERSION}&&typeof o.analytics==='boolean'&&typeof o.marketing==='boolean')` +
+    `document.documentElement.setAttribute(${JSON.stringify(CONSENT_CHOSEN_ATTRIBUTE)},'')}catch(e){}`
+  )
+}

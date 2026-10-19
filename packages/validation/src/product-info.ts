@@ -1,4 +1,5 @@
-import { z } from 'zod'
+import './jitless.js' // first: Zod's no-eval switch (see jitless.ts)
+import * as z from 'zod'
 import type { PublicSettings } from './settings.js'
 
 // ============================================================================
