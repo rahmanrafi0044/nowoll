@@ -18,7 +18,7 @@
     "@nowoll/database": "workspace:*",
     "@nowoll/notification-worker": "workspace:*",
     "@nowoll/ui": "workspace:*",
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "^1.64.1",
     "@types/node": "^24.0.0",
     "eslint": "^9.39.0",
     "lighthouse": "13.5.0",
