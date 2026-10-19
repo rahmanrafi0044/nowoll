@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@nowoll/config": "workspace:*",
-    "eslint": "^9.39.0",
+    "eslint": "^10.12.0",
     "prettier": "^3.9.0",
     "turbo": "2.11.7",
     "typescript": "6.0.3",
