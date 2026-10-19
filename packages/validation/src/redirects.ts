@@ -1,4 +1,5 @@
-import { z } from 'zod'
+import './jitless.js' // first: Zod's no-eval switch (see jitless.ts)
+import * as z from 'zod'
 
 // ============================================================================
 // Redirects (step 43c): an old web address on the shop → its new one. Only

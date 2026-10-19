@@ -88,3 +88,7 @@ apps/storefront/public/demo/
 # Playwright (tests/e2e)
 tests/e2e/test-results/
 tests/e2e/playwright-report/
+
+# Speed audit output (pnpm lighthouse, step 51)
+tests/e2e/lighthouse-report/
+apps/storefront/public/perf/

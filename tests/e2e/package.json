@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test:e2e": "node --import tsx run-e2e.ts",
+    "lighthouse": "node --import tsx run-lighthouse.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "report": "playwright show-report playwright-report"
@@ -20,6 +21,8 @@
     "@playwright/test": "^1.63.0",
     "@types/node": "^24.0.0",
     "eslint": "^9.39.0",
+    "lighthouse": "13.5.0",
+    "sharp": "^0.35.5",
     "tsx": "^4.23.0",
     "typescript": "6.0.3"
   }

@@ -1,3 +1,10 @@
 @import 'tailwindcss';
 /* Brand colors, fonts and shape — shared with the admin panel. Edit them in packages/ui/src/theme.css. */
 @import '@nowoll/ui/theme.css';
+
+/* Cookie banner (step 51): a returning visitor's saved choice is checked before
+   the first paint (consentCheckScript in the layout), so the banner that is in
+   the HTML for first-time visitors never flashes for them. */
+html[data-consent-chosen] [data-consent-banner='before-load'] {
+  display: none;
+}

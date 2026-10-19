@@ -9,6 +9,7 @@ import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { ConsentBanner } from '@/components/tracking/consent-banner'
 import { TrackingScripts } from '@/components/tracking/tracking-scripts'
+import { consentCheckScript } from '@nowoll/analytics'
 import { apiGet } from '@/lib/api'
 import { publicEnv } from '@/lib/env'
 import { fontVariables } from '@/lib/fonts'
@@ -74,10 +75,18 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const links = menuLinks(readMenu(menuBlock?.data), categories ?? [])
   const footer = readFooter(footerBlock?.data)
   const theme = themeCss(settings)
+  const trackingIds = {
+    ga4MeasurementId: settings.ga4_measurement_id,
+    gtmContainerId: settings.gtm_container_id,
+    metaPixelId: settings.meta_pixel_id,
+  }
 
   return (
     <html lang="en" className={fontVariables}>
       <body className="flex min-h-screen flex-col">
+        {/* Before anything is drawn: has this visitor already answered the cookie
+            banner? (A fixed script, no visitor data in it — @nowoll/analytics.) */}
+        <script dangerouslySetInnerHTML={{ __html: consentCheckScript() }} />
         {/* Brand colour and font from Admin → Settings → Look (only checked values — lib/theme.ts). */}
         {theme && <style>{theme}</style>}
         <CartHydrator />
@@ -92,14 +101,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         />
         <CartDrawer />
         {/* Tracking only with the customer's OK (step 39a — docs/integrations/analytics.md). */}
-        <TrackingScripts
-          ids={{
-            ga4MeasurementId: settings.ga4_measurement_id,
-            gtmContainerId: settings.gtm_container_id,
-            metaPixelId: settings.meta_pixel_id,
-          }}
-        />
-        <ConsentBanner />
+        <TrackingScripts ids={trackingIds} />
+        <ConsentBanner ids={trackingIds} />
       </body>
     </html>
   )

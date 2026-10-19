@@ -1,4 +1,5 @@
 // The cookie banner decides what tracking loads (step 39a, docs/integrations/analytics.md).
+import { CONSENT_STORAGE_KEY, ONLY_NECESSARY, serializeConsent } from '@nowoll/analytics'
 import type { Page } from '@playwright/test'
 import { SHIRT, TRACKING } from '../support/fixtures.js'
 import { e2eDb } from '../support/db.js'
@@ -117,4 +118,33 @@ test('"Only necessary" → the order keeps nothing for Meta', async ({ page }) =
   await banner(page).getByRole('button', { name: 'Only necessary' }).click()
   const orderNumber = await buyShirtCashOnDelivery(page)
   expect(await trackingOf(orderNumber)).toBeNull()
+})
+
+// Speed (step 51): the banner is in the page's HTML, so a first-time visitor
+// sees it before any JavaScript has run; a returning visitor's saved choice is
+// checked by a tiny script before the first paint, so it never flashes for them.
+// Blocking the shop's JavaScript files (React never starts) proves both.
+test.describe('the banner without waiting for JavaScript', () => {
+  const blockShopScripts = (page: Page) =>
+    page.route('**/_next/static/chunks/*.js', (route) => route.abort())
+
+  test('a first-time visitor sees it straight from the HTML', async ({ page }) => {
+    await blockShopScripts(page)
+    await page.goto('/')
+    await expect(banner(page)).toBeVisible()
+    await expect(banner(page)).toHaveAttribute('data-consent-banner', 'before-load')
+  })
+
+  test('a returning visitor never sees it — not even for a moment', async ({ page }) => {
+    await page.addInitScript(
+      ([key, value]) => localStorage.setItem(key!, value!),
+      [CONSENT_STORAGE_KEY, serializeConsent(ONLY_NECESSARY, new Date())],
+    )
+    await blockShopScripts(page)
+    await page.goto('/')
+    // It is in the HTML, but hidden by the early check (React can't remove it here).
+    const early = page.locator('[data-consent-banner="before-load"]')
+    await expect(early).toHaveCount(1)
+    await expect(early).toBeHidden()
+  })
 })

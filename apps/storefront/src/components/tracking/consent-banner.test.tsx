@@ -20,13 +20,14 @@ beforeEach(() => {
 
 describe('<ConsentBanner /> (step 39a)', () => {
   it('shows nothing when the shop uses no tracking tool', () => {
-    render(<ConsentBanner />)
-    start({ ga4MeasurementId: '', gtmContainerId: '', metaPixelId: '' })
+    const none = { ga4MeasurementId: '', gtmContainerId: '', metaPixelId: '' }
+    render(<ConsentBanner ids={none} />)
+    start(none)
     expect(screen.queryByRole('region', { name: 'Cookies' })).toBeNull()
   })
 
   it('asks first, naming only the tools in use, with refusing as easy as accepting', () => {
-    render(<ConsentBanner />)
+    render(<ConsentBanner ids={IDS} />)
     start()
     const banner = screen.getByRole('region', { name: 'Cookies' })
     expect(banner).toHaveTextContent('Google Analytics')
@@ -39,7 +40,7 @@ describe('<ConsentBanner /> (step 39a)', () => {
   })
 
   it('"Only necessary" saves the choice and closes', () => {
-    render(<ConsentBanner />)
+    render(<ConsentBanner ids={IDS} />)
     start()
     fireEvent.click(screen.getByRole('button', { name: 'Only necessary' }))
     expect(screen.queryByRole('region', { name: 'Cookies' })).toBeNull()
@@ -47,7 +48,7 @@ describe('<ConsentBanner /> (step 39a)', () => {
   })
 
   it('"Choose": per-kind switches, all off until ticked', () => {
-    render(<ConsentBanner />)
+    render(<ConsentBanner ids={IDS} />)
     start()
     fireEvent.click(screen.getByRole('button', { name: 'Choose' }))
     expect(screen.getByRole('checkbox', { name: /Necessary/ })).toBeDisabled()
@@ -60,7 +61,7 @@ describe('<ConsentBanner /> (step 39a)', () => {
   })
 
   it('a kind with no tool in use is not asked about', () => {
-    render(<ConsentBanner />)
+    render(<ConsentBanner ids={IDS} />)
     start({ ga4MeasurementId: 'G-AB12CD34EF', gtmContainerId: '', metaPixelId: '' })
     fireEvent.click(screen.getByRole('button', { name: 'Choose' }))
     expect(screen.getByRole('checkbox', { name: /Analytics/ })).toBeInTheDocument()
@@ -71,7 +72,7 @@ describe('<ConsentBanner /> (step 39a)', () => {
     localStorage.setItem(CONSENT_STORAGE_KEY, serializeConsent(ACCEPT_ALL, new Date()))
     render(
       <>
-        <ConsentBanner />
+        <ConsentBanner ids={IDS} />
         <CookieSettingsButton />
       </>,
     )
@@ -81,6 +82,24 @@ describe('<ConsentBanner /> (step 39a)', () => {
     expect(screen.getByRole('checkbox', { name: /Analytics/ })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: /Marketing/ })).toBeChecked()
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('region', { name: 'Cookies' })).toBeNull()
+  })
+
+  it('is in the page before the saved choice is read (speed, step 51) — marked so CSS can hide it', () => {
+    render(<ConsentBanner ids={IDS} />)
+    const banner = screen.getByRole('region', { name: 'Cookies' })
+    expect(banner).toHaveAttribute('data-consent-banner', 'before-load')
+    start()
+    // Read: nothing saved → still asking, now as the normal banner.
+    expect(screen.getByRole('region', { name: 'Cookies' })).not.toHaveAttribute(
+      'data-consent-banner',
+    )
+  })
+
+  it('a returning visitor: the early banner is removed once their saved choice is read', () => {
+    localStorage.setItem(CONSENT_STORAGE_KEY, serializeConsent(ACCEPT_ALL, new Date()))
+    render(<ConsentBanner ids={IDS} />)
+    start()
     expect(screen.queryByRole('region', { name: 'Cookies' })).toBeNull()
   })
 })
