@@ -18,7 +18,7 @@
     "@nowoll/email": "workspace:*",
     "@nowoll/queues": "workspace:*",
     "@nowoll/validation": "workspace:*",
-    "bullmq": "^6.3.11",
+    "bullmq": "^6.3.16",
     "ioredis": "^6.0.0"
   },
   "devDependencies": {
@@ -27,6 +27,6 @@
     "eslint": "^9.39.0",
     "tsx": "^4.23.0",
     "typescript": "6.0.3",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   }
 }

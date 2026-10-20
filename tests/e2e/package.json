@@ -14,20 +14,20 @@
     "launch-check": "node --import tsx run-launch-check.ts"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.13.0",
+    "@axe-core/playwright": "4.14.0",
     "@nowoll/analytics": "workspace:*",
     "@nowoll/api": "workspace:*",
     "@nowoll/config": "workspace:*",
     "@nowoll/database": "workspace:*",
     "@nowoll/notification-worker": "workspace:*",
     "@nowoll/ui": "workspace:*",
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "^1.64.1",
     "@types/node": "^24.0.0",
     "eslint": "^9.39.0",
     "lighthouse": "13.5.0",
     "sharp": "^0.35.5",
     "tsx": "^4.23.0",
     "typescript": "6.0.3",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   }
 }
