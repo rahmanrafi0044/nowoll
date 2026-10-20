@@ -88,7 +88,10 @@ findings fixed or accepted with a reason; tests added so the important rules can
   newest `node:24-slim`; `npm` inside the image carried `undici` / `brace-expansion` issues. All three Dockerfiles
   now install Debian's security updates at build time and **remove npm and corepack** (the running app never
   installs anything). Every Docker PR runs Trivy: a fixable **critical** finding fails the check.
-- **Dependabot** (`.github/dependabot.yml`): weekly PRs for packages, actions and the base image.
+- **Dependabot** (`.github/dependabot.yml`): weekly PRs for packages, actions and the base image — **minor and
+  patch updates only**, each version at least **14 days old** (cooldown). Big version jumps (Node 26, ESLint 10…)
+  are planned upgrades of their own. **Dependabot alerts and security updates** are on (repository Settings →
+  Code security): a known hole gets its own PR as soon as a fix exists.
 
 ## A07 — Identification and authentication failures
 
