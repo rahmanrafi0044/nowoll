@@ -13,6 +13,7 @@ const PHOTO = Buffer.from(
 )
 
 test('a product created in the admin panel is on the shop', async ({ page }) => {
+  test.setTimeout(120_000) // includes up to 75 s for the shop's 60 s cache
   await firstAdminSignIn(page, CATALOG_ADMIN)
 
   // 1. The draft: name, category, price.
@@ -44,9 +45,16 @@ test('a product created in the admin panel is on the shop', async ({ page }) => 
   const inShop = page.getByRole('link', { name: 'View in the shop ↗' })
   await expect(inShop).toBeVisible()
 
-  // 5. The shop shows it, with its price and its size in stock.
+  // 5. The shop shows it — "within 60 s" (the spec, CLAUDE.md §12): the shop
+  // keeps API answers for 60 s, and under the load of a full test run it could
+  // still serve an earlier "no such product" for a moment. So: reload until it's
+  // there, at most ~75 s (a product that never appears still fails).
   await page.goto((await inShop.getAttribute('href'))!)
-  await expect(page.getByRole('heading', { level: 1, name: NEW_PRODUCT.name })).toBeVisible()
+  const heading = page.getByRole('heading', { level: 1, name: NEW_PRODUCT.name })
+  await expect(async () => {
+    if (!(await heading.isVisible())) await page.reload()
+    await expect(heading).toBeVisible({ timeout: 3_000 })
+  }).toPass({ timeout: 75_000, intervals: [2_000, 5_000] })
   await expect(page.getByText('৳2,350').first()).toBeVisible()
   await expect(page.getByRole('radio', { name: NEW_PRODUCT.size, exact: true })).toBeEnabled()
 })

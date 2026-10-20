@@ -9,7 +9,9 @@
     "lighthouse": "node --import tsx run-lighthouse.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "report": "playwright show-report playwright-report"
+    "report": "playwright show-report playwright-report",
+    "test": "vitest run",
+    "launch-check": "node --import tsx run-launch-check.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
@@ -25,6 +27,7 @@
     "lighthouse": "13.5.0",
     "sharp": "^0.35.5",
     "tsx": "^4.23.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "^5.0.3"
   }
 }

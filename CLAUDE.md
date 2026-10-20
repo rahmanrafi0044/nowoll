@@ -84,6 +84,7 @@ pnpm dev                       # shop :3000, API :3001, admin :3002, workers
 pnpm typecheck && pnpm lint && pnpm test    # the checks (full procedure: .claude/skills/verify-step)
 pnpm test:e2e                  # Playwright browser tests
 pnpm lighthouse                # speed audit: mobile scores of the main pages (docs/performance.md)
+pnpm launch-check -- --url https://nowoll.com   # the live site's launch checklist (docs/launch-checklist.md)
 pnpm format                    # Prettier
 pnpm db:generate               # after a schema.prisma change
 pnpm db:migrate                # local dev only: prisma migrate dev (production: CI, Rule 4)

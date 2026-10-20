@@ -16,6 +16,7 @@
     "db:validate": "prisma validate",
     "db:format": "prisma format",
     "db:seed": "prisma db seed",
+    "launch-check": "tsx prisma/launch-check-run.ts",
     "clean": "rm -rf dist src/generated .turbo"
   },
   "dependencies": {

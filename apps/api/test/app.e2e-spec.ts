@@ -71,7 +71,10 @@ describe('API (integration)', () => {
 
   it('GET /api/v1/health → 200 wrapped in the success envelope', async () => {
     const res = await http().get('/api/v1/health').expect(200)
-    expect(res.body).toEqual({ success: true, data: { status: 'ok', database: 'up' } })
+    expect(res.body).toEqual({
+      success: true,
+      data: { status: 'ok', database: 'up', onlinePayment: expect.any(String) },
+    })
   })
 
   it('GET /api/v1/health → 503 when the database is down', async () => {
