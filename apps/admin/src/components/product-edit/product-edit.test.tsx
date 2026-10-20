@@ -50,6 +50,10 @@ const PRODUCT: AdminProductDetail = {
   tags: ['cotton'],
   seoTitle: null,
   seoDescription: null,
+  fabric: null,
+  care: null,
+  fitNote: null,
+  readyToShip: false,
   variants: [
     {
       id: 'v1',

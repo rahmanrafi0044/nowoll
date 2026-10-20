@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import type { BlogListView, CategoryNode, PageLinkView } from '@nowoll/types'
-import type { AnnouncementBar as AnnouncementBarData } from '@nowoll/validation'
+import { type AnnouncementBar as AnnouncementBarData, searchSuggestions } from '@nowoll/validation'
 import { CartDrawer } from '@/components/cart/cart-drawer'
 import { CartHydrator } from '@/components/cart-hydrator'
 import { AnnouncementBar } from '@/components/home/announcement-bar'
 import { SiteFooter } from '@/components/site-footer'
+import { RevealOnScroll } from '@/components/motion/reveal-on-scroll'
 import { SiteHeader } from '@/components/site-header'
 import { ConsentBanner } from '@/components/tracking/consent-banner'
 import { TrackingScripts } from '@/components/tracking/tracking-scripts'
@@ -99,7 +100,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         {theme && <style>{theme}</style>}
         <CartHydrator />
         {announcement && <AnnouncementBar data={announcement.data} />}
-        <SiteHeader links={links} storeName={settings.store_name} logoUrl={settings.logo_url} />
+        <SiteHeader
+          links={links}
+          storeName={settings.store_name}
+          logoUrl={settings.logo_url}
+          searchSuggestions={searchSuggestions(settings.search_suggestions ?? '')}
+        />
         <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
           {children}
         </main>
@@ -113,6 +119,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         {/* Tracking only with the customer's OK (step 39a — docs/integrations/analytics.md). */}
         <TrackingScripts ids={trackingIds} />
         <ConsentBanner ids={trackingIds} />
+        <RevealOnScroll />
       </body>
     </html>
   )

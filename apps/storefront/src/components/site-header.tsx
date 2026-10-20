@@ -3,58 +3,70 @@ import Link from 'next/link'
 import type { NavLink } from '@/lib/navigation'
 import { AccountButton } from './account-button'
 import { CartButton } from './cart-button'
+import { DesktopNav } from './header/desktop-nav'
+import { HeaderShell } from './header/header-shell'
+import { SearchDrawer } from './header/search-drawer'
+import { WishlistLink } from './header/wishlist-link'
 import { MobileMenu } from './mobile-menu'
-import { NavAnchor } from './nav-link'
 
-// The main menu (Admin → Content → Menu, step 38b — or "Shop all" + the
-// top-level categories when nothing is saved). On phones it moves into the
-// ☰ menu (MobileMenu); on tablets/desktop it's shown inline.
+// The header (design refresh 38f): the logo centred, search on the left,
+// account / wishlist / bag on the right, and the menu (Admin → Content → Menu,
+// step 38b) on its own row below with drop-downs — on phones it moves into
+// the ☰ panel. HeaderShell keeps it on screen, hiding while scrolling down.
 export function SiteHeader({
   links,
   storeName,
   logoUrl,
+  searchSuggestions = [],
 }: {
   links: NavLink[]
   /** From Admin → Settings (step 38). */
   storeName: string
   /** The logo (Admin → Settings → Look); empty = the name as text. */
   logoUrl?: string
+  /** Admin → Settings → Search suggestions. */
+  searchSuggestions?: string[]
 }) {
   return (
-    <header className="relative border-b border-border bg-surface">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4">
-        <div className="flex items-center gap-2">
+    <HeaderShell>
+      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-2 sm:px-4 lg:h-20 lg:px-6">
+        <div className="flex items-center">
           <MobileMenu links={links} />
-          <Link href="/" className="text-xl font-semibold tracking-tight">
-            {logoUrl ? (
-              // The name stays as the picture's text, for screen readers and if it can't load.
-              <Image
-                src={logoUrl}
-                alt={storeName}
-                width={160}
-                height={40}
-                priority
-                className="h-10 w-auto max-w-[180px] object-contain"
-              />
-            ) : (
-              storeName
-            )}
-          </Link>
+          <SearchDrawer suggestions={searchSuggestions} />
         </div>
-        <nav aria-label="Main" className="hidden md:block">
-          <ul className="flex items-center gap-6 text-sm font-medium">
-            {links.map((l) => (
-              <li key={l.key}>
-                <NavAnchor link={l} className="hover:underline underline-offset-4" />
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <div className="flex items-center gap-4">
+        <Link
+          href="/"
+          className="justify-self-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+        >
+          {logoUrl ? (
+            // The name stays as the picture's text, for screen readers and if it can't load.
+            <Image
+              src={logoUrl}
+              alt={storeName}
+              width={160}
+              height={40}
+              priority
+              className="h-9 w-auto max-w-[120px] object-contain min-[380px]:max-w-[150px] lg:h-11 lg:max-w-[180px]"
+            />
+          ) : (
+            // Smaller and tighter on the narrowest phones (320 px): four icons
+            // + the name must fit without sideways scrolling (WCAG 1.4.10).
+            <span className="font-display text-xl tracking-[0.18em] uppercase min-[380px]:text-2xl min-[380px]:tracking-[0.3em] lg:text-3xl">
+              {storeName}
+            </span>
+          )}
+        </Link>
+        <div className="flex items-center justify-end">
           <AccountButton />
+          <span className="hidden sm:contents">
+            <WishlistLink />
+          </span>
           <CartButton />
         </div>
       </div>
-    </header>
+      <div className="hidden border-t border-border lg:block">
+        <DesktopNav links={links} />
+      </div>
+    </HeaderShell>
   )
 }

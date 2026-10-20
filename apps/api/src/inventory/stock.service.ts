@@ -13,6 +13,9 @@ import { LOW_STOCK_ALERTER, type LowStockAlert, type LowStockAlerter } from './l
 //      can never overwrite each other — see the two modes below.
 // ============================================================================
 
+/** Stock changes that count as the shop restocking a sold-out size (38f badge). */
+const RESTOCK_REASONS = new Set<InventoryChangeReason>(['MANUAL_ADJUSTMENT', 'CSV_IMPORT'])
+
 export type StockAdjustment =
   | { change: number } // add/remove: "received 20" (+20), "2 damaged" (-2)
   | { setTo: number } // exact count: "after counting, there are 14"
@@ -82,6 +85,15 @@ export class StockService {
 
     const change = after - before
     if (change === 0) return { variantId, before, after, change, logId: null, alert: null }
+
+    // 38f "Restocked" badge: a size that was sold out is back because the shop
+    // RESTOCKED it (a manual change or a CSV import) — not a new product's first
+    // stock, and not one cancelled order putting a piece back.
+    if (before === 0 && after > 0 && RESTOCK_REASONS.has(input.reason)) {
+      await tx.$executeRaw`
+        UPDATE products SET restocked_at = now()
+        WHERE id = (SELECT product_id FROM product_variants WHERE id = ${variantId}::uuid)`
+    }
 
     const log = await tx.inventoryLog.create({
       data: {

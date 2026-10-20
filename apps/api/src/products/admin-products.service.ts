@@ -122,6 +122,10 @@ export class AdminProductsService {
       tags: p.tags,
       seoTitle: p.seoTitle,
       seoDescription: p.seoDescription,
+      fabric: p.fabric,
+      care: p.care,
+      fitNote: p.fitNote,
+      readyToShip: p.readyToShip,
       variants: p.variants.map((v) => ({
         id: v.id,
         sku: v.sku,

@@ -5,6 +5,7 @@ import {
   BRAND_PRESETS,
   contrastWithWhite,
   FONTS,
+  type HeadingFont,
   localPhone,
   MIN_CONTRAST,
   SETTINGS_SCHEMA,
@@ -61,6 +62,9 @@ const LABEL: Record<SettingKey, string> = {
   share_image_url: 'Share image',
   brand_color: 'Brand colour',
   font: 'Font',
+  heading_font: 'Heading font',
+  badge_days: '“New” / “Restocked” badge (days)',
+  search_suggestions: 'Search suggestions',
   payment_cod_enabled: 'Cash on delivery',
   payment_online_enabled: 'Online payment (SSLCommerz)',
   payment_cod_description: 'Cash on delivery: description',
@@ -79,7 +83,15 @@ const LABEL: Record<SettingKey, string> = {
   newsletter_resend_segment_id: 'Resend segment id',
 }
 
+/** Admin → Settings → Heading font (38f): the shop loads only the one chosen. */
+const HEADING_FONT_OPTIONS: { value: HeadingFont; label: string }[] = [
+  { value: 'serif_elegant', label: 'Elegant serif (Cormorant Garamond) — default' },
+  { value: 'serif_classic', label: 'Classic fashion serif (Playfair Display)' },
+  { value: 'same_as_body', label: 'Same as the body font' },
+]
+
 const NUMBER_KEYS = new Set<SettingKey>([
+  'badge_days',
   'vat_rate',
   'return_window_days',
   'low_stock_threshold',
@@ -349,6 +361,28 @@ export function SettingsForm({ initial }: { initial: StoreSettings }) {
             New Eid panjabi — ঈদের নতুন পাঞ্জাবি · ৳2,490
           </p>
         </div>
+        {/* Design refresh (38f) */}
+        <div className="sm:col-span-2">
+          <SelectField
+            label={LABEL.heading_font}
+            value={form.heading_font}
+            onChange={(e) => set('heading_font')(e.target.value)}
+            hint="Headings and product names on the shop."
+          >
+            {HEADING_FONT_OPTIONS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </SelectField>
+        </div>
+        {text('badge_days', {
+          hint: 'How long new and restocked products show their badge. 0 = no badges.',
+        })}
+        {text('search_suggestions', {
+          maxLength: 200,
+          hint: 'Words under the search box, separated by commas — e.g. Lawn, Eid, Chiffon.',
+        })}
       </Section>
 
       <Section

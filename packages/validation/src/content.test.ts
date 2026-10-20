@@ -45,7 +45,31 @@ describe('announcementBarSchema', () => {
     expect(announcementBarSchema.parse({ text: 'Free delivery in Dhaka' })).toEqual({
       text: 'Free delivery in Dhaka',
       href: null,
+      more: [], // 38f: saved announcements without extra messages stay valid
     })
+  })
+
+  it('38f: up to 3 more messages take turns — each checked like the first', () => {
+    const msg = (text: string) => ({ text, href: null })
+    expect(
+      announcementBarSchema.parse({
+        text: 'One',
+        more: [msg('Two'), { text: 'Three', href: '/shop' }],
+      }).more,
+    ).toEqual([msg('Two'), { text: 'Three', href: '/shop' }])
+    expect(
+      announcementBarSchema.safeParse({
+        text: 'One',
+        more: [msg('2'), msg('3'), msg('4'), msg('5')],
+      }).success,
+    ).toBe(false)
+    expect(announcementBarSchema.safeParse({ text: 'One', more: [msg(' ')] }).success).toBe(false)
+    expect(
+      announcementBarSchema.safeParse({
+        text: 'One',
+        more: [{ text: 'Two', href: 'javascript:alert(1)' }],
+      }).success,
+    ).toBe(false)
   })
 
   it('rejects empty or very long text', () => {

@@ -79,6 +79,11 @@ export interface ProductFields {
   seoTitle: string | null
   seoDescription: string | null
   status: 'DRAFT' | 'ACTIVE'
+  // 38f — shown on the shop's cards and product page.
+  fabric: string | null
+  care: string | null
+  fitNote: string | null
+  readyToShip: boolean
 }
 
 /** New products always start as DRAFT (API rule). */

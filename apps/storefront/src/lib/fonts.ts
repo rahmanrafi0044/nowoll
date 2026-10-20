@@ -1,5 +1,11 @@
-import { Hind_Siliguri, Inter, Poppins } from 'next/font/google'
-import type { FontChoice } from '@nowoll/validation'
+import {
+  Cormorant_Garamond,
+  Hind_Siliguri,
+  Inter,
+  Playfair_Display,
+  Poppins,
+} from 'next/font/google'
+import type { FontChoice, HeadingFont } from '@nowoll/validation'
 
 // ============================================================================
 // The fonts the shop can use (Admin → Settings → Look, step 38 part 2).
@@ -29,8 +35,49 @@ const hindSiliguri = Hind_Siliguri({
   variable: '--font-hind-siliguri',
 })
 
+// Heading fonts (design refresh 38f) — headings and product names.
+// Cormorant Garamond: the default, elegant and light. Playfair Display: a classic,
+// high-contrast fashion serif. Only the chosen one is ever downloaded.
+// (Normal style only: the browser slants it for <em>. Turbopack could not build
+// Bodoni Moda or the italic files — Oct 2026.)
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  display: 'swap',
+  preload: false,
+  variable: '--font-cormorant',
+})
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  display: 'swap',
+  preload: false,
+  variable: '--font-playfair',
+})
+
 /** Put on <html>: defines the --font-* variables (no font is downloaded until used). */
-export const fontVariables = [inter.variable, poppins.variable, hindSiliguri.variable].join(' ')
+export const fontVariables = [
+  inter.variable,
+  poppins.variable,
+  hindSiliguri.variable,
+  cormorant.variable,
+  playfair.variable,
+].join(' ')
+
+// Bangla headings in a Latin-only serif fall back to the system's Bangla serif.
+const SERIF_FALLBACK = "Georgia, 'Times New Roman', 'Noto Serif Bengali', serif"
+
+/** The CSS font stack for headings (Admin → Settings → Heading font). */
+export function headingStack(choice: HeadingFont): string {
+  switch (choice) {
+    case 'serif_elegant':
+      return `var(--font-cormorant), ${SERIF_FALLBACK}`
+    case 'serif_classic':
+      return `var(--font-playfair), ${SERIF_FALLBACK}`
+    case 'same_as_body':
+      return 'var(--font-sans)'
+  }
+}
 
 // Bangla text in a Latin-only font falls back to the system's Bangla font.
 const FALLBACK =

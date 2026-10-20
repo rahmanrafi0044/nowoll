@@ -20,12 +20,21 @@ import type { UpdateProductDto } from './dto/update-product.dto.js'
 import {
   distinctColors,
   distinctSizes,
+  fromPrice,
+  type ProductBadges,
+  productBadges,
   type PublicImage,
   type PublicVariant,
   toPublicImage,
   toPublicVariant,
 } from './product-view.js'
 import { RedirectsService } from '../redirects/redirects.service.js'
+import { SettingsService } from '../settings/settings.service.js'
+
+/** Photos per card: the first, the hover one, and a few for swiping on phones. */
+const CARD_IMAGES = 4
+/** "New"/"Restocked" for this many days when Admin → Settings can't be read (hand-built tests). */
+const DEFAULT_BADGE_DAYS = 14
 
 const FALLBACK_SLUG = 'product'
 
@@ -47,13 +56,21 @@ export interface ProductCard {
   isFeatured: boolean
   category: { name: string; slug: string }
   image: PublicImage | null
+  /** Up to 4 photos: [0] = image, [1] = shown on hover, all = swipe on phones (38f). */
+  images: PublicImage[]
   colors: { color: string; colorHex: string | null }[]
   sizes: string[]
   inStock: boolean
+  fabric: string | null
+  /** The lowest price when the variants' prices differ ("From ৳…"), else null. */
+  fromPrice: Prisma.Decimal | null
+  badges: ProductBadges
 }
 
-export interface ProductDetail extends Omit<ProductCard, 'image' | 'colors' | 'sizes'> {
+export interface ProductDetail extends Omit<ProductCard, 'image' | 'images' | 'colors' | 'sizes'> {
   description: string | null
+  care: string | null
+  fitNote: string | null
   tags: string[]
   seoTitle: string | null
   seoDescription: string | null
@@ -85,7 +102,14 @@ export class ProductsService {
     private readonly stock: StockService,
     // Step 43c: old address → new one when the slug changes (optional for hand-built tests).
     @Optional() private readonly redirects?: RedirectsService,
+    // 38f: how long "New"/"Restocked" badges show (optional for hand-built tests).
+    @Optional() private readonly settings?: SettingsService,
   ) {}
+
+  /** Admin → Settings → badge days, read once per request. */
+  private async badgeDays(): Promise<number> {
+    return this.settings ? (await this.settings.all()).badge_days : DEFAULT_BADGE_DAYS
+  }
 
   // ── Public ─────────────────────────────────────────────────────────────
 
@@ -165,8 +189,9 @@ export class ProductsService {
       })
     }
 
+    const badgeDays = await this.badgeDays()
     return {
-      items: rows.map((p) => this.toCard(p)),
+      items: rows.map((p) => this.toCard(p, badgeDays)),
       total,
       page,
       pageSize,
@@ -233,9 +258,18 @@ export class ProductsService {
       if (error instanceof NotFoundException) return null
       throw error
     }
+    const {
+      images: _cardImages,
+      colors: _c,
+      sizes: _s,
+      image: _i,
+      ...card
+    } = this.toCard(product, await this.badgeDays())
     return {
-      ...this.toCard(product),
+      ...card,
       description: product.description,
+      care: product.care,
+      fitNote: product.fitNote,
       tags: product.tags,
       seoTitle: product.seoTitle,
       seoDescription: product.seoDescription,
@@ -356,16 +390,18 @@ export class ProductsService {
       include: PUBLIC_INCLUDE,
     })
     const byId = new Map(rows.map((r) => [r.id, r]))
+    const badgeDays = await this.badgeDays()
     return ids.flatMap((id) => {
       const row = byId.get(id)
-      return row ? [this.toCard(row)] : []
+      return row ? [this.toCard(row, badgeDays)] : []
     })
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
 
-  private toCard(p: ProductWithRelations): ProductCard {
+  private toCard(p: ProductWithRelations, badgeDays: number): ProductCard {
     const firstImage = p.images[0]
+    const inStock = p.variants.some((v) => v.stock > 0)
     return {
       id: p.id,
       name: p.name,
@@ -376,9 +412,13 @@ export class ProductsService {
       isFeatured: p.isFeatured,
       category: { name: p.category.name, slug: p.category.slug },
       image: firstImage ? toPublicImage(firstImage) : null,
+      images: p.images.slice(0, CARD_IMAGES).map(toPublicImage),
       colors: distinctColors(p.variants),
       sizes: distinctSizes(p.variants),
-      inStock: p.variants.some((v) => v.stock > 0),
+      inStock,
+      fabric: p.fabric,
+      fromPrice: fromPrice(p.variants, p.basePrice),
+      badges: productBadges(p, inStock, badgeDays),
     }
   }
 

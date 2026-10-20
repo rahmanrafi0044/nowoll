@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "report": "playwright show-report playwright-report",
     "test": "vitest run",
-    "launch-check": "node --import tsx run-launch-check.ts"
+    "launch-check": "node --import tsx run-launch-check.ts",
+    "design-preview": "node --import tsx run-preview.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

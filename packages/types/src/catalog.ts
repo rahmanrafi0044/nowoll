@@ -65,13 +65,34 @@ export interface ProductCardView {
   isFeatured: boolean
   category: { name: string; slug: string }
   image: ProductImageView | null
+  /** Up to 4 photos: [0] = image, [1] = shown on hover, all = swipe on phones (38f). */
+  images: ProductImageView[]
   colors: { color: string; colorHex: string | null }[]
   sizes: string[]
   inStock: boolean
+  /** "Lawn", "Chiffon" — also a shop filter (38f). */
+  fabric: string | null
+  /** The lowest price when sizes/colours cost different amounts ("From ৳…"), else null. */
+  fromPrice: Money | null
+  badges: ProductBadgesView
 }
 
-export interface ProductDetailView extends Omit<ProductCardView, 'image' | 'colors' | 'sizes'> {
+/** Card/product-page badges, worked out by the API (Admin → Settings → badge days). */
+export interface ProductBadgesView {
+  isNew: boolean
+  restocked: boolean
+  readyToShip: boolean
+}
+
+export interface ProductDetailView extends Omit<
+  ProductCardView,
+  'image' | 'images' | 'colors' | 'sizes'
+> {
   description: string | null
+  /** The product page's Care fold (38f). */
+  care: string | null
+  /** "Model wears S, height 5'5" (38f). */
+  fitNote: string | null
   tags: string[]
   seoTitle: string | null
   seoDescription: string | null

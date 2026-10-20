@@ -22,35 +22,46 @@
 @source './components';
 
 @theme {
-  /* Brand — monochrome, fashion-store neutral. Change these to rebrand. */
+  /* Brand — black by default (Admin → Settings → Look changes it). */
   --color-brand: #111111;
   --color-brand-hover: #333333;
   --color-brand-foreground: #ffffff;
 
-  /* Surfaces & text */
-  --color-surface: #ffffff;
-  --color-surface-muted: #f5f5f5;
-  --color-foreground: #111111;
-  --color-muted-foreground: #5f5f5f;
-  --color-border: #e5e5e5;
-  --color-border-strong: #a3a3a3;
+  /* Surfaces & text — design refresh (38f): a warm ivory page, calm and premium.
+     Contrast checked: text ≥ 4.5:1 and borders ≥ 3:1 on all three surfaces. */
+  --color-surface: #fdfbf7; /* the page */
+  --color-surface-raised: #ffffff; /* cards, drawers, pop-ups */
+  --color-surface-muted: #f3eee6; /* photo placeholders, quiet sections */
+  --color-foreground: #1a1814;
+  --color-muted-foreground: #625c53;
+  --color-border: #e7e1d7;
+  --color-border-strong: #8f887d;
+  /* A soft antique gold for small notes ("Ready to ship", fabric) — never for buttons. */
+  --color-accent: #7d5f2e;
 
   /* Status colors (order status badges, alerts, form errors) */
-  --color-danger: #b91c1c;
-  --color-danger-soft: #fef2f2;
-  --color-success: #15803d;
-  --color-success-soft: #f0fdf4;
-  --color-warning: #a16207;
-  --color-warning-soft: #fefce8;
+  --color-danger: #a3271c;
+  --color-danger-soft: #fbefec;
+  --color-success: #2f6b3a;
+  --color-success-soft: #eef5ee;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #fbf4e4;
   --color-info: #1d4ed8;
   --color-info-soft: #eff6ff;
 
-  /* Typography — system fonts: zero download, fast on slow mobile networks. */
+  /* Typography — body: system fonts (zero download, fast on slow networks) unless
+     Admin → Settings picks one. Headings + product names: a serif (38f), loaded by
+     the shop (apps/storefront/src/lib/fonts.ts); here the fallback while it loads. */
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Bengali', sans-serif;
+  /* The shop defines --font-cormorant (next/font); elsewhere (admin) → Georgia. */
+  --font-display: var(--font-cormorant), Georgia, 'Times New Roman', 'Noto Serif Bengali', serif;
 
-  /* Shape */
-  --radius-control: 0.375rem; /* buttons, inputs */
+  /* Shape — nearly square corners: the calm, editorial look. */
+  --radius-control: 0.125rem; /* buttons, inputs */
+
+  /* Motion (38f) — one easing everywhere; off for "reduce motion" (globals.css). */
+  --ease-out-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 @layer base {

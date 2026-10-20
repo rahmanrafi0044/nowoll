@@ -247,6 +247,16 @@ model Product {
   status           ProductStatus            @default(DRAFT)
   isFeatured       Boolean                  @default(false) @map("is_featured") // homepage "featured" section
   tags             String[]
+  // Design refresh (38f) — shown on the card and the product page:
+  // fabric is short ("Lawn", "Chiffon") and also a shop filter. No index: a
+  // filter only runs on one category's few hundred products at a time.
+  fabric           String?
+  care             String?                  @db.Text // "Dry clean only…" — the product page's Care fold
+  fitNote          String?                  @map("fit_note") // "Model wears S, height 5'5"
+  readyToShip      Boolean                  @default(false) @map("ready_to_ship") // the "Ready to ship" badge
+  // Set by StockService when a size comes back in stock (0 → more) through a
+  // manual change or CSV import — the "Restocked" badge. Never typed in.
+  restockedAt      DateTime?                @map("restocked_at")
   seoTitle         String?                  @map("seo_title")
   seoDescription   String?                  @map("seo_description")
   createdAt        DateTime                 @default(now()) @map("created_at")

@@ -92,11 +92,29 @@ describe('announcement bar', () => {
     await waitFor(() =>
       expect(mocked.saveContentBlock).toHaveBeenCalledWith(
         'announcement_bar',
-        { text: 'Eid sale — 20% off', href: '/shop?tag=eid' },
+        { text: 'Eid sale — 20% off', href: '/shop?tag=eid', more: [] }, // 38f: no extra messages
         true,
       ),
     )
     expect(await screen.findByRole('status')).toHaveTextContent('Saved.')
+  })
+
+  it('38f: extra messages take turns — filled ones are saved, empty ones skipped', async () => {
+    mocked.fetchContentBlock.mockResolvedValue(ok(block('announcement_bar')))
+    render(<AnnouncementEditor />)
+    fireEvent.change(await screen.findByLabelText('Text'), { target: { value: 'Free delivery' } })
+    fireEvent.change(screen.getByLabelText('Message 3'), { target: { value: 'New: Eid edit' } })
+    fireEvent.change(screen.getByLabelText('Message 3 link (optional)'), {
+      target: { value: '/shop/eid' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(mocked.saveContentBlock).toHaveBeenCalledWith(
+        'announcement_bar',
+        { text: 'Free delivery', href: null, more: [{ text: 'New: Eid edit', href: '/shop/eid' }] },
+        true,
+      ),
+    )
   })
 
   it('switched off is kept off; the API’s problems are listed', async () => {
@@ -118,7 +136,7 @@ describe('announcement bar', () => {
     expect(alert).toHaveTextContent('href › Use a link on this shop or https://')
     expect(mocked.saveContentBlock).toHaveBeenCalledWith(
       'announcement_bar',
-      { text: 'Old', href: null },
+      { text: 'Old', href: null, more: [] },
       false,
     )
   })
@@ -161,7 +179,7 @@ describe('announcement bar', () => {
     fireEvent.change(screen.getByLabelText('Link (optional)'), { target: { value: '/shop' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Write the announcement')
-    expect(screen.queryByRole('group')).toBeNull()
+    expect(screen.queryByRole('group', { name: /^Confirm/ })).toBeNull()
   })
 
   it('hide from the shop: asks first, re-saves the LATEST saved words switched off (not half-typed edits)', async () => {
@@ -184,7 +202,7 @@ describe('announcement bar', () => {
     await waitFor(() =>
       expect(mocked.saveContentBlock).toHaveBeenLastCalledWith(
         'announcement_bar',
-        { text: 'Puja sale', href: '/shop' },
+        { text: 'Puja sale', href: '/shop', more: [] },
         false,
       ),
     )

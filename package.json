@@ -11,6 +11,7 @@
     "test": "turbo run test --concurrency=3",
     "test:e2e": "turbo run test:e2e",
     "lighthouse": "pnpm --filter @nowoll/e2e lighthouse --",
+    "design-preview": "pnpm --filter @nowoll/e2e design-preview --",
     "launch-check": "pnpm --filter @nowoll/e2e launch-check --",
     "db:generate": "turbo run db:generate --filter=@nowoll/database",
     "db:migrate": "turbo run db:migrate --filter=@nowoll/database",

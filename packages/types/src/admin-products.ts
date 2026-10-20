@@ -105,6 +105,11 @@ export interface AdminProductDetail {
   tags: string[]
   seoTitle: string | null
   seoDescription: string | null
+  /** 38f: shown on the card and the product page. */
+  fabric: string | null
+  care: string | null
+  fitNote: string | null
+  readyToShip: boolean
   variants: AdminVariant[]
   images: AdminImage[]
   /** What it still needs before it can go live (empty = ready). */

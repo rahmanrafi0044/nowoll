@@ -18,9 +18,14 @@ const linkSchema = z
     message: 'Use a path like /shop/men or a full https:// link',
   })
 
-export const announcementBarSchema = z.object({
+const announcementMessage = z.object({
   text: z.string().trim().min(1).max(120),
   href: linkSchema.nullable().default(null),
+})
+
+/** The strip above the header. 38f: up to 3 more messages take turns with the first. */
+export const announcementBarSchema = announcementMessage.extend({
+  more: z.array(announcementMessage).max(3, 'At most 3 more messages').default([]),
 })
 
 export const homepageHeroSchema = z.object({

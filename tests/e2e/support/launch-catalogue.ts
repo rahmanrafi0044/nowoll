@@ -22,15 +22,59 @@ import { SHOP_DIR } from './servers.js'
 
 export const PHOTO_DIR = path.join(SHOP_DIR, 'public/perf')
 
+// Women's wear only (Rafi, 38f). Under one "Women" parent, so the menu shows
+// a drop-down with each category's photo.
 const CATEGORIES = [
-  { slug: 'perf-panjabi', name: 'Panjabi', colors: ['#f4efe6', '#1f3a5f', '#7a1f2b', '#2f4f3a'] },
-  { slug: 'perf-shirts', name: 'Shirts', colors: ['#dfe7f2', '#ffffff', '#3b5b8c', '#c9b79c'] },
-  { slug: 'perf-kurti', name: 'Kurti', colors: ['#e8a0b4', '#f2c94c', '#6c4f8c', '#2a9d8f'] },
-  { slug: 'perf-tshirts', name: 'T-Shirts', colors: ['#111111', '#e5e5e5', '#b23a48', '#577590'] },
-]
+  {
+    slug: 'perf-three-piece',
+    name: 'Three-Piece',
+    fabric: 'Lawn',
+    colors: [
+      ['Ivory', '#efe6d6'],
+      ['Sage', '#9caf88'],
+      ['Rust', '#a4532f'],
+      ['Midnight', '#1f2a44'],
+    ],
+  },
+  {
+    slug: 'perf-kurtis',
+    name: 'Kurtis',
+    fabric: 'Cotton',
+    colors: [
+      ['Blush', '#e3b7b0'],
+      ['Mustard', '#d4a63a'],
+      ['Teal', '#2a6f73'],
+      ['Plum', '#5b2a4a'],
+    ],
+  },
+  {
+    slug: 'perf-festive',
+    name: 'Festive',
+    fabric: 'Chiffon',
+    colors: [
+      ['Maroon', '#6e1f2b'],
+      ['Emerald', '#1f5e46'],
+      ['Gold', '#c9a24a'],
+      ['Wine', '#4a1630'],
+    ],
+  },
+  {
+    slug: 'perf-co-ords',
+    name: 'Co-ords',
+    fabric: 'Linen',
+    colors: [
+      ['Sand', '#d8c3a5'],
+      ['Olive', '#6b6f3a'],
+      ['Powder Blue', '#9fb6cd'],
+      ['Black', '#1c1c1c'],
+    ],
+  },
+] as const
+const NAMES = ['Mehr', 'Noor', 'Zara', 'Ayesha', 'Rima', 'Sara', 'Nila', 'Tara', 'Mira', 'Lina']
 const PER_CATEGORY = 25
 /** The category the speed audit measures (and its product -1). */
-export const LAUNCH_CATEGORY = CATEGORIES[0]!.slug
+export const LAUNCH_CATEGORY = CATEGORIES[0].slug
+const DAY = 24 * 60 * 60 * 1000
 
 /** Fine grain at the given size, made once and laid over every photo. */
 async function grain(width: number, height: number): Promise<Buffer> {
@@ -43,13 +87,16 @@ async function grain(width: number, height: number): Promise<Buffer> {
 }
 
 function garmentSvg(hex: string, width: number, height: number): string {
-  // A garment silhouette on a soft studio background, like a product photo.
+  // A long tunic with a dupatta over one shoulder, on a soft studio background
+  // — a stand-in for a real product photo (same weight, not the same beauty).
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice">
-    <defs><radialGradient id="bg" cx="50%" cy="40%" r="75%">
-      <stop offset="0%" stop-color="#f7f5f2"/><stop offset="100%" stop-color="#d9d4cc"/></radialGradient></defs>
+    <defs><radialGradient id="bg" cx="50%" cy="35%" r="80%">
+      <stop offset="0%" stop-color="#f6f1ea"/><stop offset="100%" stop-color="#ddd3c6"/></radialGradient></defs>
     <rect width="800" height="1000" fill="url(#bg)"/>
-    <path d="M300 180 L250 200 L130 290 L190 400 L250 360 L250 840 L550 840 L550 360 L610 400 L670 290 L550 200 L500 180 Q400 250 300 180 Z"
-      fill="${hex}" stroke="rgba(0,0,0,0.15)" stroke-width="4"/>
+    <path d="M330 120 Q400 160 470 120 L540 150 L640 330 L590 350 L545 260 L560 880 L240 880 L255 260 L210 350 L160 330 L260 150 Z"
+      fill="${hex}" stroke="rgba(0,0,0,0.12)" stroke-width="3"/>
+    <path d="M470 120 L540 150 Q470 420 560 700 L600 900 L520 900 Q430 520 470 120 Z"
+      fill="${hex}" opacity="0.55" stroke="rgba(0,0,0,0.08)" stroke-width="2"/>
   </svg>`
 }
 
@@ -85,14 +132,34 @@ export async function seedLaunchCatalogue(): Promise<void> {
       },
     })
 
+    // "Women" — the menu's top item with a drop-down of the four categories.
+    await photo('women.jpg', '#9caf88', 1200, 1500, productGrain)
+    const women = await db.category.create({
+      data: {
+        name: 'Women',
+        slug: 'perf-women',
+        sortOrder: 5,
+        imageUrl: '/perf/women.jpg',
+        imageAlt: 'Women',
+      },
+    })
     for (const [c, cat] of CATEGORIES.entries()) {
+      await photo(`${cat.slug}.jpg`, cat.colors[1][1], 1200, 1500, productGrain)
       const category = await db.category.create({
-        data: { name: cat.name, slug: cat.slug, sortOrder: c + 10 },
+        data: {
+          name: cat.name,
+          slug: cat.slug,
+          sortOrder: c + 10,
+          parentId: women.id,
+          imageUrl: `/perf/${cat.slug}.jpg`,
+          imageAlt: cat.name,
+        },
       })
       for (let i = 0; i < PER_CATEGORY; i++) {
         const slug = `${cat.slug}-${i + 1}`
-        const hex = cat.colors[i % cat.colors.length]!
-        // Two photos each (the product page shows a gallery).
+        const [colorName, hex] = cat.colors[i % cat.colors.length]!
+        const name = `${NAMES[i % NAMES.length]} ${cat.name}${i >= NAMES.length ? ` ${Math.floor(i / NAMES.length) + 1}` : ''}`
+        // Two photos each (hover / swipe on the card, a gallery on the product page).
         const images = []
         for (let j = 0; j < 2; j++) {
           const file = `${slug}-${j + 1}.jpg`
@@ -100,28 +167,42 @@ export async function seedLaunchCatalogue(): Promise<void> {
           images.push({
             url: `/perf/${file}`,
             storagePath: `perf/${file}`,
-            altText: `${cat.name} ${i + 1}`,
+            altText: `${name} in ${colorName}${j ? ', detail' : ''}`,
             sortOrder: j,
           })
         }
+        const price = 1890 + i * 150
+        // A realistic mix, so every badge and price style shows (38f):
+        const sale = i % 7 === 3 // "-x%" with the "was" price
+        const soldOut = i % 11 === 5
+        const ranged = i % 5 === 2 // XL costs more → "From ৳…"
         await db.product.create({
           data: {
-            name: `${cat.name} ${i + 1}`,
+            name,
             slug,
             categoryId: category.id,
-            basePrice: new Prisma.Decimal(990 + i * 50),
+            basePrice: new Prisma.Decimal(price),
+            compareAtPrice: sale ? new Prisma.Decimal(Math.round(price * 1.25)) : null,
             status: 'ACTIVE',
             isFeatured: i < 2,
-            description: `A ${cat.name.toLowerCase()} in soft, breathable cotton. Made for everyday wear.`,
-            tags: [cat.name.toLowerCase()],
+            description: `A ${cat.fabric.toLowerCase()} ${cat.name.toLowerCase()} in ${colorName.toLowerCase()}, made for everyday elegance.`,
+            tags: [cat.name.toLowerCase(), cat.fabric.toLowerCase()],
+            fabric: cat.fabric,
+            care: 'Gentle hand wash in cold water. Dry in shade. Iron on the reverse.',
+            fitNote: 'Relaxed fit. Model wears S, height 5′5″.',
+            readyToShip: i % 3 === 0,
+            // The first few are new; a couple were restocked 3 days ago; the rest are older.
+            createdAt: new Date(Date.now() - (i < 4 ? i : 40 + i) * DAY),
+            restockedAt: i === 6 || i === 9 ? new Date(Date.now() - 3 * DAY) : null,
             images: { create: images },
             variants: {
               create: ['S', 'M', 'L', 'XL'].map((size, k) => ({
                 sku: `PERF-${c}-${i}-${size}`,
                 size,
-                color: 'Main',
+                color: colorName,
                 colorHex: hex,
-                stock: 20,
+                stock: soldOut ? 0 : 20,
+                price: ranged && size === 'XL' ? new Prisma.Decimal(price + 200) : null,
                 sortOrder: k,
               })),
             },

@@ -31,6 +31,11 @@ export const productDetail = (overrides: Partial<ProductDetailView> = {}): Produ
   seoTitle: null,
   seoDescription: null,
   inStock: true,
+  fabric: null,
+  care: null,
+  fitNote: null,
+  fromPrice: null,
+  badges: { isNew: false, restocked: false, readyToShip: false },
   breadcrumb: [
     { id: 'c1', name: 'Men', slug: 'men' },
     { id: 'c2', name: 'Shirts', slug: 'shirts' },
