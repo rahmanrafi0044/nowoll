@@ -1,23 +1,47 @@
-# Security audit (step 53, docs/security-audit.md) — Dependabot checks every
-# Monday and opens a PR when something has an update or a security fix:
+# Dependabot — keeps our packages, GitHub Actions and the Docker base image up
+# to date (security audit, step 53). Every Monday it opens PRs; each runs the
+# full CI like any other. Merge only when green — and read what changed: an
+# update is new code too.
+#
+# SAFE UPDATES ONLY (Oct 2026, after its first run opened 10 PRs):
+#   • minor + patch updates only — never a big version jump (Node 24 → 26,
+#     ESLint 9 → 10, actions v5 → v7). Those can break things, so they are
+#     planned upgrades of their own, one at a time, not weekly chores.
+#   • cooldown 14 days: a new version is proposed only once it is two weeks
+#     old. Early bugs are found by then, and a hijacked release (a "supply
+#     chain attack") is usually caught and pulled within days.
+#   • security fixes are separate: GitHub → Settings → Code security →
+#     "Dependabot alerts" and "Dependabot security updates" (both on). They
+#     come as soon as a fix exists, and the Security tab lists every alert.
+#
 #   npm            the packages in pnpm-lock.yaml (all apps, packages, workers)
 #   github-actions the actions our workflows use (pinned to exact commits)
 #   docker         the base image of our Dockerfiles (node:24-slim)
-# Each PR runs the full CI like any other; merge only when it's green (and
-# read what changed — an update is new code too).
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly, day: monday }
     open-pull-requests-limit: 5
-    # Small updates arrive together in one PR; security fixes come on their own.
+    cooldown: { default-days: 14 }
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+    # Small updates arrive together in one PR.
     groups:
       minor-and-patch:
         update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 14 }
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: docker
     directory: /infrastructure/docker
     schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 14 }
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
