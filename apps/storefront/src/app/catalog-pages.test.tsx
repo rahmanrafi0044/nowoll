@@ -154,6 +154,70 @@ describe('/shop/[categorySlug]', () => {
     expect(requested).toContain('/products/facets?category=men')
   })
 
+  it('38f: photo tiles sit among the products — only on the plain first page', async () => {
+    const tile = {
+      imageUrl: 'https://x.supabase.co/content/edit.webp',
+      imageAlt: 'Shirts on a rail',
+      heading: 'The office edit',
+      text: null,
+      href: '/shop/men-shirts',
+      position: 1,
+      wide: true,
+    }
+    responses.set('/categories/men', { ...men, editorial: [tile] })
+    // (with or without the default sort, depending on the settings this test sees)
+    for (const path of [
+      '/products?category=men&page=1&pageSize=24',
+      '/products?category=men&sort=newest&page=1&pageSize=24',
+    ])
+      responses.set(path, page([card('Oxford Shirt'), card('Linen Shirt')]))
+    const { unmount } = await renderServer(
+      CategoryPage({ params: Promise.resolve({ categorySlug: 'men' }), searchParams: sp() }),
+    )
+    const items = within(screen.getByRole('region', { name: 'Products' })).getAllByRole('listitem')
+    // After the 1st product, two columns wide.
+    expect(items[1]).toHaveTextContent('The office edit')
+    expect(items[1]).toHaveClass('col-span-2')
+    expect(within(items[1]!).getByRole('link')).toHaveAttribute('href', '/shop/men-shirts')
+    unmount()
+
+    // While filtering, no tiles — only products.
+    for (const path of [
+      '/products?category=men&fabric=Lawn&page=1&pageSize=24',
+      '/products?category=men&fabric=Lawn&sort=newest&page=1&pageSize=24',
+    ])
+      responses.set(path, page([card('Lawn Shirt')]))
+    await renderServer(
+      CategoryPage({
+        params: Promise.resolve({ categorySlug: 'men' }),
+        searchParams: sp({ fabric: 'Lawn' }),
+      }),
+    )
+    expect(screen.queryByText('The office edit')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Fabric: Lawn/ })).toHaveAttribute('href', '/shop/men')
+  })
+
+  it('38f: the filters show how many products each choice has, and fabrics', async () => {
+    responses.set('/categories/men', men)
+    responses.set('/products?category=men&page=1&pageSize=24', page([card('Oxford Shirt')]))
+    responses.set('/products/facets?category=men', {
+      ...facets,
+      counts: { sizes: { S: 3, M: 7 }, colors: { Blue: 4 } },
+      fabrics: [
+        { fabric: 'Cotton', count: 5 },
+        { fabric: 'Linen', count: 2 },
+      ],
+    })
+    await renderServer(
+      CategoryPage({ params: Promise.resolve({ categorySlug: 'men' }), searchParams: sp() }),
+    )
+    // (inside the closed Filter drawer: found by their label text)
+    expect(screen.getByLabelText('M (7)')).toHaveAttribute('value', 'M')
+    expect(screen.getByLabelText('Blue (4)')).toHaveAttribute('value', 'Blue')
+    expect(screen.getByLabelText('Linen (2)')).toHaveAttribute('value', 'Linen')
+    expect(screen.getByLabelText('Any fabric')).toHaveAttribute('value', '')
+  })
+
   it('404s for unknown or hidden categories', async () => {
     await expect(
       CategoryPage({ params: Promise.resolve({ categorySlug: 'nope' }), searchParams: sp() }),

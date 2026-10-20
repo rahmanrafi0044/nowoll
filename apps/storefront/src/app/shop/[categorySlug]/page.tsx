@@ -57,6 +57,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         breadcrumb={trail}
         subcategories={category.children}
         category={category.slug}
+        editorial={category.editorial}
         params={parseListingParams(await searchParams)}
       />
     </>

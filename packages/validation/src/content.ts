@@ -28,15 +28,30 @@ export const announcementBarSchema = announcementMessage.extend({
   more: z.array(announcementMessage).max(3, 'At most 3 more messages').default([]),
 })
 
+/**
+ * A picture: an uploaded photo (a full https:// address — Supabase), or a file
+ * on this shop itself ("/perf/hero.jpg", 38f — the stand-in photos of
+ * `pnpm design-preview`). Never http://, "//other-site", or javascript:.
+ */
+export const imageUrlSchema = z
+  .string()
+  .trim()
+  .min(1, 'Upload a photo')
+  .max(500)
+  .refine(
+    (v) =>
+      v.startsWith('/')
+        ? !v.startsWith('//') && !v.includes('\\')
+        : URL.canParse(v) && new URL(v).protocol === 'https:',
+    { message: 'Upload a photo (an https:// address or a file on this shop)' },
+  )
+
 export const homepageHeroSchema = z.object({
   heading: z.string().trim().min(1).max(80),
   subheading: z.string().trim().max(200).nullable().default(null),
   ctaLabel: z.string().trim().min(1).max(30),
   ctaHref: linkSchema,
-  imageUrl: z
-    .url({ protocol: /^https$/ })
-    .nullable()
-    .default(null),
+  imageUrl: imageUrlSchema.nullable().default(null),
   imageAlt: z.string().trim().max(200).nullable().default(null),
 })
 
@@ -229,3 +244,27 @@ export type TrustBadgeIcon = (typeof TRUST_BADGE_ICONS)[number]
 export type MenuItem = z.output<typeof menuItemSchema>
 export type MainMenu = z.output<typeof mainMenuSchema>
 export type Footer = z.output<typeof footerSchema>
+
+// ── Design refresh (38f): photo tiles inside a category's product grid ──────
+
+/**
+ * One editorial tile — a photo with a few words, placed among the products
+ * ("asymmetric" look). `position`: after which product it appears (1 = after
+ * the first). `wide`: two columns instead of one on tablets and computers.
+ */
+export const editorialTileSchema = z.object({
+  imageUrl: imageUrlSchema,
+  imageAlt: z.string().trim().min(1, 'Describe the photo (for screen readers and Google)').max(120),
+  heading: z.string().trim().min(1, 'Write a heading').max(60, 'Heading: at most 60 letters'),
+  text: z.string().trim().max(160, 'Text: at most 160 letters').nullable().default(null),
+  href: linkSchema.nullable().default(null),
+  position: z.int('A whole number').min(1).max(48, 'At most after product 48'),
+  wide: z.boolean().default(false),
+})
+
+/** A category's tiles (Admin → Categories): at most 3. */
+export const categoryEditorialSchema = z
+  .array(editorialTileSchema)
+  .max(3, 'At most 3 photo tiles per category')
+
+export type EditorialTile = z.output<typeof editorialTileSchema>

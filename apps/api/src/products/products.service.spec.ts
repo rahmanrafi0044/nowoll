@@ -365,12 +365,18 @@ describe('ProductsService.facets', () => {
       name: 'Denim Jeans',
       variants: [{ size: '32', color: 'Indigo' }],
     })
-    expect((await service.facets({ q: 'shirt' })).sizes).toEqual(['M'])
-    expect(await service.facets({ category: 'nope' })).toEqual({
+    const shirt = await service.facets({ q: 'shirt' })
+    expect(shirt.sizes).toEqual(['M'])
+    // 38f: the counts follow the search too — the jeans' 32 isn't counted.
+    expect(shirt.counts).toEqual({ sizes: { M: 1 }, colors: { Blue: 1 } })
+    const empty = {
       sizes: [],
       colors: [],
       price: null,
-    })
-    expect(await service.facets({ q: 'tuxedo' })).toEqual({ sizes: [], colors: [], price: null })
+      counts: { sizes: {}, colors: {} },
+      fabrics: [],
+    }
+    expect(await service.facets({ category: 'nope' })).toEqual(empty)
+    expect(await service.facets({ q: 'tuxedo' })).toEqual(empty)
   })
 })

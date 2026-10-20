@@ -33,6 +33,7 @@ const node = (more: Partial<AdminCategoryNode>): AdminCategoryNode => ({
   imageUrl: null,
   imageAlt: null,
   sizeGuide: null,
+  editorial: [],
   seoTitle: null,
   seoDescription: null,
   isActive: true,
@@ -125,6 +126,7 @@ describe('new category', () => {
         isActive: true,
         seoTitle: null,
         seoDescription: null,
+        editorial: [], // 38f: no photo tiles
       }),
     )
     expect(push).toHaveBeenCalledWith('/admin/categories/new1')
@@ -154,6 +156,52 @@ describe('new category', () => {
 })
 
 describe('edit category', () => {
+  it('38f: a photo tile needs its photo, words and description; then it is saved', async () => {
+    mocked.updateCategory.mockResolvedValue(ok({ id: 'c2', slug: 'shirts' }))
+    vi.mocked((await import('@/lib/content-api')).uploadContentImage).mockResolvedValue(
+      ok({ url: 'https://cdn.example/content/edit.webp', width: 1200, height: 1500 }),
+    )
+    render(<EditCategory id="c2" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a photo tile' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Tile 1: Upload a photo')
+    expect(alert).toHaveTextContent('Tile 1: Write a heading')
+    expect(mocked.updateCategory).not.toHaveBeenCalled()
+
+    const file = new File([new Uint8Array(10)], 'edit.png', { type: 'image/png' })
+    const tile = screen.getByRole('group', { name: 'Tile 1' })
+    fireEvent.change(within(tile).getByLabelText(/^Photo/), { target: { files: [file] } })
+    fireEvent.change(within(tile).getByLabelText('Describe the photo'), {
+      target: { value: 'Shirts on a rail' },
+    })
+    fireEvent.change(within(tile).getByLabelText('Heading'), {
+      target: { value: 'The office edit' },
+    })
+    fireEvent.click(within(tile).getByLabelText(/^Wide/))
+    // Wait until the upload has filled in the photo's address.
+    await within(tile).findByRole('button', { name: 'Remove picture' })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(mocked.updateCategory).toHaveBeenCalledWith(
+        'c2',
+        expect.objectContaining({
+          editorial: [
+            {
+              imageUrl: 'https://cdn.example/content/edit.webp',
+              imageAlt: 'Shirts on a rail',
+              heading: 'The office edit',
+              text: null,
+              href: null,
+              position: 4,
+              wide: true,
+            },
+          ],
+        }),
+      ),
+    )
+  })
+
   it('it can’t go inside itself or its subcategories; the address is sent only when changed', async () => {
     mocked.updateCategory.mockResolvedValue(ok({ id: 'c2', slug: 'shirts' }))
     render(<EditCategory id="c2" />)

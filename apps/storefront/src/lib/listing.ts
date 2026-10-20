@@ -20,6 +20,8 @@ export interface ListingParams {
   q?: string
   size?: string
   color?: string
+  /** 38f: "Lawn" */
+  fabric?: string
   minPrice?: number
   maxPrice?: number
   inStock?: boolean
@@ -57,6 +59,7 @@ export function parseListingParams(raw: RawSearchParams): ListingParams {
     q,
     size: first(raw.size)?.slice(0, 30),
     color: first(raw.color)?.slice(0, 40),
+    fabric: first(raw.fabric)?.slice(0, 40),
     minPrice,
     maxPrice,
     inStock: first(raw.inStock) === '1' ? true : undefined,
@@ -82,6 +85,7 @@ export function toApiQuery(
   if (params.q) qs.set('q', params.q)
   if (params.size) qs.set('size', params.size)
   if (params.color) qs.set('color', params.color)
+  if (params.fabric) qs.set('fabric', params.fabric)
   if (params.minPrice !== undefined) qs.set('minPrice', String(params.minPrice))
   if (params.maxPrice !== undefined) qs.set('maxPrice', String(params.maxPrice))
   if (params.inStock) qs.set('inStock', 'true')
@@ -109,6 +113,7 @@ export function listingHref(
   if (next.q) qs.set('q', next.q)
   if (next.size) qs.set('size', next.size)
   if (next.color) qs.set('color', next.color)
+  if (next.fabric) qs.set('fabric', next.fabric)
   if (next.minPrice !== undefined) qs.set('minPrice', String(next.minPrice))
   if (next.maxPrice !== undefined) qs.set('maxPrice', String(next.maxPrice))
   if (next.inStock) qs.set('inStock', '1')
@@ -131,6 +136,11 @@ export function canonicalFor(basePath: string, page: number): string {
 
 export function hasActiveFilters(p: ListingParams): boolean {
   return Boolean(
-    p.size || p.color || p.minPrice !== undefined || p.maxPrice !== undefined || p.inStock,
+    p.size ||
+    p.color ||
+    p.fabric ||
+    p.minPrice !== undefined ||
+    p.maxPrice !== undefined ||
+    p.inStock,
   )
 }

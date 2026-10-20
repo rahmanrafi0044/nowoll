@@ -21,6 +21,19 @@ export interface CategorySummary {
   seoDescription: string | null
 }
 
+/** 38f: a photo tile placed among a category's products. */
+export interface EditorialTileView {
+  imageUrl: string
+  imageAlt: string
+  heading: string
+  text: string | null
+  href: string | null
+  /** After which product (1 = after the first). */
+  position: number
+  /** Two columns wide on tablets and computers. */
+  wide: boolean
+}
+
 export interface CategoryNode extends CategorySummary {
   children: CategoryNode[]
 }
@@ -33,6 +46,8 @@ export interface BreadcrumbItem {
 
 export interface CategoryDetail extends CategorySummary {
   sizeGuide: string | null
+  /** 38f: photo tiles among the products (Admin → Categories). */
+  editorial: EditorialTileView[]
   breadcrumb: BreadcrumbItem[]
   children: CategorySummary[]
 }
@@ -111,6 +126,10 @@ export interface ProductFacetsView {
   sizes: string[]
   colors: { color: string; colorHex: string | null }[]
   price: { min: Money; max: Money } | null
+  /** 38f: how many products have each size / colour. */
+  counts: { sizes: Record<string, number>; colors: Record<string, number> }
+  /** 38f: the fabrics in this listing, with how many products each. */
+  fabrics: { fabric: string; count: number }[]
 }
 
 /** POST /discounts/validate — what a code would take off the bag (a preview). */

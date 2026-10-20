@@ -1,5 +1,7 @@
 import { SLUG_MAX_LENGTH, SLUG_PATTERN } from '@nowoll/validation'
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsInt,
   IsNotEmpty,
@@ -59,6 +61,13 @@ export class CreateCategoryDto {
   @IsString()
   @MaxLength(20000)
   sizeGuide?: string | null
+
+  // 38f: photo tiles among the products. Their fields are checked by
+  // categoryEditorialSchema (@nowoll/validation) in the service.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(3)
+  editorial?: unknown[]
 
   // null (or omitted) = top-level category
   @IsOptional()

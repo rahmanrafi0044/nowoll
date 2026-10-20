@@ -7,6 +7,7 @@ import {
   readHomepageLayout,
   footerSchema,
   mainMenuSchema,
+  imageUrlSchema,
 } from './content.js'
 
 describe('homepageHeroSchema', () => {
@@ -232,5 +233,27 @@ describe('main menu and footer (step 38b)', () => {
     expect(
       ok({ columns: [{ id: 'c', title: 'Help', links: [{ label: 'x', href: 'javascript:x' }] }] }),
     ).toBe(false)
+  })
+})
+
+describe('imageUrlSchema (38f)', () => {
+  it('accepts an uploaded https photo or a file on this shop', () => {
+    expect(
+      imageUrlSchema.parse('https://x.supabase.co/storage/v1/object/public/content/a.webp'),
+    ).toBe('https://x.supabase.co/storage/v1/object/public/content/a.webp')
+    expect(imageUrlSchema.parse('/perf/hero.jpg')).toBe('/perf/hero.jpg')
+  })
+
+  it('refuses anything that could lead elsewhere or run code', () => {
+    for (const bad of [
+      'http://x.example/a.jpg',
+      '//evil.example/a.jpg',
+      '/\\evil.example/a.jpg',
+      'javascript:alert(1)',
+      'data:image/png;base64,AAAA',
+      'a.jpg',
+      '',
+    ])
+      expect(imageUrlSchema.safeParse(bad).success, bad).toBe(false)
   })
 })

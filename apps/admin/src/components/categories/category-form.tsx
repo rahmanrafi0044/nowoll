@@ -2,11 +2,12 @@
 
 import type { AdminCategoryNode } from '@nowoll/types'
 import { Button, Input, Markdown } from '@nowoll/ui'
-import { SLUG_PATTERN, slugify } from '@nowoll/validation'
+import { categoryEditorialSchema, SLUG_PATTERN, slugify } from '@nowoll/validation'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ImageField } from '@/components/content/fields'
+import { EditorialTiles, type TileForm, toTile, toTileForm } from './editorial-tiles'
 import { Panel } from '@/components/dashboard/panel'
 import { useLoad } from '@/components/dashboard/use-load'
 import { SelectField, TextArea } from '@/components/form-fields'
@@ -109,6 +110,7 @@ export function CategoryForm({
   const [sizeGuide, setSizeGuide] = useState(category?.sizeGuide ?? '')
   const [seoTitle, setSeoTitle] = useState(category?.seoTitle ?? '')
   const [seoDescription, setSeoDescription] = useState(category?.seoDescription ?? '')
+  const [tiles, setTiles] = useState<TileForm[]>(() => (category?.editorial ?? []).map(toTileForm))
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<Problem | null>(null)
   const [done, setDone] = useState<string | null>(null)
@@ -124,6 +126,7 @@ export function CategoryForm({
     isActive,
     seoTitle: seoTitle.trim() || null,
     seoDescription: seoDescription.trim() || null,
+    editorial: tiles.map(toTile),
   }
   const base: CategoryFields | null = saved && {
     name: saved.name,
@@ -135,6 +138,7 @@ export function CategoryForm({
     isActive: saved.isActive,
     seoTitle: saved.seoTitle,
     seoDescription: saved.seoDescription,
+    editorial: saved.editorial ?? [],
   }
   const dirty =
     saved === null
@@ -166,6 +170,11 @@ export function CategoryForm({
     if (slug && !SLUG_PATTERN.test(slug))
       p.push('Web address: use lowercase letters, numbers and single hyphens only')
     if (imageUrl && !fields.imageAlt) p.push('Describe the picture (for screen readers and Google)')
+    // 38f photo tiles: the same rules the API checks with.
+    const tilesCheck = categoryEditorialSchema.safeParse(fields.editorial)
+    if (!tilesCheck.success)
+      for (const issue of tilesCheck.error.issues)
+        p.push(`Tile ${Number(issue.path[0]) + 1}: ${issue.message}`)
     return p
   }
 
@@ -323,6 +332,8 @@ export function CategoryForm({
           </div>
         </div>
       </section>
+
+      <EditorialTiles tiles={tiles} onChange={setTiles} />
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="mb-2 text-sm font-semibold">Google (optional)</legend>

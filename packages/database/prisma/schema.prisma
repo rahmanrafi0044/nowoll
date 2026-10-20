@@ -215,6 +215,9 @@ model Category {
   imageUrl       String?   @map("image_url")
   imageAlt       String?   @map("image_alt")
   sizeGuide      String?   @map("size_guide") @db.Text // shown on every PDP in this category
+  // 38f: up to 3 photo tiles shown among this category's products (checked by
+  // categoryEditorialSchema in @nowoll/validation before saving and showing).
+  editorial      Json      @default("[]")
   parentId       String?   @map("parent_id") @db.Uuid
   sortOrder      Int       @default(0) @map("sort_order")
   isActive       Boolean   @default(true) @map("is_active")

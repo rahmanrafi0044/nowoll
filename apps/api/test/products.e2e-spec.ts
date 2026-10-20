@@ -218,7 +218,60 @@ describe('GET /products/facets', () => {
       sizes: ['M'],
       colors: [{ color: 'Blue', colorHex: null }],
       price: { min: '1499.5', max: '1499.5' },
+      counts: { sizes: { M: 1 }, colors: { Blue: 1 } },
+      fabrics: [],
     })
+  })
+
+  it('38f: counts PRODUCTS per size/colour and lists fabrics; the list filters by fabric', async () => {
+    const c = await makeCategory()
+    // M in two colours is still ONE product with an M.
+    await makeProduct({
+      categoryId: c.id,
+      fabric: 'Lawn',
+      variants: [
+        { size: 'M', color: 'Blue' },
+        { size: 'M', color: 'Red' },
+        { size: 'L', color: 'Blue' },
+      ],
+    })
+    await makeProduct({
+      categoryId: c.id,
+      fabric: 'Lawn',
+      variants: [{ size: 'M', color: 'Blue' }],
+    })
+    await makeProduct({
+      categoryId: c.id,
+      fabric: 'Chiffon',
+      variants: [{ size: 'S', color: 'Red' }],
+    })
+    // Not counted: a draft, and a size that is switched off.
+    await makeProduct({ categoryId: c.id, fabric: 'Silk', status: 'DRAFT' })
+    await makeProduct({
+      categoryId: c.id,
+      variants: [
+        { size: 'XL', color: 'Green', isActive: false },
+        { size: 'S', color: 'Green' },
+      ],
+    })
+
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/products/facets?category=${c.slug}`)
+      .expect(200)
+    expect(res.body.data.counts).toEqual({
+      sizes: { M: 2, L: 1, S: 2 },
+      colors: { Blue: 2, Red: 2, Green: 1 },
+    })
+    expect(res.body.data.fabrics).toEqual([
+      { fabric: 'Chiffon', count: 1 },
+      { fabric: 'Lawn', count: 2 },
+    ])
+
+    const lawn = await request(app.getHttpServer())
+      .get(`/api/v1/products?category=${c.slug}&fabric=lawn`)
+      .expect(200)
+    expect(lawn.body.data.total).toBe(2)
+    expect(lawn.body.data.items.every((p: { fabric: string }) => p.fabric === 'Lawn')).toBe(true)
   })
 
   it('rejects unknown query parameters', async () => {

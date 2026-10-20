@@ -134,6 +134,8 @@ export async function seedLaunchCatalogue(): Promise<void> {
 
     // "Women" — the menu's top item with a drop-down of the four categories.
     await photo('women.jpg', '#9caf88', 1200, 1500, productGrain)
+    await photo('tile-wide.jpg', '#a4532f', 2400, 1200, heroGrain)
+    await photo('tile.jpg', '#e3b7b0', 1200, 1500, productGrain)
     const women = await db.category.create({
       data: {
         name: 'Women',
@@ -145,6 +147,33 @@ export async function seedLaunchCatalogue(): Promise<void> {
     })
     for (const [c, cat] of CATEGORIES.entries()) {
       await photo(`${cat.slug}.jpg`, cat.colors[1][1], 1200, 1500, productGrain)
+      // 38f photo tiles: a wide one in the first category, a normal one in the second.
+      const editorial =
+        c === 0
+          ? [
+              {
+                imageUrl: '/perf/tile-wide.jpg',
+                imageAlt: 'Models in lawn three-pieces in a sunlit courtyard',
+                heading: 'The Eid edit',
+                text: 'Soft lawn in festive colours, made for long days.',
+                href: `/shop/${cat.slug}`,
+                position: 4,
+                wide: true,
+              },
+            ]
+          : c === 1
+            ? [
+                {
+                  imageUrl: '/perf/tile.jpg',
+                  imageAlt: 'A model in a blush cotton kurti',
+                  heading: 'Everyday kurtis',
+                  text: null,
+                  href: null,
+                  position: 6,
+                  wide: false,
+                },
+              ]
+            : []
       const category = await db.category.create({
         data: {
           name: cat.name,
@@ -153,6 +182,7 @@ export async function seedLaunchCatalogue(): Promise<void> {
           parentId: women.id,
           imageUrl: `/perf/${cat.slug}.jpg`,
           imageAlt: cat.name,
+          editorial,
         },
       })
       for (let i = 0; i < PER_CATEGORY; i++) {

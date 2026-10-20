@@ -85,6 +85,13 @@ export class ListProductsQuery {
   @MaxLength(30)
   tag?: string
 
+  /** 38f: products of this fabric only ("Lawn"), any letter case. */
+  @Trim()
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  fabric?: string
+
   /** Defaults to "relevance" when searching, otherwise "newest". */
   @IsOptional()
   @IsIn(PRODUCT_SORTS)

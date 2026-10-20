@@ -83,6 +83,10 @@ export interface ProductFacets {
   sizes: string[]
   colors: { color: string; colorHex: string | null }[]
   price: { min: Prisma.Decimal; max: Prisma.Decimal } | null
+  /** 38f: how many PRODUCTS have each size / colour ("M (12)"). */
+  counts: { sizes: Record<string, number>; colors: Record<string, number> }
+  /** 38f: the fabrics in this listing, with how many products each. */
+  fabrics: { fabric: string; count: number }[]
 }
 
 // Shared "include" for loading what a card or detail page needs in ONE query.
@@ -134,6 +138,8 @@ export class ProductsService {
       ...(ranks && { id: { in: [...ranks.keys()] } }),
       ...(query.featured !== undefined && { isFeatured: query.featured }),
       ...(query.tag && { tags: { has: query.tag } }),
+      // 38f: the fabric filter ("Lawn"), as the admin typed it, any letter case.
+      ...(query.fabric && { fabric: { equals: query.fabric, mode: 'insensitive' } }),
       ...((query.minPrice !== undefined || query.maxPrice !== undefined) && {
         // Filters on the "from" price (decision #6)
         basePrice: {
@@ -206,7 +212,13 @@ export class ProductsService {
    * themselves, so choosing "M" doesn't make the other sizes disappear.
    */
   async facets(query: { category?: string; q?: string }): Promise<ProductFacets> {
-    const empty: ProductFacets = { sizes: [], colors: [], price: null }
+    const empty: ProductFacets = {
+      sizes: [],
+      colors: [],
+      price: null,
+      counts: { sizes: {}, colors: {} },
+      fabrics: [],
+    }
     const visibleCategoryIds = query.category
       ? await this.categories.visibleSubtreeIds(query.category)
       : [...(await this.categories.visibleCategoryIds())]
@@ -220,6 +232,29 @@ export class ProductsService {
       categoryId: { in: visibleCategoryIds },
       ...(ranks && { id: { in: [...ranks.keys()] } }),
     }
+    // 38f counts: one grouped query each, counting PRODUCTS (a product with
+    // "M" in three colours is one "M"). Values are SQL parameters, never pasted.
+    const scope = Prisma.sql`p.status = 'ACTIVE' AND p.deleted_at IS NULL
+      AND p.category_id = ANY(${visibleCategoryIds}::uuid[])
+      ${ranks ? Prisma.sql`AND p.id = ANY(${[...ranks.keys()]}::uuid[])` : Prisma.empty}`
+    const live = Prisma.sql`v.is_active AND v.deleted_at IS NULL`
+    const [sizeCounts, colorCounts, fabricCounts] = await Promise.all([
+      this.prisma.$queryRaw<{ key: string; n: number }[]>`
+        SELECT v.size AS key, count(DISTINCT v.product_id)::int AS n
+        FROM product_variants v JOIN products p ON p.id = v.product_id
+        WHERE ${live} AND ${scope} GROUP BY v.size`,
+      this.prisma.$queryRaw<{ key: string; n: number }[]>`
+        SELECT v.color AS key, count(DISTINCT v.product_id)::int AS n
+        FROM product_variants v JOIN products p ON p.id = v.product_id
+        WHERE ${live} AND ${scope} GROUP BY v.color`,
+      this.prisma.$queryRaw<{ key: string; n: number }[]>`
+        SELECT p.fabric AS key, count(*)::int AS n FROM products p
+        WHERE ${scope} AND p.fabric IS NOT NULL AND btrim(p.fabric) <> ''
+        GROUP BY p.fabric ORDER BY p.fabric`,
+    ])
+    const toRecord = (rows: { key: string; n: number }[]) =>
+      Object.fromEntries(rows.map((r) => [r.key, r.n]))
+
     const [variants, price] = await Promise.all([
       this.prisma.productVariant.findMany({
         where: { ...LIVE_VARIANT, product: productWhere },
@@ -240,6 +275,8 @@ export class ProductsService {
         price._min.basePrice && price._max.basePrice
           ? { min: price._min.basePrice, max: price._max.basePrice }
           : null,
+      counts: { sizes: toRecord(sizeCounts), colors: toRecord(colorCounts) },
+      fabrics: fabricCounts.map((r) => ({ fabric: r.key, count: r.n })),
     }
   }
 
