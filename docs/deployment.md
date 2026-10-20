@@ -18,7 +18,7 @@ photos are Supabase (one project each).
 | `.github/workflows/promote.yml` | **Promote to production**: the one-click button |
 | `.github/workflows/deploy-to.yml` | the deploy steps both of them use |
 | `.github/workflows/docker-build.yml` | on PRs that touch Docker files: build the images, check compose/Nginx/deploy.sh |
-| `.github/workflows/db-tasks.yml` | **Database tasks**: migrate, seed, grant / revoke admin, reset 2FA, for production or staging (buttons) |
+| `.github/workflows/db-tasks.yml` | **Database tasks**: migrate, seed, launch-check (read-only, docs/launch-checklist.md), grant / revoke admin, reset 2FA, for production or staging (buttons) |
 | `infrastructure/preview/` | the **$0 trial** on Rafi's PC through a Cloudflare Tunnel (step 48b, `docs/preview.md`) |
 | `.env.production.example` | every setting the server needs, with **no real values** |
 | `.dockerignore`, `web.Dockerfile.dockerignore` | keep `.env` files, keys, certificates, git history and tests out of every image |

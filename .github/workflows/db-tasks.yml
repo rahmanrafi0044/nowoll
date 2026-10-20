@@ -7,6 +7,10 @@
 #   seed          the starting data: settings, shipping zones, starter pages,
 #                 content blocks. Safe to run again: it never overwrites what
 #                 was changed in the admin panel (packages/database/prisma/seed.ts)
+#   launch-check  READ-ONLY: the database half of the launch check (step 54,
+#                 docs/launch-checklist.md) — migrations applied, RLS on every
+#                 table, photo bucket, products with photos + alt text, no demo
+#                 products, an Admin exists. Prints counts only, changes nothing.
 #   grant-admin / grant-staff / revoke / reset-2fa
 #                 who may use the admin panel (apps/api/scripts/admin-access.ts).
 #                 The account must exist first: sign up on the shop.
@@ -29,7 +33,7 @@ on:
       task:
         description: What to do
         type: choice
-        options: [migrate, seed, grant-admin, grant-staff, revoke, reset-2fa]
+        options: [migrate, seed, launch-check, grant-admin, grant-staff, revoke, reset-2fa]
         required: true
       email:
         description: 'The account (for grant / revoke / reset-2fa only)'
@@ -73,7 +77,7 @@ jobs:
       - name: Install
         run: |
           case "$TASK" in
-            migrate | seed) pnpm install --frozen-lockfile --filter "@nowoll/database..." ;;
+            migrate | seed | launch-check) pnpm install --frozen-lockfile --filter "@nowoll/database..." ;;
             # The admin command imports the shared packages (database, types…),
             # which must be BUILT first — a fresh checkout has no dist/ folders.
             *) pnpm install --frozen-lockfile --filter "@nowoll/api..." \
@@ -85,6 +89,7 @@ jobs:
           case "$TASK" in
             migrate) cd packages/database && pnpm exec prisma migrate deploy ;;
             seed) cd packages/database && pnpm exec prisma db seed ;;
+            launch-check) pnpm --filter @nowoll/database launch-check ;;
             grant-admin) pnpm --filter @nowoll/api admin grant "$EMAIL" ADMIN ;;
             grant-staff) pnpm --filter @nowoll/api admin grant "$EMAIL" STAFF ;;
             revoke) pnpm --filter @nowoll/api admin revoke "$EMAIL" ;;

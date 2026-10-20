@@ -377,6 +377,7 @@ Everything the admin panel can and can't change — with the safety rules — is
 ## Launch Checklist
 
 Run through every item before going live:
+*(Status of each item, how it's proven and who does it: `docs/launch-checklist.md` — step 54.)*
 
 **DNS & SSL**
 - [ ] DNS at Cloudflare: `nowoll.com`, `www`, `admin`, `api` (+ the three `staging` names) → Hostinger VPS
