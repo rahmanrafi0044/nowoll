@@ -48,6 +48,7 @@ export const SECTION_LABEL: Record<Kind, string> = {
   split: 'Photo and text',
   circles: 'Round photo links',
   story: 'Brand story',
+  lookbook: 'Lookbook (“Spotted”)',
 }
 
 export const ICON_LABEL: Record<TrustBadgeIcon, string> = {
@@ -101,6 +102,14 @@ export function newSection(kind: Kind): Section {
       }
     case 'circles':
       return { ...base, type: 'circles', title: null, items: [emptyCircle(), emptyCircle()] }
+    case 'lookbook':
+      return {
+        ...base,
+        type: 'lookbook',
+        title: null,
+        text: null,
+        items: [emptyShot(), emptyShot(), emptyShot()],
+      }
     case 'story':
       return {
         ...base,
@@ -122,6 +131,13 @@ const emptyCircle = (): Of<'circles'>['items'][number] => ({
   imageAlt: '',
   label: '',
   href: '',
+})
+
+const emptyShot = (): Of<'lookbook'>['items'][number] => ({
+  imageUrl: '',
+  imageAlt: '',
+  caption: null,
+  href: null,
 })
 
 /** Moves item i up (-1) or down (+1). */
@@ -662,6 +678,112 @@ function SectionFields({
               onClick={() => onChange({ ...s, items: [...s.items, emptyCircle()] })}
             >
               Add a circle
+            </Button>
+          )}
+        </div>
+      )
+    case 'lookbook':
+      return (
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">
+            Photos of people wearing your clothes. Use a photo only with that person’s permission
+            (and credit them in the caption if they like, e.g. “@nusrat in the Mehr three-piece”).
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Title (optional)"
+              value={s.title ?? ''}
+              maxLength={60}
+              placeholder="Spotted in Nowoll"
+              onChange={(e) => onChange({ ...s, title: e.target.value || null })}
+            />
+            <Input
+              label="Text under the title (optional)"
+              value={s.text ?? ''}
+              maxLength={200}
+              placeholder="Tag us on Instagram to be featured."
+              onChange={(e) => onChange({ ...s, text: e.target.value || null })}
+            />
+          </div>
+          {s.items.map((item, j) => {
+            const set = (patch: Partial<typeof item>) =>
+              onChange({ ...s, items: s.items.map((x, k) => (k === j ? { ...x, ...patch } : x)) })
+            return (
+              <div key={j} className="flex flex-col gap-3 rounded-control border border-border p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="mr-auto text-sm font-medium">Photo {j + 1}</span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={j === 0}
+                    aria-label={`Move photo ${j + 1} earlier`}
+                    onClick={() => onChange({ ...s, items: move(s.items, j, -1) })}
+                  >
+                    ↑
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={j === s.items.length - 1}
+                    aria-label={`Move photo ${j + 1} later`}
+                    onClick={() => onChange({ ...s, items: move(s.items, j, 1) })}
+                  >
+                    ↓
+                  </Button>
+                  {s.items.length > 3 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onChange({ ...s, items: s.items.filter((_, k) => k !== j) })}
+                    >
+                      Remove photo {j + 1}
+                    </Button>
+                  )}
+                </div>
+                <ImageField
+                  label={`Lookbook photo ${j + 1}`}
+                  url={item.imageUrl || null}
+                  required
+                  hint="Tall photos look best (4:5, e.g. 1200 × 1500)."
+                  onChange={(url) =>
+                    edit('lookbook', (cur) => ({
+                      ...cur,
+                      items: cur.items.map((x, k) => (k === j ? { ...x, imageUrl: url ?? '' } : x)),
+                    }))
+                  }
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input
+                    label={`Describe photo ${j + 1}`}
+                    value={item.imageAlt}
+                    maxLength={200}
+                    placeholder="A woman in a sage lawn three-piece"
+                    onChange={(e) => set({ imageAlt: e.target.value })}
+                  />
+                  <Input
+                    label={`Caption ${j + 1} (optional)`}
+                    value={item.caption ?? ''}
+                    maxLength={60}
+                    placeholder="@nusrat in the Mehr three-piece"
+                    onChange={(e) => set({ caption: e.target.value || null })}
+                  />
+                </div>
+                <LinkInput
+                  label={`Link ${j + 1} (optional)`}
+                  value={item.href ?? ''}
+                  onChange={(v) => set({ href: v.trim() || null })}
+                />
+              </div>
+            )
+          })}
+          {s.items.length < 12 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="self-start"
+              onClick={() => onChange({ ...s, items: [...s.items, emptyShot()] })}
+            >
+              Add a photo
             </Button>
           )}
         </div>

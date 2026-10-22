@@ -443,6 +443,47 @@ describe('homepage', () => {
     )
   })
 
+  it('38f lookbook: 3 to 12 photos, reorderable; a photo upload keeps typed captions', async () => {
+    load({ sections: [] })
+    mocked.uploadContentImage.mockResolvedValue(
+      ok({ url: 'https://cdn.example/content/look.webp', width: 1200, height: 1500 }),
+    )
+    render(<HomepageEditor />)
+    await screen.findByRole('region', { name: 'Sections' })
+    fireEvent.change(sections().getByLabelText('Add a section'), { target: { value: 'lookbook' } })
+    fireEvent.click(sections().getByRole('button', { name: 'Add' }))
+    expect(sections().queryByRole('button', { name: /Remove photo/ })).toBeNull() // 3 = the minimum
+    fireEvent.change(sections().getByLabelText('Caption 1 (optional)'), {
+      target: { value: '@nusrat' },
+    })
+    fireEvent.change(sections().getByLabelText('Caption 2 (optional)'), {
+      target: { value: '@rima' },
+    })
+    fireEvent.click(sections().getByRole('button', { name: 'Move photo 2 earlier' }))
+    const file = new File([new Uint8Array(10)], 'look.png', { type: 'image/png' })
+    fireEvent.change(sections().getByLabelText(/Lookbook photo 1/), { target: { files: [file] } })
+    await waitFor(() => expect(mocked.uploadContentImage).toHaveBeenCalled())
+    for (let n = 4; n <= 12; n++)
+      fireEvent.click(sections().getByRole('button', { name: 'Add a photo' }))
+    expect(sections().queryByRole('button', { name: 'Add a photo' })).toBeNull()
+    fireEvent.click(sections().getByRole('button', { name: 'Save sections' }))
+    await waitFor(() => {
+      const look = savedLayout().sections[0] as unknown as {
+        type: string
+        items: { caption: string | null; imageUrl: string }[]
+      }
+      expect(look.type).toBe('lookbook')
+      expect(look.items).toHaveLength(12)
+      expect(look.items.slice(0, 2)).toEqual([
+        expect.objectContaining({
+          caption: '@rima',
+          imageUrl: 'https://cdn.example/content/look.webp',
+        }),
+        expect.objectContaining({ caption: '@nusrat', imageUrl: '' }),
+      ])
+    })
+  })
+
   it('38f hero: extra slides are checked and saved; at most 3', async () => {
     load()
     render(<HomepageEditor />)

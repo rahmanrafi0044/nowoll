@@ -272,7 +272,7 @@ describe('imageUrlSchema (38f)', () => {
   })
 })
 
-describe('38f homepage sections: split, circles, story', () => {
+describe('38f homepage sections: split, circles, story, lookbook', () => {
   const photo = { imageUrl: '/perf/a.jpg', imageAlt: 'A model in lawn' }
   const parse = (section: object) =>
     homepageSectionSchema.safeParse({ id: 's1', visible: true, ...section })
@@ -291,6 +291,25 @@ describe('38f homepage sections: split, circles, story', () => {
     expect(parse({ type: 'circles', items: Array(7).fill(item) }).success).toBe(false)
     expect(
       parse({ type: 'circles', items: [item, { ...item, href: '//evil.example' }] }).success,
+    ).toBe(false)
+  })
+
+  it('lookbook: 3 to 12 photos, each described; caption and link optional', () => {
+    const shot = { imageUrl: '/perf/a.jpg', imageAlt: 'Nusrat in the Mehr three-piece' }
+    const r = parse({ type: 'lookbook', items: [shot, shot, shot] })
+    expect(r.success && r.data).toMatchObject({
+      title: null,
+      text: null,
+      items: [{ caption: null, href: null }, {}, {}],
+    })
+    expect(parse({ type: 'lookbook', items: [shot, shot] }).success).toBe(false)
+    expect(parse({ type: 'lookbook', items: Array(13).fill(shot) }).success).toBe(false)
+    expect(
+      parse({ type: 'lookbook', items: [shot, shot, { ...shot, imageAlt: '' }] }).success,
+    ).toBe(false)
+    expect(
+      parse({ type: 'lookbook', items: [shot, shot, { ...shot, href: 'javascript:alert(1)' }] })
+        .success,
     ).toBe(false)
   })
 

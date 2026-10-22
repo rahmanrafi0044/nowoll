@@ -162,6 +162,26 @@ export const homepageSectionSchema = z.discriminatedUnion('type', [
     ctaLabel: z.string().trim().max(30).nullable().default(null),
     href: linkSchema.nullable().default(null),
   }),
+  // "Spotted": photos of customers (or well-known people) wearing the brand,
+  // each optionally linking to what they wear. Photos need the person's OK —
+  // see the hint in the admin editor.
+  z.object({
+    ...sectionBase,
+    type: z.literal('lookbook'),
+    title: optionalTitle,
+    text: z.string().trim().max(200).nullable().default(null),
+    items: z
+      .array(
+        z.object({
+          imageUrl: imageUrlSchema,
+          imageAlt: z.string().trim().min(1, 'Describe the photo').max(200),
+          caption: z.string().trim().max(60).nullable().default(null),
+          href: linkSchema.nullable().default(null),
+        }),
+      )
+      .min(3, 'At least 3 photos')
+      .max(12, 'At most 12 photos'),
+  }),
 ])
 
 /** What the admin SAVES: every section must be valid, at most 20, ids unique. */

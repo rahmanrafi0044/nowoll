@@ -187,6 +187,25 @@ export async function seedLaunchCatalogue(): Promise<void> {
           imageSide: 'left',
         },
         { id: 'featured', type: 'featured', visible: true, title: 'Loved this week' },
+        // 38f "Spotted": stand-in shots (the product photos) — real ones need the person's OK.
+        {
+          id: 'spotted',
+          type: 'lookbook',
+          visible: true,
+          title: 'Spotted in Nowoll',
+          text: 'Tag us on Instagram to be featured.',
+          items: [
+            ['perf-kurtis-3', '@ayesha in the kurti she wore to work'],
+            ['perf-festive-2', '@nabila at her sister’s holud'],
+            ['perf-three-piece-5', '@rima on a Friday out'],
+            ['perf-co-ords-4', '@tasnim, weekend in Sylhet'],
+          ].map(([slug, caption]) => ({
+            imageUrl: `/perf/${slug}-1.jpg`,
+            imageAlt: `A customer wearing ${slug!.replace('perf-', '').replace(/-\d+$/, '')}`,
+            caption,
+            href: `/products/${slug}`,
+          })),
+        },
         {
           id: 'story',
           type: 'story',

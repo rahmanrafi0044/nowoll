@@ -10,6 +10,7 @@ import type { Metadata } from 'next'
 import { BrandStory } from '@/components/home/brand-story'
 import { CategoryGrid } from '@/components/home/category-grid'
 import { CircleLinks } from '@/components/home/circle-links'
+import { LookbookSection } from '@/components/home/lookbook'
 import { Hero } from '@/components/home/hero'
 import { NewsletterSection } from '@/components/home/newsletter-section'
 import { ProductSection } from '@/components/home/product-section'
@@ -141,6 +142,8 @@ export default async function HomePage() {
             return <CircleLinks key={s.id} section={s} />
           case 'story':
             return <BrandStory key={s.id} section={s} />
+          case 'lookbook':
+            return <LookbookSection key={s.id} section={s} />
         }
       })}
     </>

@@ -3,6 +3,7 @@ import { AnnouncementBar } from './announcement-bar'
 import { BrandStory } from './brand-story'
 import { CategoryGrid } from './category-grid'
 import { CircleLinks } from './circle-links'
+import { LookbookSection } from './lookbook'
 import { Hero } from './hero'
 import { ProductSection } from './product-section'
 import { SplitBanner } from './split-banner'
@@ -185,5 +186,42 @@ describe('38f sections: split banner, circles, brand story', () => {
     expect(screen.getByRole('heading', { name: 'Always new' })).toBeInTheDocument()
     expect(screen.getByText('Made in Dhaka.')).toBeInTheDocument()
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+})
+
+describe('38f lookbook ("Spotted")', () => {
+  const shot = (n: number, href: string | null, caption: string | null) => ({
+    imageUrl: `/perf/look-${n}.jpg`,
+    imageAlt: `Customer ${n} in a kurti`,
+    caption,
+    href,
+  })
+
+  it('a photo with a link is a link (named by its photo and caption); without, a captioned figure', () => {
+    render(
+      <LookbookSection
+        section={{
+          id: 'look',
+          visible: true,
+          type: 'lookbook',
+          title: null,
+          text: 'Tag us to be featured.',
+          items: [
+            shot(1, '/products/mehr', '@nusrat in Mehr'),
+            shot(2, null, '@rima at Eid'),
+            shot(3, null, null),
+          ],
+        }}
+      />,
+    )
+    expect(screen.getByRole('heading', { name: 'Spotted in Nowoll' })).toBeInTheDocument()
+    expect(screen.getByText('Tag us to be featured.')).toBeInTheDocument()
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByRole('link', { name: /@nusrat in Mehr/ })).toHaveAttribute(
+      'href',
+      '/products/mehr',
+    )
+    expect(screen.getAllByRole('figure')[0]).toHaveTextContent('@rima at Eid')
+    expect(screen.getAllByRole('img')).toHaveLength(3)
   })
 })
