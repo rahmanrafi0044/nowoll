@@ -1,4 +1,4 @@
-import { SLUG_MAX_LENGTH, SLUG_PATTERN } from '@nowoll/validation'
+import { imageUrlSchema, SLUG_MAX_LENGTH, SLUG_PATTERN } from '@nowoll/validation'
 import {
   ArrayMaxSize,
   IsArray,
@@ -7,12 +7,12 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUrl,
   IsUUID,
   Matches,
   Max,
   MaxLength,
   Min,
+  ValidateBy,
 } from 'class-validator'
 import { Trim, TrimOrNull } from '../../common/validation/transforms.js'
 
@@ -44,10 +44,15 @@ export class CreateCategoryDto {
 
   @TrimOrNull()
   @IsOptional()
-  @IsUrl(
-    { protocols: ['https'], require_protocol: true },
-    { message: 'imageUrl must be an https URL' },
-  )
+  // The same photo rule as the homepage and photo tiles (imageUrlSchema): an
+  // uploaded photo (https://) or a file on this shop itself ("/perf/…", 38f).
+  @ValidateBy({
+    name: 'isImageUrl',
+    validator: {
+      validate: (v: unknown) => imageUrlSchema.safeParse(v).success,
+      defaultMessage: () => 'imageUrl: upload a photo (an https:// address or a file on this shop)',
+    },
+  })
   imageUrl?: string | null
 
   @TrimOrNull()

@@ -76,12 +76,23 @@ describe('categories API — as admin', () => {
     ['blank name', { name: '   ' }],
     ['bad slug', { name: 'X', slug: 'Not A Slug' }],
     ['non-https image', { name: 'X', imageUrl: 'http://example.com/a.jpg' }],
+    ['image on another site via //', { name: 'X', imageUrl: '//evil.example/a.jpg' }],
     ['bad parentId', { name: 'X', parentId: 'not-a-uuid' }],
     ['negative sortOrder', { name: 'X', sortOrder: -1 }],
     ['unknown field', { name: 'X', deletedAt: null }],
   ])('rejects invalid input: %s', async (_label, payload) => {
     const res = await http().post('/api/v1/categories').send(payload).expect(400)
     expect(res.body).toMatchObject({ success: false, error: 'VALIDATION_ERROR' })
+  })
+
+  it('38f: a photo can also be a file on the shop itself (the same rule as the homepage)', async () => {
+    const { body } = await http()
+      .post('/api/v1/categories')
+      .send({ name: 'Women', imageUrl: '/perf/women.jpg', imageAlt: 'Women' })
+      .expect(201)
+    expect(body.data.imageUrl).toBe('/perf/women.jpg')
+    // …so an existing category with such a photo can be saved again (it once failed).
+    await http().patch(`/api/v1/categories/${body.data.id}`).send({ name: 'Woman' }).expect(200)
   })
 
   it('38f: photo tiles are checked, saved and shown on the category', async () => {
