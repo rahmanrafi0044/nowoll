@@ -24,7 +24,7 @@ export function FilterDrawer({
         type="button"
         onClick={() => ref.current?.showModal()}
         aria-haspopup="dialog"
-        className="inline-flex h-11 items-center gap-2 border border-foreground px-5 text-sm font-medium tracking-[0.08em] uppercase hover:bg-foreground hover:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        className="inline-flex h-11 items-center gap-2 border border-foreground px-5 text-sm font-medium hover:bg-foreground hover:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
         <svg
           aria-hidden="true"

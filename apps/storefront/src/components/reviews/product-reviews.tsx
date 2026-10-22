@@ -42,12 +42,8 @@ export function ProductReviews({
   }
 
   return (
-    <section
-      id="reviews"
-      aria-labelledby="reviews-title"
-      className="scroll-mt-24 border-t border-border pt-6"
-    >
-      <h2 id="reviews-title" className="text-lg font-semibold">
+    <section id="reviews" aria-labelledby="reviews-title" className="scroll-mt-24 pt-2">
+      <h2 id="reviews-title" className="text-lg">
         Reviews{' '}
         {summary.count > 0 && (
           <span className="font-normal text-muted-foreground">({summary.count})</span>

@@ -56,7 +56,7 @@ export function ProductCard({
         {(product.fabric || onlyColor) && (
           <p className="text-sm text-muted-foreground">
             {onlyColor && <>In {onlyColor}</>}
-            {product.fabric && onlyColor && ' · '}
+            {product.fabric && onlyColor && ', '}
             {product.fabric && <em className="text-accent">{product.fabric}</em>}
           </p>
         )}
@@ -74,7 +74,7 @@ export function ProductCard({
           )}
         </p>
         {product.badges?.readyToShip && product.inStock && (
-          <p className="text-xs tracking-[0.08em] text-accent uppercase">Ready to ship</p>
+          <p className="text-xs text-accent">Ready to ship</p>
         )}
         {product.colors.length > 1 && (
           <ul
@@ -125,10 +125,7 @@ function CardBadges({ product, discount }: { product: ProductCardView; discount:
   return (
     <ul className="pointer-events-none absolute top-2 left-2 flex flex-col items-start gap-1">
       {badges.slice(0, 2).map((b) => (
-        <li
-          key={b.label}
-          className={`px-2 py-0.5 text-[11px] font-medium tracking-[0.1em] uppercase ${tone[b.tone]}`}
-        >
+        <li key={b.label} className={`px-2 py-0.5 text-xs ${tone[b.tone]}`}>
           {b.label}
         </li>
       ))}

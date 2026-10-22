@@ -1,7 +1,6 @@
 import type { EditorialTileView } from '@nowoll/types'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowRightIcon } from '../icons'
 
 /**
  * A photo tile among a category's products (Admin → Categories, design refresh
@@ -34,8 +33,8 @@ export function EditorialTile({
         <span className="font-display text-2xl leading-tight md:text-3xl">{tile.heading}</span>
         {tile.text && <span className="max-w-sm text-sm text-white/90">{tile.text}</span>}
         {tile.href && (
-          <span className="mt-1 inline-flex items-center gap-2 text-xs font-medium tracking-[0.12em] uppercase">
-            Shop now <ArrowRightIcon />
+          <span className="mt-1 inline-flex items-center gap-2 text-xs font-medium">
+            <span className="underline underline-offset-4">Shop now</span>
           </span>
         )}
       </span>

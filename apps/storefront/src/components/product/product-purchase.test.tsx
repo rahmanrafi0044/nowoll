@@ -5,7 +5,14 @@ import { useCartStore } from '@/stores/cart-store'
 import { useUiStore } from '@/stores/ui-store'
 import { ProductPurchase } from './product-purchase'
 
-function Harness(props: { product?: ReturnType<typeof productDetail>; sticky?: boolean }) {
+const push = vi.fn()
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+
+function Harness(props: {
+  product?: ReturnType<typeof productDetail>
+  sticky?: boolean
+  whatsapp?: string
+}) {
   const product = props.product ?? productDetail()
   const [color, setColor] = useState<string | null>('White')
   return (
@@ -14,12 +21,42 @@ function Harness(props: { product?: ReturnType<typeof productDetail>; sticky?: b
       color={color}
       onColorChange={setColor}
       sticky={props.sticky}
+      whatsapp={props.whatsapp}
+      pageUrl="https://nowoll.com/products/oxford-shirt"
     />
   )
 }
 
 describe('<ProductPurchase />', () => {
-  beforeEach(() => useCartStore.getState().clear())
+  beforeEach(() => {
+    useCartStore.getState().clear()
+    push.mockClear()
+  })
+
+  it('38f: "Buy now" adds the chosen size to the bag and goes straight to checkout', () => {
+    render(<Harness />)
+    expect(screen.getByRole('button', { name: 'Buy now' })).toBeDisabled() // no size yet
+    fireEvent.click(screen.getByRole('radio', { name: 'M' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Buy now' }))
+    expect(useCartStore.getState().items).toEqual([
+      expect.objectContaining({ variantId: 'w-m', quantity: 1 }),
+    ])
+    expect(push).toHaveBeenCalledWith('/checkout')
+  })
+
+  it('38f: "Ask on WhatsApp" opens a chat with the store, the product named in it', () => {
+    const { unmount } = render(<Harness />)
+    expect(screen.queryByRole('link', { name: /WhatsApp/ })).not.toBeInTheDocument() // no number set
+    unmount()
+    render(<Harness whatsapp="+8801712345678" />)
+    const link = screen.getByRole('link', { name: 'Ask on WhatsApp' })
+    expect(link).toHaveAttribute('target', '_blank')
+    const href = new URL(link.getAttribute('href')!)
+    expect(href.origin + href.pathname).toBe('https://wa.me/8801712345678')
+    expect(href.searchParams.get('text')).toBe(
+      'Hi! A question about Oxford Shirt — https://nowoll.com/products/oxford-shirt',
+    )
+  })
 
   it('asks for a size before adding, and disables out-of-stock sizes', () => {
     render(<Harness />)

@@ -3,7 +3,9 @@
 import { addToCartEvent, newEventId } from '@nowoll/analytics'
 import type { ProductDetailView } from '@nowoll/types'
 import { Button } from '@nowoll/ui'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { whatsappLink } from '@nowoll/validation'
 import { discountPercent, formatBdt } from '@/lib/format'
 import { colorOptions, findVariant, sizeOptions } from '@/lib/variants'
 import { useCartStore } from '@/stores/cart-store'
@@ -24,6 +26,10 @@ interface Props {
   sticky?: boolean
   /** Shows a "Size guide" link next to the size picker. */
   sizeGuideHref?: string
+  /** 38f: the store's WhatsApp number (+880…, Admin → Settings) → "Ask on WhatsApp". */
+  whatsapp?: string
+  /** 38f: absolute address of this product page, put into the WhatsApp message. */
+  pageUrl?: string
 }
 
 export function ProductPurchase({
@@ -33,12 +39,15 @@ export function ProductPurchase({
   initialSize = null,
   sticky = false,
   sizeGuideHref,
+  whatsapp,
+  pageUrl,
 }: Props) {
   const [size, setSize] = useState<string | null>(initialSize)
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
   const addItem = useCartStore((s) => s.addItem)
   const openCart = useUiStore((s) => s.openCart)
+  const router = useRouter()
 
   const colors = colorOptions(product.variants)
   const sizes = color ? sizeOptions(product.variants, color) : []
@@ -110,6 +119,20 @@ export function ProductPurchase({
     openCart() // decision #4: show the bag with a Checkout button right away
   }
 
+  // 38f "Buy now": the same as Add to bag, then straight to checkout. (The bag
+  // is saved in this browser at once, so the checkout page finds it.)
+  function buyNow() {
+    if (!variant || blocker) return
+    addToBag()
+    router.push('/checkout')
+  }
+
+  const whatsappHref = whatsapp
+    ? `${whatsappLink(whatsapp)}?text=${encodeURIComponent(
+        `Hi! A question about ${product.name}${pageUrl ? ` — ${pageUrl}` : ''}`,
+      )}`
+    : null
+
   const addButton = (
     <Button size="lg" fullWidth onClick={addToBag} disabled={blocker !== null}>
       {blocker ?? (added ? 'Added ✓' : 'Add to bag')}
@@ -134,7 +157,7 @@ export function ProductPurchase({
       {colors.length > 0 && (
         <fieldset>
           <legend className="text-sm font-medium">
-            Color: <span className="font-normal text-muted-foreground">{color}</span>
+            Colour: <span className="font-normal text-muted-foreground">{color}</span>
           </legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {colors.map((c) => (
@@ -166,7 +189,12 @@ export function ProductPurchase({
           <div className="flex items-baseline justify-between">
             <legend className="text-sm font-medium">Size</legend>
             {sizeGuideHref && (
-              <a href={sizeGuideHref} className="text-sm underline underline-offset-4">
+              <a
+                href={sizeGuideHref}
+                // The guide is a closed fold further down (38f): open it, then jump.
+                onClick={() => document.querySelector(sizeGuideHref)?.setAttribute('open', '')}
+                className="text-sm underline underline-offset-4"
+              >
                 Size guide
               </a>
             )}
@@ -217,7 +245,34 @@ export function ProductPurchase({
         <div className="flex-1">{addButton}</div>
       </div>
 
-      <WishlistButton variantId={variant?.id ?? null} productSlug={product.slug} />
+      {anyInStock && (
+        <Button
+          size="lg"
+          variant="secondary"
+          fullWidth
+          onClick={buyNow}
+          disabled={blocker !== null}
+        >
+          Buy now
+        </Button>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <WishlistButton variantId={variant?.id ?? null} productSlug={product.slug} />
+        {whatsappHref && (
+          <a
+            href={whatsappHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm underline underline-offset-4"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4" fill="currentColor">
+              <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-6c-.2-.1-1.4-.7-1.7-.8-.2-.1-.4-.1-.5.1l-.8 1c-.1.2-.3.2-.5.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.2.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.5-.4h-.5a.9.9 0 0 0-.7.3 2.8 2.8 0 0 0-.9 2.1 4.9 4.9 0 0 0 1 2.6 11.2 11.2 0 0 0 4.3 3.8c1.6.7 2.2.7 3 .6a2.6 2.6 0 0 0 1.7-1.2 2.1 2.1 0 0 0 .1-1.2c-.1-.1-.2-.2-.4-.3z" />
+            </svg>
+            Ask on WhatsApp
+          </a>
+        )}
+      </div>
 
       {/* Announced by screen readers when an item is added */}
       <p role="status" className="text-sm text-success">

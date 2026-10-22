@@ -118,6 +118,13 @@ export async function seedLaunchCatalogue(): Promise<void> {
 
   const db = createPrismaClient(E2E_DATABASE_URL)
   try {
+    // 38f: a sample WhatsApp number ("Ask on WhatsApp") and search suggestions.
+    for (const [key, value] of [
+      ['store_whatsapp', '+8801700000000'],
+      ['search_suggestions', 'Lawn, Three-piece, Kurti, Eid'],
+    ] as const)
+      await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
+
     await db.contentBlock.update({
       where: { key: 'homepage_hero' },
       data: {

@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { NavLink } from '@/lib/navigation'
-import { ArrowRightIcon, ChevronDownIcon } from '../icons'
+import { ChevronDownIcon } from '../icons'
 import { NavAnchor } from '../nav-link'
 
 /**
@@ -51,7 +51,7 @@ export function DesktopNav({ links }: { links: NavLink[] }) {
 
   return (
     <nav ref={navRef} aria-label="Main" className="hidden lg:block">
-      <ul className="flex items-center justify-center gap-8 text-[13px] font-medium tracking-[0.08em] uppercase">
+      <ul className="flex items-center justify-center gap-8 text-sm">
         {links.map((l) => {
           const hasPanel = l.children.length > 0
           const panelId = `${baseId}-${l.key}`
@@ -130,7 +130,6 @@ function MegaPanel({ link, onChoose }: { link: NavLink; onChoose: () => void }) 
           className="inline-flex items-center gap-2 border-b border-foreground pb-1 font-medium"
         >
           All {link.label}
-          <ArrowRightIcon />
         </Link>
       </div>
     </div>

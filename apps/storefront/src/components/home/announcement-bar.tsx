@@ -34,7 +34,7 @@ export function AnnouncementBar({
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
       onBlurCapture={() => setPaused(false)}
-      className="bg-foreground px-4 py-2 text-center text-xs tracking-[0.12em] text-surface uppercase"
+      className="bg-foreground px-4 py-2 text-center text-xs text-surface"
     >
       <p key={i} className="motion-safe:animate-[fade-in_0.6s_ease-out]">
         {m.href ? (

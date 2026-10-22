@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { productDetail } from '@/test-utils/fixtures'
 import { QuickView } from './quick-view'
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+
 describe('<QuickView />', () => {
   afterEach(() => vi.unstubAllGlobals())
 

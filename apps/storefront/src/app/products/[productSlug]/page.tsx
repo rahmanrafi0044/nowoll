@@ -12,6 +12,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
+import { ProductCard } from '@/components/product-card'
+import { Fold } from '@/components/product/fold'
 import { ProductInfoBox } from '@/components/product/product-info-box'
 import { ProductView } from '@/components/product/product-view'
 import { ProductReviews } from '@/components/reviews/product-reviews'
@@ -86,6 +88,14 @@ export default async function ProductPage({ params }: Props) {
     apiGet<ShippingRateView[]>('/shipping/rates'),
   ])
   const info = infoBlock ? productInfoSchema.safeParse(infoBlock.data) : null
+  // 38f "You may also like": others from the same category (cached 60 s like the rest).
+  const related = categorySlug
+    ? ((
+        await apiGet<Paginated<ProductCardView>>(`/products?category=${categorySlug}&pageSize=5`)
+      )?.items
+        .filter((p) => p.id !== product.id)
+        .slice(0, 4) ?? [])
+    : []
 
   return (
     // Extra bottom padding on phones so the sticky "Add to bag" bar never covers content.
@@ -121,11 +131,23 @@ export default async function ProductPage({ params }: Props) {
         product={product}
         sticky
         sizeGuideHref={sizeGuide ? '#size-guide' : undefined}
+        whatsapp={settings.store_whatsapp || undefined}
+        pageUrl={absoluteUrl(`/products/${product.slug}`)}
         header={
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">{product.name}</h1>
+          <div className="flex flex-col gap-2">
+            <h1 className="text-4xl leading-tight md:text-5xl">{product.name}</h1>
             {product.shortDescription && (
-              <p className="mt-2 text-muted-foreground">{product.shortDescription}</p>
+              <p className="text-muted-foreground">{product.shortDescription}</p>
+            )}
+            {(product.badges?.readyToShip || product.fabric) && (
+              <p className="text-sm text-accent">
+                {[
+                  product.fabric,
+                  product.badges?.readyToShip && product.inStock ? 'Ready to ship' : null,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              </p>
             )}
           </div>
         }
@@ -136,31 +158,46 @@ export default async function ProductPage({ params }: Props) {
             lines={productInfoLines(info.data, zones ?? [], settings)}
           />
         )}
-        {product.description && (
-          <section aria-labelledby="details" className="border-t border-border pt-6">
-            <h2 id="details" className="text-lg font-semibold">
-              Details
-            </h2>
-            {/* Plain text with line breaks kept — never rendered as HTML */}
-            <p className="mt-2 whitespace-pre-line text-muted-foreground">{product.description}</p>
-          </section>
-        )}
-        {sizeGuide && (
-          <section
-            id="size-guide"
-            aria-labelledby="size-guide-title"
-            className="scroll-mt-24 border-t border-border pt-6"
-          >
-            <h2 id="size-guide-title" className="text-lg font-semibold">
-              Size guide
-            </h2>
-            {/* Markdown since step 36b — a real table (Size | Chest | Length), written in
-                Admin → Categories with a live preview. Same safe renderer as the pages. */}
-            <Markdown className="mt-2 text-sm">{sizeGuide}</Markdown>
-          </section>
-        )}
+        {/* 38f: the details as folds — the first one open. */}
+        <div className="border-t border-border">
+          {product.description && (
+            <Fold title="Details" open>
+              {/* Plain text with line breaks kept — never rendered as HTML */}
+              <p className="whitespace-pre-line">{product.description}</p>
+              {product.fitNote && <p className="mt-3">{product.fitNote}</p>}
+            </Fold>
+          )}
+          {(product.fabric || product.care) && (
+            <Fold title="Fabric and care">
+              {product.fabric && <p>Fabric: {product.fabric}</p>}
+              {product.care && <p className="mt-2 whitespace-pre-line">{product.care}</p>}
+            </Fold>
+          )}
+          {sizeGuide && (
+            <Fold id="size-guide" title="Size guide">
+              {/* Markdown since step 36b — a real table (Size | Chest | Length), written in
+                  Admin → Categories with a live preview. Same safe renderer as the pages. */}
+              <Markdown className="text-sm">{sizeGuide}</Markdown>
+            </Fold>
+          )}
+        </div>
         <ProductReviews productId={product.id} initial={reviews} />
       </ProductView>
+
+      {related.length > 0 && (
+        <section aria-labelledby="related-title" className="mt-20" data-reveal>
+          <h2 id="related-title" className="text-3xl">
+            You may also like
+          </h2>
+          <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4">
+            {related.map((p) => (
+              <li key={p.id}>
+                <ProductCard product={p} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }

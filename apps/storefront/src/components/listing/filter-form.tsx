@@ -155,7 +155,7 @@ export function FilterForm({
       <div className="flex items-center gap-4 border-t border-border pt-4">
         <button
           type="submit"
-          className="h-12 flex-1 bg-foreground px-4 text-sm font-medium tracking-[0.08em] text-surface uppercase hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          className="h-12 flex-1 bg-foreground px-4 text-sm font-medium text-surface hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           Show products
         </button>
@@ -172,9 +172,7 @@ function Group({ legend, children }: { legend: string; children: React.ReactNode
     // float + clear: a <legend> otherwise sits ON the fieldset's top edge (browser
     // default), squeezed against the line above; floated, it spaces like a heading.
     <fieldset className="py-5">
-      <legend className="float-left mb-3 w-full text-xs font-medium tracking-[0.12em] uppercase">
-        {legend}
-      </legend>
+      <legend className="float-left mb-3 w-full text-xs font-medium">{legend}</legend>
       <div className="clear-both">{children}</div>
     </fieldset>
   )

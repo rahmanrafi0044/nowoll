@@ -15,19 +15,23 @@ export function ProductView({
   children,
   sticky = false,
   sizeGuideHref,
+  whatsapp,
+  pageUrl,
 }: {
   product: ProductDetailView
   header?: ReactNode
   children?: ReactNode
   sticky?: boolean
   sizeGuideHref?: string
+  whatsapp?: string
+  pageUrl?: string
 }) {
   const initial = initialSelection(product.variants)
   const [color, setColor] = useState(initial.color)
   const images = imagesForColor(product.images, product.variants, color)
 
   return (
-    <div className="grid gap-8 md:grid-cols-2 md:gap-12">
+    <div className="grid gap-8 md:grid-cols-[1.15fr_1fr] md:gap-14">
       {/* key: start again at the first photo when the color changes */}
       <ProductGallery key={color ?? 'all'} images={images} productName={product.name} />
       <div className="flex flex-col gap-6">
@@ -39,6 +43,8 @@ export function ProductView({
           initialSize={initial.size}
           sticky={sticky}
           sizeGuideHref={sizeGuideHref}
+          whatsapp={whatsapp}
+          pageUrl={pageUrl}
         />
         {children}
       </div>

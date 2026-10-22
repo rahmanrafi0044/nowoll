@@ -109,7 +109,7 @@ export function SearchDrawer({ suggestions }: { suggestions: string[] }) {
           </form>
           {suggestions.length > 0 && !shown && (
             <div className="px-5 pt-5">
-              <p className="text-xs tracking-[0.12em] text-muted-foreground uppercase">Popular</p>
+              <p className="text-xs text-muted-foreground">Popular</p>
               <ul className="mt-3 flex flex-wrap gap-2">
                 {suggestions.map((s) => (
                   <li key={s}>
@@ -166,7 +166,7 @@ export function SearchDrawer({ suggestions }: { suggestions: string[] }) {
                   <Link
                     href={allResults(q.trim())}
                     onClick={close}
-                    className="mt-6 block w-full border border-foreground py-3 text-center text-sm font-medium tracking-wide uppercase hover:bg-foreground hover:text-surface"
+                    className="mt-6 block w-full border border-foreground py-3 text-center text-sm font-medium tracking-wide hover:bg-foreground hover:text-surface"
                   >
                     See all {total} results
                   </Link>
