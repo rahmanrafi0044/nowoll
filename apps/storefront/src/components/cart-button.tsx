@@ -12,7 +12,7 @@ export function CartButton() {
   return (
     <button
       type="button"
-      onClick={openCart}
+      onClick={() => openCart()}
       aria-haspopup="dialog"
       className="relative inline-flex size-11 items-center justify-center rounded-control focus-visible:outline-2 focus-visible:outline-brand"
     >

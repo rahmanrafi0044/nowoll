@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import type { BlogListView, CategoryNode, PageLinkView } from '@nowoll/types'
+import type { BlogListView, CategoryNode, PageLinkView, ShippingRateView } from '@nowoll/types'
 import { type AnnouncementBar as AnnouncementBarData, searchSuggestions } from '@nowoll/validation'
 import { CartDrawer } from '@/components/cart/cart-drawer'
 import { CartHydrator } from '@/components/cart-hydrator'
@@ -15,6 +15,7 @@ import { apiGet } from '@/lib/api'
 import { publicEnv } from '@/lib/env'
 import { fontVariables } from '@/lib/fonts'
 import { menuLinks, readFooter, readMenu } from '@/lib/navigation'
+import { freeDeliveryOffer } from '@/lib/free-delivery'
 import { getSettings, siteTitle } from '@/lib/settings'
 import { themeCss } from '@/lib/theme'
 import './globals.css'
@@ -62,7 +63,7 @@ export const viewport: Viewport = {
 // The header, announcement bar and footer appear on every page, so their data
 // is loaded here. The requests run in parallel and are cached for 60 seconds.
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const [categories, announcement, pages, settings, menuBlock, footerBlock, blog] =
+  const [categories, announcement, pages, settings, menuBlock, footerBlock, blog, rates] =
     await Promise.all([
       apiGet<CategoryNode[]>('/categories'),
       apiGet<{ data: AnnouncementBarData }>('/content-blocks/announcement_bar'),
@@ -71,6 +72,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       apiGet<{ data: unknown }>('/content-blocks/main_menu'),
       apiGet<{ data: unknown }>('/content-blocks/footer'),
       apiGet<BlogListView>('/blog'), // step 43: is any post live? (→ "Blog" in the footer)
+      apiGet<ShippingRateView[]>('/shipping/rates'), // 38f: the bag's free-delivery bar
     ])
   // Admin → Content → Menu / Footer (step 38b); nothing saved → the standard ones.
   const links = menuLinks(readMenu(menuBlock?.data), categories ?? [])
@@ -115,7 +117,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           footer={footer}
           hasBlog={(blog?.total ?? 0) > 0}
         />
-        <CartDrawer />
+        <CartDrawer freeDelivery={freeDeliveryOffer(rates)} />
         {/* Tracking only with the customer's OK (step 39a — docs/integrations/analytics.md). */}
         <TrackingScripts ids={trackingIds} />
         <ConsentBanner ids={trackingIds} />

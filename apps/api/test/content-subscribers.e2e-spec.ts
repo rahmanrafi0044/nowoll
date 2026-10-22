@@ -23,7 +23,8 @@ describe('content blocks API', () => {
     const res = await http().get('/api/v1/content-blocks/homepage_hero').expect(200)
     expect(res.body.data).toEqual({
       key: 'homepage_hero',
-      data: { ...hero, subheading: null, imageUrl: null, imageAlt: null },
+      // 38f: a hero saved before extra slides existed reads back with none (still valid).
+      data: { ...hero, subheading: null, imageUrl: null, imageAlt: null, more: [] },
     })
   })
 

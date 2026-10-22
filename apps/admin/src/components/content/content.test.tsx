@@ -68,6 +68,10 @@ describe('layout helpers', () => {
     expect(newSection('trust_badges')).toMatchObject({
       badges: expect.arrayContaining([{ icon: 'cash', text: 'Cash on delivery' }]),
     })
+    // 38f: the new kinds start empty but shaped right (circles need at least 2).
+    expect(newSection('split')).toMatchObject({ type: 'split', imageSide: 'left', heading: '' })
+    expect(newSection('circles')).toMatchObject({ type: 'circles', items: [{}, {}] })
+    expect(newSection('story')).toMatchObject({ type: 'story', imageUrl: null })
   })
 })
 
@@ -380,6 +384,92 @@ describe('homepage', () => {
     expect(sent.sections[0]!.banners[0]!.imageUrl).toBe('https://cdn.example/content/a.webp')
   })
 
+  it('38f: a photo that finishes uploading keeps words typed meanwhile', async () => {
+    load({ sections: [] })
+    type Upload = Awaited<ReturnType<typeof api.uploadContentImage>>
+    let finish: (v: Upload) => void = () => {}
+    mocked.uploadContentImage.mockReturnValue(new Promise<Upload>((r) => (finish = r)))
+    render(<HomepageEditor />)
+    await screen.findByRole('region', { name: 'Sections' })
+    fireEvent.change(sections().getByLabelText('Add a section'), { target: { value: 'split' } })
+    fireEvent.click(sections().getByRole('button', { name: 'Add' }))
+    const file = new File([new Uint8Array(10)], 'a.png', { type: 'image/png' })
+    fireEvent.change(sections().getByLabelText(/^Photo \(required\)/), {
+      target: { files: [file] },
+    })
+    // Typed while the upload is still going…
+    fireEvent.change(sections().getByLabelText('Describe the photo'), {
+      target: { value: 'Lawn three-piece' },
+    })
+    fireEvent.change(sections().getByLabelText('Heading'), { target: { value: 'Summer' } })
+    finish(ok({ url: 'https://cdn.example/content/s.webp', width: 1200, height: 1500 }))
+    await waitFor(() =>
+      expect(sections().getByRole('button', { name: 'Remove picture' })).toBeInTheDocument(),
+    )
+    // …is still there after it finished.
+    expect(sections().getByLabelText('Describe the photo')).toHaveValue('Lawn three-piece')
+    fireEvent.click(sections().getByRole('button', { name: 'Save sections' }))
+    await waitFor(() =>
+      expect(savedLayout().sections[0]).toMatchObject({
+        type: 'split',
+        imageUrl: 'https://cdn.example/content/s.webp',
+        imageAlt: 'Lawn three-piece',
+        heading: 'Summer',
+      }),
+    )
+  })
+
+  it('38f: round photo links — at least 2, up to 6; brand story saves its words', async () => {
+    load({ sections: [] })
+    render(<HomepageEditor />)
+    await screen.findByRole('region', { name: 'Sections' })
+    fireEvent.change(sections().getByLabelText('Add a section'), { target: { value: 'circles' } })
+    fireEvent.click(sections().getByRole('button', { name: 'Add' }))
+    expect(sections().queryByRole('button', { name: /Remove circle/ })).toBeNull()
+    fireEvent.click(sections().getByRole('button', { name: 'Add a circle' }))
+    expect(sections().getByRole('button', { name: 'Remove circle 3' })).toBeInTheDocument()
+    for (let n = 4; n <= 6; n++)
+      fireEvent.click(sections().getByRole('button', { name: 'Add a circle' }))
+    expect(sections().queryByRole('button', { name: 'Add a circle' })).toBeNull()
+
+    fireEvent.change(sections().getByLabelText('Add a section'), { target: { value: 'story' } })
+    fireEvent.click(sections().getByRole('button', { name: 'Add' }))
+    fireEvent.change(sections().getByLabelText('Your story'), {
+      target: { value: 'Made in Dhaka.' },
+    })
+    fireEvent.click(sections().getByRole('button', { name: 'Save sections' }))
+    await waitFor(() =>
+      expect(savedLayout().sections[1]).toMatchObject({ type: 'story', text: 'Made in Dhaka.' }),
+    )
+  })
+
+  it('38f hero: extra slides are checked and saved; at most 3', async () => {
+    load()
+    render(<HomepageEditor />)
+    const hero = within(await screen.findByRole('region', { name: 'Hero' }))
+    fireEvent.change(hero.getByLabelText('Heading'), { target: { value: 'Always new' } })
+    fireEvent.click(hero.getByRole('button', { name: 'Add a slide' }))
+    fireEvent.click(hero.getByRole('button', { name: 'Save hero' }))
+    expect(await hero.findByRole('alert')).toHaveTextContent('Slide 2: write a heading')
+    fireEvent.change(hero.getByLabelText('Slide 2 heading'), { target: { value: 'Eid edit' } })
+    fireEvent.click(hero.getByRole('button', { name: 'Add a slide' }))
+    fireEvent.click(hero.getByRole('button', { name: 'Add a slide' }))
+    expect(hero.queryByRole('button', { name: 'Add a slide' })).toBeNull()
+    fireEvent.click(hero.getByRole('button', { name: 'Remove slide 4' }))
+    fireEvent.click(hero.getByRole('button', { name: 'Remove slide 3' }))
+    fireEvent.click(hero.getByRole('button', { name: 'Save hero' }))
+    await waitFor(() =>
+      expect(mocked.saveContentBlock).toHaveBeenCalledWith(
+        'homepage_hero',
+        expect.objectContaining({
+          heading: 'Always new',
+          more: [expect.objectContaining({ heading: 'Eid edit', ctaHref: '/shop' })],
+        }),
+        true,
+      ),
+    )
+  })
+
   it('hero: saves heading and button; asks for a description when there is a picture', async () => {
     load()
     mocked.uploadContentImage.mockResolvedValue(
@@ -408,6 +498,7 @@ describe('homepage', () => {
           ctaHref: '/shop',
           imageUrl: 'https://cdn.example/content/h.webp',
           imageAlt: 'Model in a navy panjabi',
+          more: [],
         },
         true,
       ),

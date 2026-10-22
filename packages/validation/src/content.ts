@@ -46,13 +46,18 @@ export const imageUrlSchema = z
     { message: 'Upload a photo (an https:// address or a file on this shop)' },
   )
 
-export const homepageHeroSchema = z.object({
+const heroSlide = z.object({
   heading: z.string().trim().min(1).max(80),
   subheading: z.string().trim().max(200).nullable().default(null),
   ctaLabel: z.string().trim().min(1).max(30),
   ctaHref: linkSchema,
   imageUrl: imageUrlSchema.nullable().default(null),
   imageAlt: z.string().trim().max(200).nullable().default(null),
+})
+
+/** The homepage's first picture. 38f: up to 3 more slides take turns with it. */
+export const homepageHeroSchema = heroSlide.extend({
+  more: z.array(heroSlide).max(3, 'At most 3 more slides').default([]),
 })
 
 // ── Homepage builder (step 36) ────────────────────────────────────────────
@@ -65,7 +70,6 @@ const sectionBase = {
   visible: z.boolean().default(true),
 }
 const optionalTitle = z.string().trim().max(60).nullable().default(null)
-const httpsImage = z.url({ protocol: /^https$/ })
 
 /** The fixed set of trust-badge icons (drawn by the storefront — no uploads, no HTML). */
 export const TRUST_BADGE_ICONS = ['truck', 'cash', 'return', 'shield', 'phone', 'star'] as const
@@ -99,7 +103,7 @@ export const homepageSectionSchema = z.discriminatedUnion('type', [
     banners: z
       .array(
         z.object({
-          imageUrl: httpsImage,
+          imageUrl: imageUrlSchema,
           imageAlt: z.string().trim().min(1).max(200),
           text: z.string().trim().max(80).nullable().default(null),
           href: linkSchema.nullable().default(null),
@@ -117,6 +121,47 @@ export const homepageSectionSchema = z.discriminatedUnion('type', [
       .max(4),
   }),
   z.object({ ...sectionBase, type: z.literal('newsletter') }),
+  // ── Design refresh (38f) ──
+  // A photo on one side, words and a button on the other.
+  z.object({
+    ...sectionBase,
+    type: z.literal('split'),
+    imageUrl: imageUrlSchema,
+    imageAlt: z.string().trim().min(1, 'Describe the photo').max(200),
+    heading: z.string().trim().min(1, 'Write a heading').max(80),
+    text: z.string().trim().max(300).nullable().default(null),
+    ctaLabel: z.string().trim().max(30).nullable().default(null),
+    href: linkSchema.nullable().default(null),
+    imageSide: z.enum(['left', 'right']).default('left'),
+  }),
+  // Round photos with a word each: "Shop by occasion".
+  z.object({
+    ...sectionBase,
+    type: z.literal('circles'),
+    title: optionalTitle,
+    items: z
+      .array(
+        z.object({
+          imageUrl: imageUrlSchema,
+          imageAlt: z.string().trim().min(1, 'Describe the photo').max(200),
+          label: z.string().trim().min(1, 'Write a label').max(30),
+          href: linkSchema,
+        }),
+      )
+      .min(2, 'At least 2 circles')
+      .max(6, 'At most 6 circles'),
+  }),
+  // A few lines about the brand, with an optional photo.
+  z.object({
+    ...sectionBase,
+    type: z.literal('story'),
+    heading: z.string().trim().min(1, 'Write a heading').max(80),
+    text: z.string().trim().min(1, 'Write the story').max(600),
+    imageUrl: imageUrlSchema.nullable().default(null),
+    imageAlt: z.string().trim().max(200).nullable().default(null),
+    ctaLabel: z.string().trim().max(30).nullable().default(null),
+    href: linkSchema.nullable().default(null),
+  }),
 ])
 
 /** What the admin SAVES: every section must be valid, at most 20, ids unique. */

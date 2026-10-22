@@ -9,7 +9,7 @@ import {
 } from '@nowoll/validation'
 import { Button, Input } from '@nowoll/ui'
 import { useEffect, useState } from 'react'
-import { SelectField } from '@/components/form-fields'
+import { SelectField, TextArea } from '@/components/form-fields'
 import { flattenCategories } from '@/lib/categories'
 import type { AdminContentBlock } from '@/lib/content-api'
 import { saveContentBlock } from '@/lib/content-api'
@@ -26,6 +26,15 @@ import { ImageField, LIVE_NOTE, LinkInput, SaveProblems } from './fields'
 
 type Section = HomepageSection
 type Kind = Section['type']
+type Of<K extends Kind> = Extract<Section, { type: K }>
+
+/**
+ * Changes ONE section from its latest saved state (a functional update).
+ * WHY: a photo upload takes seconds. If its result were applied to the copy
+ * of the section from when the upload STARTED, anything typed meanwhile
+ * (e.g. the photo's description) would be wiped. Uploads use this.
+ */
+type Edit = <K extends Kind>(type: K, fn: (current: Of<K>) => Of<K>) => void
 
 export const SECTION_LABEL: Record<Kind, string> = {
   hero: 'Hero (big banner)',
@@ -36,6 +45,9 @@ export const SECTION_LABEL: Record<Kind, string> = {
   banners: 'Promo banners',
   trust_badges: 'Trust badges',
   newsletter: 'Newsletter sign-up',
+  split: 'Photo and text',
+  circles: 'Round photo links',
+  story: 'Brand story',
 }
 
 export const ICON_LABEL: Record<TrustBadgeIcon, string> = {
@@ -75,10 +87,42 @@ export function newSection(kind: Kind): Section {
     case 'featured':
     case 'new_arrivals':
       return { ...base, type: kind, title: null }
+    case 'split':
+      return {
+        ...base,
+        type: 'split',
+        imageUrl: '',
+        imageAlt: '',
+        heading: '',
+        text: null,
+        ctaLabel: null,
+        href: null,
+        imageSide: 'left',
+      }
+    case 'circles':
+      return { ...base, type: 'circles', title: null, items: [emptyCircle(), emptyCircle()] }
+    case 'story':
+      return {
+        ...base,
+        type: 'story',
+        heading: '',
+        text: '',
+        imageUrl: null,
+        imageAlt: null,
+        ctaLabel: null,
+        href: null,
+      }
     default:
       return { ...base, type: kind } as Section
   }
 }
+
+const emptyCircle = (): Of<'circles'>['items'][number] => ({
+  imageUrl: '',
+  imageAlt: '',
+  label: '',
+  href: '',
+})
 
 /** Moves item i up (-1) or down (+1). */
 export const move = <T,>(list: T[], i: number, by: -1 | 1): T[] => {
@@ -121,6 +165,14 @@ export function LayoutEditor({
     setDone(false)
     setSections((all) => all.map((x, j) => (j === i ? s : x)))
   }
+  const edit =
+    (i: number): Edit =>
+    (type, fn) => {
+      setDone(false)
+      setSections((all) =>
+        all.map((x, j) => (j === i && x.type === type ? fn(x as Of<typeof type>) : x)),
+      )
+    }
   const change = (next: Section[]) => {
     setDone(false)
     setSections(next)
@@ -204,7 +256,12 @@ export function LayoutEditor({
                   Remove
                 </Button>
               </div>
-              <SectionFields s={s} categories={categories} onChange={(next) => update(i, next)} />
+              <SectionFields
+                s={s}
+                categories={categories}
+                onChange={(next) => update(i, next)}
+                edit={edit(i)}
+              />
             </fieldset>
           </li>
         ))}
@@ -257,10 +314,12 @@ function SectionFields({
   s,
   categories,
   onChange,
+  edit,
 }: {
   s: Section
   categories: CategoryNode[]
   onChange: (s: Section) => void
+  edit: Edit
 }) {
   switch (s.type) {
     case 'hero':
@@ -383,7 +442,14 @@ function SectionFields({
                   label={`Picture for banner ${j + 1}`}
                   url={b.imageUrl || null}
                   required
-                  onChange={(url) => set({ imageUrl: url ?? '' })}
+                  onChange={(url) =>
+                    edit('banners', (cur) => ({
+                      ...cur,
+                      banners: cur.banners.map((x, k) =>
+                        k === j ? { ...x, imageUrl: url ?? '' } : x,
+                      ),
+                    }))
+                  }
                 />
                 <Input
                   label="Describe the picture"
@@ -469,6 +535,186 @@ function SectionFields({
               Add a badge
             </Button>
           )}
+        </div>
+      )
+    case 'split':
+      return (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-3 sm:col-span-2">
+            <ImageField
+              label="Photo"
+              url={s.imageUrl || null}
+              required
+              hint="Tall photos look best (4:5, e.g. 1200 × 1500)."
+              onChange={(url) => edit('split', (cur) => ({ ...cur, imageUrl: url ?? '' }))}
+            />
+            <Input
+              label="Describe the photo"
+              value={s.imageAlt}
+              maxLength={200}
+              onChange={(e) => onChange({ ...s, imageAlt: e.target.value })}
+            />
+          </div>
+          <SelectField
+            label="Photo on the"
+            value={s.imageSide}
+            onChange={(e) => onChange({ ...s, imageSide: e.target.value as 'left' | 'right' })}
+          >
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </SelectField>
+          <Input
+            label="Heading"
+            value={s.heading}
+            maxLength={80}
+            onChange={(e) => onChange({ ...s, heading: e.target.value })}
+          />
+          <div className="sm:col-span-2">
+            <TextArea
+              label="Text (optional)"
+              value={s.text ?? ''}
+              maxLength={300}
+              rows={3}
+              onChange={(e) => onChange({ ...s, text: e.target.value || null })}
+            />
+          </div>
+          <Input
+            label="Button text (optional)"
+            value={s.ctaLabel ?? ''}
+            maxLength={30}
+            placeholder="Shop the edit"
+            onChange={(e) => onChange({ ...s, ctaLabel: e.target.value || null })}
+          />
+          <LinkInput
+            label="Button link (optional)"
+            value={s.href ?? ''}
+            onChange={(v) => onChange({ ...s, href: v.trim() || null })}
+          />
+        </div>
+      )
+    case 'circles':
+      return (
+        <div className="flex flex-col gap-4">
+          <Input
+            label="Title (optional)"
+            value={s.title ?? ''}
+            maxLength={60}
+            placeholder="Shop by occasion"
+            onChange={(e) => onChange({ ...s, title: e.target.value || null })}
+          />
+          {s.items.map((c, j) => {
+            const set = (patch: Partial<typeof c>) =>
+              onChange({ ...s, items: s.items.map((x, k) => (k === j ? { ...x, ...patch } : x)) })
+            return (
+              <div key={j} className="flex flex-col gap-3 rounded-control border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Circle {j + 1}</span>
+                  {s.items.length > 2 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onChange({ ...s, items: s.items.filter((_, k) => k !== j) })}
+                    >
+                      Remove circle {j + 1}
+                    </Button>
+                  )}
+                </div>
+                <ImageField
+                  label={`Photo for circle ${j + 1}`}
+                  url={c.imageUrl || null}
+                  required
+                  hint="Square photos work best; the shop crops them round."
+                  onChange={(url) =>
+                    edit('circles', (cur) => ({
+                      ...cur,
+                      items: cur.items.map((x, k) => (k === j ? { ...x, imageUrl: url ?? '' } : x)),
+                    }))
+                  }
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input
+                    label={`Describe photo ${j + 1}`}
+                    value={c.imageAlt}
+                    maxLength={200}
+                    onChange={(e) => set({ imageAlt: e.target.value })}
+                  />
+                  <Input
+                    label={`Label ${j + 1}`}
+                    value={c.label}
+                    maxLength={30}
+                    placeholder="Eid"
+                    onChange={(e) => set({ label: e.target.value })}
+                  />
+                </div>
+                <LinkInput
+                  label={`Link ${j + 1}`}
+                  value={c.href}
+                  onChange={(v) => set({ href: v.trim() })}
+                />
+              </div>
+            )
+          })}
+          {s.items.length < 6 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="self-start"
+              onClick={() => onChange({ ...s, items: [...s.items, emptyCircle()] })}
+            >
+              Add a circle
+            </Button>
+          )}
+        </div>
+      )
+    case 'story':
+      return (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Input
+              label="Heading"
+              value={s.heading}
+              maxLength={80}
+              placeholder="Always new"
+              onChange={(e) => onChange({ ...s, heading: e.target.value })}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <TextArea
+              label="Your story"
+              value={s.text}
+              maxLength={600}
+              rows={5}
+              hint="A few short lines. Line breaks are kept."
+              onChange={(e) => onChange({ ...s, text: e.target.value })}
+            />
+          </div>
+          <div className="flex flex-col gap-3 sm:col-span-2">
+            <ImageField
+              label="Photo (optional)"
+              url={s.imageUrl}
+              onChange={(url) => edit('story', (cur) => ({ ...cur, imageUrl: url }))}
+            />
+            {s.imageUrl && (
+              <Input
+                label="Describe the photo"
+                value={s.imageAlt ?? ''}
+                maxLength={200}
+                onChange={(e) => onChange({ ...s, imageAlt: e.target.value || null })}
+              />
+            )}
+          </div>
+          <Input
+            label="Button text (optional)"
+            value={s.ctaLabel ?? ''}
+            maxLength={30}
+            placeholder="Our story"
+            onChange={(e) => onChange({ ...s, ctaLabel: e.target.value || null })}
+          />
+          <LinkInput
+            label="Button link (optional)"
+            value={s.href ?? ''}
+            onChange={(v) => onChange({ ...s, href: v.trim() || null })}
+          />
         </div>
       )
   }

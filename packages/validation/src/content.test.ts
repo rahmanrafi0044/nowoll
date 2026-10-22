@@ -8,6 +8,7 @@ import {
   footerSchema,
   mainMenuSchema,
   imageUrlSchema,
+  homepageSectionSchema,
 } from './content.js'
 
 describe('homepageHeroSchema', () => {
@@ -19,7 +20,20 @@ describe('homepageHeroSchema', () => {
       subheading: null,
       imageUrl: null,
       imageAlt: null,
+      more: [], // 38f: a saved hero without extra slides stays valid
     })
+  })
+
+  it('38f: up to 3 more slides, each checked like the first', () => {
+    const slide = { ...valid, imageUrl: '/perf/hero-2.jpg', imageAlt: 'Eid' }
+    expect(homepageHeroSchema.parse({ ...valid, more: [slide] }).more).toHaveLength(1)
+    expect(
+      homepageHeroSchema.safeParse({ ...valid, more: [slide, slide, slide, slide] }).success,
+    ).toBe(false)
+    expect(
+      homepageHeroSchema.safeParse({ ...valid, more: [{ ...slide, ctaHref: 'javascript:x' }] })
+        .success,
+    ).toBe(false)
   })
 
   it.each([
@@ -255,5 +269,36 @@ describe('imageUrlSchema (38f)', () => {
       '',
     ])
       expect(imageUrlSchema.safeParse(bad).success, bad).toBe(false)
+  })
+})
+
+describe('38f homepage sections: split, circles, story', () => {
+  const photo = { imageUrl: '/perf/a.jpg', imageAlt: 'A model in lawn' }
+  const parse = (section: object) =>
+    homepageSectionSchema.safeParse({ id: 's1', visible: true, ...section })
+
+  it('split: a photo and words, image on the left unless told otherwise', () => {
+    const r = parse({ type: 'split', ...photo, heading: 'Made in Dhaka' })
+    expect(r.success && r.data).toMatchObject({ imageSide: 'left', text: null, href: null })
+    expect(parse({ type: 'split', ...photo, heading: '' }).success).toBe(false)
+    expect(parse({ type: 'split', ...photo, heading: 'X', imageSide: 'top' }).success).toBe(false)
+  })
+
+  it('circles: 2 to 6, each with a photo, a label and a safe link', () => {
+    const item = { ...photo, label: 'Eid', href: '/shop/eid' }
+    expect(parse({ type: 'circles', items: [item, item] }).success).toBe(true)
+    expect(parse({ type: 'circles', items: [item] }).success).toBe(false)
+    expect(parse({ type: 'circles', items: Array(7).fill(item) }).success).toBe(false)
+    expect(
+      parse({ type: 'circles', items: [item, { ...item, href: '//evil.example' }] }).success,
+    ).toBe(false)
+  })
+
+  it('story: words required, the photo optional', () => {
+    expect(parse({ type: 'story', heading: 'Always new', text: 'Since 2026.' }).success).toBe(true)
+    expect(parse({ type: 'story', heading: 'Always new', text: '' }).success).toBe(false)
+    expect(
+      parse({ type: 'story', heading: 'X', text: 'Y', imageUrl: 'http://x.example/a.jpg' }).success,
+    ).toBe(false)
   })
 })

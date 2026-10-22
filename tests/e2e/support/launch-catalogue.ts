@@ -115,6 +115,8 @@ export async function seedLaunchCatalogue(): Promise<void> {
   const heroGrain = await grain(2400, 1200)
 
   await photo('hero.jpg', '#1f3a5f', 2400, 1200, heroGrain)
+  await photo('hero-2.jpg', '#7d5f2e', 2400, 1200, heroGrain) // 38f: a second slide
+  await photo('story.jpg', '#c9b79c', 1200, 1500, productGrain)
 
   const db = createPrismaClient(E2E_DATABASE_URL)
   try {
@@ -124,6 +126,11 @@ export async function seedLaunchCatalogue(): Promise<void> {
       ['search_suggestions', 'Lawn, Three-piece, Kurti, Eid'],
     ] as const)
       await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
+    // 38f: free delivery inside Dhaka from ৳3,000, so the bag shows its progress bar.
+    await db.shippingZone.update({
+      where: { code: 'DHAKA' },
+      data: { freeShippingThreshold: new Prisma.Decimal(3000) },
+    })
 
     await db.contentBlock.update({
       where: { key: 'homepage_hero' },
@@ -135,8 +142,69 @@ export async function seedLaunchCatalogue(): Promise<void> {
           ctaHref: '/shop',
           imageUrl: '/perf/hero.jpg',
           imageAlt: 'The new Eid collection',
+          more: [
+            {
+              heading: 'The Eid edit',
+              subheading: 'Soft lawn and festive colour, made for long days.',
+              ctaLabel: 'See the edit',
+              ctaHref: `/shop/${CATEGORIES[2]!.slug}`,
+              imageUrl: '/perf/hero-2.jpg',
+              imageAlt: 'Models in festive three-pieces',
+            },
+          ],
         },
       },
+    })
+
+    // 38f: a homepage that uses the new sections (round photo links, photo
+    // and text, brand story) between the product rows.
+    const layout = {
+      sections: [
+        { id: 'hero', type: 'hero', visible: true },
+        {
+          id: 'occasions',
+          type: 'circles',
+          visible: true,
+          title: 'Shop by category',
+          items: CATEGORIES.map((c) => ({
+            imageUrl: `/perf/${c.slug}.jpg`,
+            imageAlt: c.name,
+            label: c.name,
+            href: `/shop/${c.slug}`,
+          })),
+        },
+        { id: 'new-arrivals', type: 'new_arrivals', visible: true, title: null },
+        {
+          id: 'eid-split',
+          type: 'split',
+          visible: true,
+          imageUrl: '/perf/tile.jpg',
+          imageAlt: 'A model in a blush cotton kurti',
+          heading: 'Everyday kurtis, made to last',
+          text: 'Breathable cotton and lawn, cut for Dhaka summers and long workdays.',
+          ctaLabel: 'Shop kurtis',
+          href: `/shop/${CATEGORIES[1]!.slug}`,
+          imageSide: 'left',
+        },
+        { id: 'featured', type: 'featured', visible: true, title: 'Loved this week' },
+        {
+          id: 'story',
+          type: 'story',
+          visible: true,
+          heading: 'Always new',
+          text: 'Nowoll is a small Dhaka label making clothes for every day and every occasion.\nNew pieces arrive every week.',
+          imageUrl: '/perf/story.jpg',
+          imageAlt: 'Fabric swatches on a cutting table',
+          ctaLabel: 'Shop everything',
+          href: '/shop',
+        },
+        { id: 'newsletter', type: 'newsletter', visible: true },
+      ],
+    }
+    await db.contentBlock.upsert({
+      where: { key: 'homepage_layout' },
+      create: { key: 'homepage_layout', data: layout },
+      update: { data: layout, isActive: true },
     })
 
     // "Women" — the menu's top item with a drop-down of the four categories.
@@ -221,7 +289,7 @@ export async function seedLaunchCatalogue(): Promise<void> {
             basePrice: new Prisma.Decimal(price),
             compareAtPrice: sale ? new Prisma.Decimal(Math.round(price * 1.25)) : null,
             status: 'ACTIVE',
-            isFeatured: i < 2,
+            isFeatured: i === 8 || i === 12, // older pieces, so "Featured" differs from "New arrivals"
             description: `A ${cat.fabric.toLowerCase()} ${cat.name.toLowerCase()} in ${colorName.toLowerCase()}, made for everyday elegance.`,
             tags: [cat.name.toLowerCase(), cat.fabric.toLowerCase()],
             fabric: cat.fabric,

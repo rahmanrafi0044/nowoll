@@ -1,8 +1,11 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { AnnouncementBar } from './announcement-bar'
+import { BrandStory } from './brand-story'
 import { CategoryGrid } from './category-grid'
+import { CircleLinks } from './circle-links'
 import { Hero } from './hero'
 import { ProductSection } from './product-section'
+import { SplitBanner } from './split-banner'
 
 const hero = {
   heading: 'always new',
@@ -27,6 +30,32 @@ describe('<Hero />', () => {
       />,
     )
     expect(screen.getByRole('img', { name: 'Model in a kurti' })).toBeInTheDocument()
+  })
+
+  it('38f: one slide = no slide controls', () => {
+    render(<Hero data={{ ...hero, more: [] }} />)
+    expect(screen.queryByRole('button', { name: /pause slides/i })).not.toBeInTheDocument()
+  })
+
+  it('38f: extra slides take turns — dots switch slides, the pause button pauses', () => {
+    render(
+      <Hero
+        data={{
+          ...hero,
+          more: [{ ...hero, heading: 'Eid edit', ctaLabel: 'See Eid', ctaHref: '/shop/eid' }],
+        }}
+      />,
+    )
+    // One <h1> only; the second slide's heading is an <h2>, hidden until shown.
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.queryByRole('link', { name: 'See Eid' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show slide 2: Eid edit' }))
+    expect(screen.getByRole('link', { name: 'See Eid' })).toHaveAttribute('href', '/shop/eid')
+    expect(screen.queryByRole('link', { name: 'Shop now' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause slides' }))
+    expect(screen.getByRole('button', { name: 'Play slides' })).toBeInTheDocument()
   })
 })
 
@@ -69,5 +98,92 @@ describe('<CategoryGrid /> and <ProductSection />', () => {
       />,
     )
     expect(screen.getByRole('link', { name: 'Men' })).toHaveAttribute('href', '/shop/men')
+  })
+})
+
+describe('38f sections: split banner, circles, brand story', () => {
+  const base = { visible: true }
+
+  it('split banner: heading, words, button link and photo', () => {
+    render(
+      <SplitBanner
+        section={{
+          ...base,
+          id: 'sp',
+          type: 'split',
+          imageUrl: '/perf/a.jpg',
+          imageAlt: 'Lawn three-piece',
+          heading: 'Made for summer',
+          text: 'Light lawn.',
+          ctaLabel: 'Shop lawn',
+          href: '/shop/lawn',
+          imageSide: 'right',
+        }}
+      />,
+    )
+    expect(screen.getByRole('heading', { level: 2, name: 'Made for summer' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Lawn three-piece' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Shop lawn' })).toHaveAttribute('href', '/shop/lawn')
+  })
+
+  it('split banner without a button label shows no link', () => {
+    render(
+      <SplitBanner
+        section={{
+          ...base,
+          id: 'sp',
+          type: 'split',
+          imageUrl: '/perf/a.jpg',
+          imageAlt: 'A',
+          heading: 'H',
+          text: null,
+          ctaLabel: null,
+          href: '/shop',
+          imageSide: 'left',
+        }}
+      />,
+    )
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('circles: one named link per circle', () => {
+    render(
+      <CircleLinks
+        section={{
+          ...base,
+          id: 'c',
+          type: 'circles',
+          title: 'Shop by occasion',
+          items: [
+            { imageUrl: '/a.jpg', imageAlt: 'Eid outfit', label: 'Eid', href: '/shop/eid' },
+            { imageUrl: '/b.jpg', imageAlt: 'Office kurti', label: 'Office', href: '/shop/office' },
+          ],
+        }}
+      />,
+    )
+    expect(screen.getByRole('heading', { name: 'Shop by occasion' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Eid/ })).toHaveAttribute('href', '/shop/eid')
+    expect(screen.getByRole('link', { name: /Office/ })).toHaveAttribute('href', '/shop/office')
+  })
+
+  it('brand story: words without a photo', () => {
+    render(
+      <BrandStory
+        section={{
+          ...base,
+          id: 'st',
+          type: 'story',
+          heading: 'Always new',
+          text: 'Made in Dhaka.',
+          imageUrl: null,
+          imageAlt: null,
+          ctaLabel: null,
+          href: null,
+        }}
+      />,
+    )
+    expect(screen.getByRole('heading', { name: 'Always new' })).toBeInTheDocument()
+    expect(screen.getByText('Made in Dhaka.')).toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
   })
 })

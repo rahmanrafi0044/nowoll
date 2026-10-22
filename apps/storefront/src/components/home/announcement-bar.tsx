@@ -22,7 +22,7 @@ export function AnnouncementBar({
 
   useEffect(() => {
     if (messages.length < 2 || paused) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const t = window.setInterval(() => setI((n) => (n + 1) % messages.length), TURN_MS)
     return () => window.clearInterval(t)
   }, [messages.length, paused])

@@ -31,8 +31,11 @@ test('a guest buys a shirt with cash on delivery, from the homepage @phone', asy
   await chooseSize(page, 'M')
   await addToBagButton(page).click()
   const bag = page.getByRole('dialog')
-  await expect(bag.getByText(SHIRT.name)).toBeVisible()
-  await expect(bag.getByText('M / Blue')).toBeVisible()
+  // 38f: the bag says what was just added…
+  await expect(bag.getByRole('status')).toContainText(`Added to bag ${SHIRT.name}, M / Blue`)
+  // …and lists it as a line in the bag.
+  await expect(bag.getByRole('link', { name: SHIRT.name })).toBeVisible()
+  await expect(bag.getByText('M / Blue', { exact: false }).first()).toBeVisible()
   await bag.getByRole('link', { name: 'Checkout' }).click()
 
   // Checkout → review: ৳1,490 + ৳60 delivery inside Dhaka

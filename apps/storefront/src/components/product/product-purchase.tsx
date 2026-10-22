@@ -116,7 +116,12 @@ export function ProductPurchase({
       ),
     )
     setAdded(true)
-    openCart() // decision #4: show the bag with a Checkout button right away
+    // decision #4: show the bag with a Checkout button right away (+ "Added to bag", 38f)
+    openCart({
+      productName: product.name,
+      variantLabel: `${variant.size} / ${variant.color}`,
+      imageUrl: image?.url ?? null,
+    })
   }
 
   // 38f "Buy now": the same as Add to bag, then straight to checkout. (The bag

@@ -85,6 +85,7 @@ describe('<ProductPurchase />', () => {
       'Added 2 × Oxford Shirt (M / White) to your bag.',
     )
     expect(useUiStore.getState().cartOpen).toBe(true) // decision #4: the bag drawer opens
+    expect(useUiStore.getState().justAdded).toMatchObject({ productName: expect.any(String) })
   })
 
   it("shows the selected variant's own price", () => {

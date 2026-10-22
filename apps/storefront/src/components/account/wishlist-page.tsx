@@ -76,7 +76,11 @@ export function WishlistPage() {
                       imageUrl: item.imageUrl,
                       unitPrice: Number(item.price),
                     })
-                    openCart()
+                    openCart({
+                      productName: item.productName,
+                      variantLabel: `${item.size} / ${item.color}`,
+                      imageUrl: item.imageUrl,
+                    })
                   }}
                 >
                   Add to bag

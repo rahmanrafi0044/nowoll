@@ -17,7 +17,7 @@ export function PromoBanners({ id, banners }: { id: string; banners: Banners }) 
       <ul className={`grid grid-cols-1 gap-4 ${cols}`}>
         {banners.map((b, i) => {
           const picture = (
-            <span className="relative block aspect-[16/9] overflow-hidden rounded-control bg-surface-muted">
+            <span className="relative block aspect-[16/9] overflow-hidden bg-surface-muted">
               <Image
                 src={b.imageUrl}
                 alt={b.imageAlt}
@@ -26,7 +26,7 @@ export function PromoBanners({ id, banners }: { id: string; banners: Banners }) 
                 className="object-cover"
               />
               {b.text && (
-                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-lg font-semibold text-white">
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5 font-display text-2xl text-white">
                   {b.text}
                 </span>
               )}

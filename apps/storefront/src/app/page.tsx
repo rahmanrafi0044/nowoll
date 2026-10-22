@@ -7,11 +7,14 @@ import {
 } from '@nowoll/validation'
 import type { PublicSettings } from '@nowoll/validation'
 import type { Metadata } from 'next'
+import { BrandStory } from '@/components/home/brand-story'
 import { CategoryGrid } from '@/components/home/category-grid'
+import { CircleLinks } from '@/components/home/circle-links'
 import { Hero } from '@/components/home/hero'
 import { NewsletterSection } from '@/components/home/newsletter-section'
 import { ProductSection } from '@/components/home/product-section'
 import { PromoBanners } from '@/components/home/promo-banners'
+import { SplitBanner } from '@/components/home/split-banner'
 import { TrustBadges } from '@/components/home/trust-badges'
 import { apiGet } from '@/lib/api'
 import { publicEnv } from '@/lib/env'
@@ -132,6 +135,12 @@ export default async function HomePage() {
             return <TrustBadges key={s.id} id={s.id} badges={s.badges} />
           case 'newsletter':
             return <NewsletterSection key={s.id} />
+          case 'split':
+            return <SplitBanner key={s.id} section={s} />
+          case 'circles':
+            return <CircleLinks key={s.id} section={s} />
+          case 'story':
+            return <BrandStory key={s.id} section={s} />
         }
       })}
     </>

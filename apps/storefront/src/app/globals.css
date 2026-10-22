@@ -67,3 +67,9 @@ html[data-consent-chosen] [data-consent-banner='before-load'] {
     translate: 100% 0;
   }
 }
+/* The homepage hero photo settles slowly into place (38f). */
+@keyframes hero-drift {
+  from {
+    scale: 1.06;
+  }
+}
