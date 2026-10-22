@@ -7,7 +7,7 @@ import {
   whatsappLink,
 } from '@nowoll/validation'
 import { copyrightLine, footerColumns, paymentBadges } from '@/lib/navigation'
-import { NewsletterForm } from './home/newsletter-form'
+import { FooterNewsletter } from './footer-newsletter'
 import { NavAnchor } from './nav-link'
 import { CookieSettingsButton } from './tracking/cookie-settings-button'
 
@@ -34,12 +34,15 @@ export function SiteFooter({
   settings: s,
   footer,
   hasBlog = false,
+  homeHasNewsletter = false,
 }: {
   pages: PageLinkView[]
   settings: PublicSettings
   footer: Footer
   /** At least one blog post is live (step 43). */
   hasBlog?: boolean
+  /** 38f: the homepage shows its own newsletter section → no second box there. */
+  homeHasNewsletter?: boolean
 }) {
   const columns = footerColumns(footer, pages, hasBlog)
   const badges = paymentBadges(footer.payments)
@@ -141,20 +144,7 @@ export function SiteFooter({
         ))}
       </div>
       {/* Newsletter sign-up on every page (step 42) — Admin → Settings → Newsletter can hide it. */}
-      {s.newsletter_footer_enabled && (
-        <section
-          aria-labelledby="footer-newsletter"
-          className="mx-auto flex max-w-7xl flex-col gap-3 px-4 pb-8 sm:flex-row sm:items-end sm:justify-between"
-        >
-          <div>
-            <p id="footer-newsletter" className="font-semibold">
-              Get new arrivals by email
-            </p>
-            <p className="text-sm text-muted-foreground">A few times a month. No spam.</p>
-          </div>
-          <NewsletterForm source="footer" label="Your email for the newsletter" />
-        </section>
-      )}
+      {s.newsletter_footer_enabled && <FooterNewsletter hideOnHome={homeHasNewsletter} />}
       {badges.length > 0 && (
         <div className="mx-auto max-w-7xl px-4 pb-6">
           <ul aria-label="We accept" className="flex flex-wrap gap-2">

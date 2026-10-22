@@ -1,7 +1,12 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import type { BlogListView, CategoryNode, PageLinkView, ShippingRateView } from '@nowoll/types'
-import { type AnnouncementBar as AnnouncementBarData, searchSuggestions } from '@nowoll/validation'
+import {
+  type AnnouncementBar as AnnouncementBarData,
+  DEFAULT_HOMEPAGE_LAYOUT,
+  readHomepageLayout,
+  searchSuggestions,
+} from '@nowoll/validation'
 import { CartDrawer } from '@/components/cart/cart-drawer'
 import { CartHydrator } from '@/components/cart-hydrator'
 import { AnnouncementBar } from '@/components/home/announcement-bar'
@@ -63,20 +68,35 @@ export const viewport: Viewport = {
 // The header, announcement bar and footer appear on every page, so their data
 // is loaded here. The requests run in parallel and are cached for 60 seconds.
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const [categories, announcement, pages, settings, menuBlock, footerBlock, blog, rates] =
-    await Promise.all([
-      apiGet<CategoryNode[]>('/categories'),
-      apiGet<{ data: AnnouncementBarData }>('/content-blocks/announcement_bar'),
-      apiGet<PageLinkView[]>('/pages'),
-      getSettings(),
-      apiGet<{ data: unknown }>('/content-blocks/main_menu'),
-      apiGet<{ data: unknown }>('/content-blocks/footer'),
-      apiGet<BlogListView>('/blog'), // step 43: is any post live? (→ "Blog" in the footer)
-      apiGet<ShippingRateView[]>('/shipping/rates'), // 38f: the bag's free-delivery bar
-    ])
+  const [
+    categories,
+    announcement,
+    pages,
+    settings,
+    menuBlock,
+    footerBlock,
+    blog,
+    rates,
+    homeBlock,
+  ] = await Promise.all([
+    apiGet<CategoryNode[]>('/categories'),
+    apiGet<{ data: AnnouncementBarData }>('/content-blocks/announcement_bar'),
+    apiGet<PageLinkView[]>('/pages'),
+    getSettings(),
+    apiGet<{ data: unknown }>('/content-blocks/main_menu'),
+    apiGet<{ data: unknown }>('/content-blocks/footer'),
+    apiGet<BlogListView>('/blog'), // step 43: is any post live? (→ "Blog" in the footer)
+    apiGet<ShippingRateView[]>('/shipping/rates'), // 38f: the bag's free-delivery bar
+    apiGet<{ data: unknown }>('/content-blocks/homepage_layout'), // 38f: one sign-up box per page
+  ])
   // Admin → Content → Menu / Footer (step 38b); nothing saved → the standard ones.
   const links = menuLinks(readMenu(menuBlock?.data), categories ?? [])
   const footer = readFooter(footerBlock?.data)
+  // The same rule as the homepage itself (app/page.tsx): nothing saved → the standard layout.
+  const homeSections = homeBlock
+    ? readHomepageLayout(homeBlock.data).sections
+    : DEFAULT_HOMEPAGE_LAYOUT.sections
+  const homeHasNewsletter = homeSections.some((s) => s.type === 'newsletter' && s.visible)
   const theme = themeCss(settings)
   const trackingIds = {
     ga4MeasurementId: settings.ga4_measurement_id,
@@ -116,6 +136,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           settings={settings}
           footer={footer}
           hasBlog={(blog?.total ?? 0) > 0}
+          homeHasNewsletter={homeHasNewsletter}
         />
         <CartDrawer freeDelivery={freeDeliveryOffer(rates)} />
         {/* Tracking only with the customer's OK (step 39a — docs/integrations/analytics.md). */}

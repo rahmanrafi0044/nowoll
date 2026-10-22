@@ -16,10 +16,12 @@ const responses = new Map<string, unknown>()
 vi.mock('@/lib/api', () => ({
   apiGet: vi.fn((path: string) => Promise.resolve(responses.get(path) ?? null)),
 }))
+let pathname = '/faq'
 vi.mock('next/navigation', () => ({
   notFound: () => {
     throw new Error('NEXT_NOT_FOUND')
   },
+  usePathname: () => pathname,
 }))
 
 const RETURNS = {
@@ -112,5 +114,26 @@ describe('footer', () => {
       ['Privacy policy', '/privacy'],
       ['FAQ', '/faq'],
     ])
+  })
+
+  it('38f: one newsletter box per page — none in the footer of a homepage that has its own', () => {
+    const footer = (homeHasNewsletter: boolean) => (
+      <SiteFooter
+        pages={[]}
+        settings={publicSettings(SETTING_DEFAULTS)}
+        footer={footerSchema.parse({})}
+        homeHasNewsletter={homeHasNewsletter}
+      />
+    )
+    const box = () => screen.queryByLabelText('Your email for the newsletter')
+    pathname = '/'
+    const { rerender } = render(footer(true))
+    expect(box()).toBeNull()
+    rerender(footer(false)) // the homepage's own section is switched off → the footer box is back
+    expect(box()).toBeInTheDocument()
+    pathname = '/shop'
+    rerender(footer(true)) // every other page keeps it
+    expect(box()).toBeInTheDocument()
+    pathname = '/faq'
   })
 })
