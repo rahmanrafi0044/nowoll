@@ -126,6 +126,7 @@ export class AdminProductsService {
       care: p.care,
       fitNote: p.fitNote,
       readyToShip: p.readyToShip,
+      sizeChartId: p.sizeChartId,
       variants: p.variants.map((v) => ({
         id: v.id,
         sku: v.sku,

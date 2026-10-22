@@ -42,6 +42,8 @@ describe('<ProductPurchase />', () => {
       expect.objectContaining({ variantId: 'w-m', quantity: 1 }),
     ])
     expect(push).toHaveBeenCalledWith('/checkout')
+    // The bag panel stays shut — it would otherwise sit on top of the checkout page.
+    expect(useUiStore.getState().cartOpen).toBe(false)
   })
 
   it('38f: "Ask on WhatsApp" opens a chat with the store, the product named in it', () => {

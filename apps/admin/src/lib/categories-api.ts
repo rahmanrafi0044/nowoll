@@ -14,6 +14,8 @@ export interface CategoryFields {
   imageUrl: string | null
   imageAlt: string | null
   sizeGuide: string | null
+  /** 38f: the measurement chart for every product here; null = none. */
+  sizeChartId: string | null
   isActive: boolean
   seoTitle: string | null
   seoDescription: string | null

@@ -22,6 +22,7 @@ vi.mock('next/navigation', () => ({
     throw new Error('NEXT_NOT_FOUND')
   },
   useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/shop',
 }))
 
 const card = (name: string, slug = name.toLowerCase().replace(/\s/g, '-')) => ({
@@ -316,6 +317,33 @@ describe('/products/[productSlug]', () => {
     })
     expect(product.image[0]).toBe('http://localhost:3000/demo/white.webp')
     expect(lds.find((l) => l['@type'] === 'BreadcrumbList').itemListElement).toHaveLength(4)
+  })
+
+  it('38f: a size chart comes before the written guide, as real tables', async () => {
+    responses.set(
+      '/products/oxford-shirt',
+      productDetail({
+        sizeChart: {
+          unit: 'INCH',
+          note: 'Measured flat.',
+          pieces: [
+            { name: 'Kameez', columns: ['Chest'], rows: [{ size: 'M', values: ['38'] }] },
+            { name: 'Salwar', columns: ['Waist'], rows: [{ size: 'M', values: ['30-32'] }] },
+          ],
+        },
+      }),
+    )
+    responses.set('/categories/shirts', { sizeGuide: 'An old written guide' })
+    const { container } = await renderServer(
+      ProductPage({ params: Promise.resolve({ productSlug: 'oxford-shirt' }) }),
+    )
+    expect(screen.getByRole('link', { name: 'Size guide' })).toHaveAttribute('href', '#size-guide')
+    const guide = within(container.querySelector('#size-guide') as HTMLElement)
+    expect(guide.getAllByRole('table').map((t) => t.querySelector('caption')?.textContent)).toEqual(
+      ['Kameez', 'Salwar'],
+    )
+    expect(guide.getByText('Measured flat.')).toBeInTheDocument()
+    expect(guide.queryByText('An old written guide')).toBeNull()
   })
 
   it('escapes "<" in structured data so a product name cannot break out of the script tag', async () => {

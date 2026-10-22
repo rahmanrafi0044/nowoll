@@ -50,5 +50,6 @@ export const productDetail = (overrides: Partial<ProductDetailView> = {}): Produ
     variant('b-m', 'Blue', 'M'),
     variant('b-l', 'Blue', 'L', true, '1590'),
   ],
+  sizeChart: null,
   ...overrides,
 })

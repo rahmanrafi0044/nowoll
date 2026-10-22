@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ImageField } from '@/components/content/fields'
+import { SizeChartPicker } from '@/components/size-charts/size-chart-picker'
 import { EditorialTiles, type TileForm, toTile, toTileForm } from './editorial-tiles'
 import { Panel } from '@/components/dashboard/panel'
 import { useLoad } from '@/components/dashboard/use-load'
@@ -108,6 +109,7 @@ export function CategoryForm({
   const [imageAlt, setImageAlt] = useState(category?.imageAlt ?? '')
   const [isActive, setIsActive] = useState(category?.isActive ?? true)
   const [sizeGuide, setSizeGuide] = useState(category?.sizeGuide ?? '')
+  const [sizeChartId, setSizeChartId] = useState(category?.sizeChartId ?? '')
   const [seoTitle, setSeoTitle] = useState(category?.seoTitle ?? '')
   const [seoDescription, setSeoDescription] = useState(category?.seoDescription ?? '')
   const [tiles, setTiles] = useState<TileForm[]>(() => (category?.editorial ?? []).map(toTileForm))
@@ -123,6 +125,7 @@ export function CategoryForm({
     imageUrl,
     imageAlt: imageUrl ? imageAlt.trim() || null : null,
     sizeGuide: sizeGuide.trim() || null,
+    sizeChartId: sizeChartId || null,
     isActive,
     seoTitle: seoTitle.trim() || null,
     seoDescription: seoDescription.trim() || null,
@@ -135,6 +138,7 @@ export function CategoryForm({
     imageUrl: saved.imageUrl,
     imageAlt: saved.imageAlt,
     sizeGuide: saved.sizeGuide,
+    sizeChartId: saved.sizeChartId ?? null,
     isActive: saved.isActive,
     seoTitle: saved.seoTitle,
     seoDescription: saved.seoDescription,
@@ -297,7 +301,15 @@ export function CategoryForm({
         )}
       </div>
 
-      <section aria-label="Size guide" className="flex flex-col gap-2">
+      <section aria-label="Size guide" className="flex flex-col gap-4">
+        <div className="max-w-md">
+          <SizeChartPicker
+            value={sizeChartId}
+            onChange={setSizeChartId}
+            noneLabel="No size chart"
+            hint="Every product in this category and its subcategories shows it — unless a subcategory or product has its own. On product pages it replaces the written guide below."
+          />
+        </div>
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="flex flex-col gap-2">
             <TextArea

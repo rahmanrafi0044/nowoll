@@ -62,6 +62,11 @@ export class CreateCategoryDto {
   @MaxLength(20000)
   sizeGuide?: string | null
 
+  // 38f: a measurement chart (Admin → Size charts); null = none / unlink.
+  @IsOptional()
+  @IsUUID('all', { message: 'sizeChartId must be a size chart id' })
+  sizeChartId?: string | null
+
   // 38f: photo tiles among the products. Their fields are checked by
   // categoryEditorialSchema (@nowoll/validation) in the service.
   @IsOptional()

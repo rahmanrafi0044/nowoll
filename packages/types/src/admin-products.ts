@@ -110,6 +110,8 @@ export interface AdminProductDetail {
   care: string | null
   fitNote: string | null
   readyToShip: boolean
+  /** 38f: its own size chart (null = the category's, if any). */
+  sizeChartId: string | null
   variants: AdminVariant[]
   images: AdminImage[]
   /** What it still needs before it can go live (empty = ready). */

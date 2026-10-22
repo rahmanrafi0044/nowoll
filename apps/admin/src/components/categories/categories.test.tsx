@@ -25,6 +25,7 @@ const mocked = vi.mocked(api)
 const ok = <T,>(data: T) => ({ ok: true as const, data })
 
 const node = (more: Partial<AdminCategoryNode>): AdminCategoryNode => ({
+  sizeChartId: null,
   id: 'x',
   name: 'X',
   slug: 'x',
@@ -123,6 +124,7 @@ describe('new category', () => {
         imageUrl: 'https://cdn.example/content/eid.webp',
         imageAlt: 'Panjabis for Eid',
         sizeGuide: null,
+        sizeChartId: null,
         isActive: true,
         seoTitle: null,
         seoDescription: null,

@@ -1,3 +1,4 @@
+import type { SizeChartView } from './size-charts.js'
 // ============================================================================
 // Public catalog data AS THE STOREFRONT RECEIVES IT (JSON over HTTP).
 // Money is a string ("1490" / "1490.5") because the API sends exact decimals,
@@ -114,6 +115,8 @@ export interface ProductDetailView extends Omit<
   breadcrumb: BreadcrumbItem[]
   images: ProductImageView[]
   variants: ProductVariantView[]
+  /** 38f: the measurement chart — its own, else its category's; null = none. */
+  sizeChart: SizeChartView | null
 }
 
 export interface ContentBlockView<T> {

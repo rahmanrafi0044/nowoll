@@ -274,6 +274,15 @@ describe('GET /products/facets', () => {
     expect(lawn.body.data.items.every((p: { fabric: string }) => p.fabric === 'Lawn')).toBe(true)
   })
 
+  it('38f: fabrics typed in different case count as ONE choice, with the usual spelling', async () => {
+    const c = await makeCategory()
+    for (const fabric of ['Lawn', 'Lawn', 'lawn ']) await makeProduct({ categoryId: c.id, fabric })
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/products/facets?category=${c.slug}`)
+      .expect(200)
+    expect(res.body.data.fabrics).toEqual([{ fabric: 'Lawn', count: 3 }])
+  })
+
   it('rejects unknown query parameters', async () => {
     await request(app.getHttpServer()).get('/api/v1/products/facets?size=M').expect(400)
   })

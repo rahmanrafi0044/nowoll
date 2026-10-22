@@ -54,6 +54,7 @@ const PRODUCT: AdminProductDetail = {
   care: null,
   fitNote: null,
   readyToShip: false,
+  sizeChartId: null,
   variants: [
     {
       id: 'v1',

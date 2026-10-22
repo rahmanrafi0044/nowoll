@@ -19,6 +19,7 @@ import {
 } from './category-tree.js'
 import type { CreateCategoryDto } from './dto/create-category.dto.js'
 import type { UpdateCategoryDto } from './dto/update-category.dto.js'
+import { SizeChartsService } from '../size-charts/size-charts.service.js'
 import { RedirectsService } from '../redirects/redirects.service.js'
 
 /** What customers see — no admin-only fields like isActive or deletedAt. */
@@ -47,6 +48,7 @@ export interface AdminCategoryNode {
   imageUrl: string | null
   imageAlt: string | null
   sizeGuide: string | null
+  sizeChartId: string | null
   editorial: EditorialTile[]
   seoTitle: string | null
   seoDescription: string | null
@@ -121,6 +123,8 @@ export class CategoriesService {
     private readonly prisma: PrismaService,
     // Step 43c: old address → new one when the slug changes (optional for hand-built tests).
     @Optional() private readonly redirects?: RedirectsService,
+    // 38f: checks a size chart exists before linking (optional for hand-built tests).
+    @Optional() private readonly sizeCharts?: SizeChartsService,
   ) {}
 
   // ── Public ─────────────────────────────────────────────────────────────
@@ -215,6 +219,7 @@ export class CategoriesService {
       imageUrl: n.imageUrl,
       imageAlt: n.imageAlt,
       sizeGuide: n.sizeGuide,
+      sizeChartId: n.sizeChartId,
       editorial: readEditorial(n.editorial),
       seoTitle: n.seoTitle,
       seoDescription: n.seoDescription,
@@ -281,6 +286,7 @@ export class CategoriesService {
 
   async create(dto: CreateCategoryDto): Promise<Category> {
     if (dto.parentId) await this.assertParentUsable(dto.parentId)
+    await this.sizeCharts?.assertExists(dto.sizeChartId)
 
     const slug = dto.slug
       ? await this.assertSlugAvailable(dto.slug)
@@ -298,6 +304,7 @@ export class CategoriesService {
 
   async update(id: string, dto: UpdateCategoryDto): Promise<Category> {
     const existing = await this.findActiveOrThrow(id)
+    await this.sizeCharts?.assertExists(dto.sizeChartId)
 
     // `undefined` = "don't change the parent"; `null` = "move to top level".
     if (dto.parentId) {

@@ -5,7 +5,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common'
-import { Prisma, type Product } from '@nowoll/database'
+import { Prisma, type Product, type SizeChart as SizeChartRow } from '@nowoll/database'
 import { InventoryChangeReason, ProductStatus } from '@nowoll/database/enums'
 import type { Paginated } from '@nowoll/types'
 import { CategoriesService } from '../categories/categories.service.js'
@@ -30,6 +30,11 @@ import {
 } from './product-view.js'
 import { RedirectsService } from '../redirects/redirects.service.js'
 import { SettingsService } from '../settings/settings.service.js'
+import {
+  type PublicSizeChart,
+  readSizeChart,
+  SizeChartsService,
+} from '../size-charts/size-charts.service.js'
 
 /** Photos per card: the first, the hover one, and a few for swiping on phones. */
 const CARD_IMAGES = 4
@@ -77,6 +82,8 @@ export interface ProductDetail extends Omit<ProductCard, 'image' | 'images' | 'c
   breadcrumb: { id: string; name: string; slug: string }[]
   images: PublicImage[]
   variants: PublicVariant[]
+  /** 38f: its own chart, else its category's; null = none (or switched off). */
+  sizeChart: PublicSizeChart | null
 }
 
 export interface ProductFacets {
@@ -108,6 +115,8 @@ export class ProductsService {
     @Optional() private readonly redirects?: RedirectsService,
     // 38f: how long "New"/"Restocked" badges show (optional for hand-built tests).
     @Optional() private readonly settings?: SettingsService,
+    // 38f: checks a size chart exists before a product links to it (optional for hand-built tests).
+    @Optional() private readonly sizeCharts?: SizeChartsService,
   ) {}
 
   /** Admin → Settings → badge days, read once per request. */
@@ -247,10 +256,13 @@ export class ProductsService {
         SELECT v.color AS key, count(DISTINCT v.product_id)::int AS n
         FROM product_variants v JOIN products p ON p.id = v.product_id
         WHERE ${live} AND ${scope} GROUP BY v.color`,
+      // Fabric is typed by hand: "Lawn" and "lawn " count as ONE choice (the shop's
+      // filter ignores case too), shown with its most common spelling.
       this.prisma.$queryRaw<{ key: string; n: number }[]>`
-        SELECT p.fabric AS key, count(*)::int AS n FROM products p
+        SELECT mode() WITHIN GROUP (ORDER BY btrim(p.fabric)) AS key, count(*)::int AS n
+        FROM products p
         WHERE ${scope} AND p.fabric IS NOT NULL AND btrim(p.fabric) <> ''
-        GROUP BY p.fabric ORDER BY p.fabric`,
+        GROUP BY lower(btrim(p.fabric)) ORDER BY lower(btrim(p.fabric))`,
     ])
     const toRecord = (rows: { key: string; n: number }[]) =>
       Object.fromEntries(rows.map((r) => [r.key, r.n]))
@@ -313,7 +325,37 @@ export class ProductsService {
       breadcrumb: await this.categories.breadcrumbFor(product.categoryId),
       images: product.images.map(toPublicImage),
       variants: product.variants.map((v) => toPublicVariant(v, product)),
+      sizeChart: await this.sizeChartFor(product.id),
     }
+  }
+
+  /**
+   * 38f: the product's own size chart if it has a working one, else the
+   * NEAREST category up the tree that has one (Three-Piece → Women): a chart
+   * set on "Women" covers every subcategory, and a subcategory's own chart
+   * wins over its parent's. Separate small queries, so product CARDS (lists
+   * of 24+) never load charts they don't show.
+   */
+  private async sizeChartFor(productId: string): Promise<PublicSizeChart | null> {
+    const row = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { sizeChart: true, categoryId: true },
+    })
+    const own = readSizeChart(row?.sizeChart)
+    if (own || !row) return own
+    let categoryId: string | null = row.categoryId
+    // 10 levels at most — the tree is never that deep; this only guards a broken parent loop.
+    for (let depth = 0; categoryId && depth < 10; depth++) {
+      const category: { sizeChart: SizeChartRow | null; parentId: string | null } | null =
+        await this.prisma.category.findUnique({
+          where: { id: categoryId },
+          select: { sizeChart: true, parentId: true },
+        })
+      const chart = readSizeChart(category?.sizeChart)
+      if (chart) return chart
+      categoryId = category?.parentId ?? null
+    }
+    return null
   }
 
   /**
@@ -338,6 +380,7 @@ export class ProductsService {
   async create(dto: CreateProductDto): Promise<Product> {
     const { variants = [], ...fields } = dto
     await this.assertCategoryUsable(fields.categoryId)
+    await this.sizeCharts?.assertExists(fields.sizeChartId)
     assertCompareAtAbove(fields.basePrice, fields.compareAtPrice)
     assertNoDuplicateVariants(variants)
     for (const v of variants) assertCompareAtAbove(v.price ?? fields.basePrice, v.compareAtPrice)
@@ -377,6 +420,7 @@ export class ProductsService {
     const existing = await this.findAdminOrThrow(id)
 
     if (dto.categoryId) await this.assertCategoryUsable(dto.categoryId)
+    await this.sizeCharts?.assertExists(dto.sizeChartId)
     assertCompareAtAbove(
       dto.basePrice ?? existing.basePrice.toNumber(),
       dto.compareAtPrice === undefined ? existing.compareAtPrice?.toNumber() : dto.compareAtPrice,

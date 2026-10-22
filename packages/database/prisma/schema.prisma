@@ -215,6 +215,8 @@ model Category {
   imageUrl       String?   @map("image_url")
   imageAlt       String?   @map("image_alt")
   sizeGuide      String?   @map("size_guide") @db.Text // shown on every PDP in this category
+  // 38f: a measurement chart for every product in this category (a product's own wins).
+  sizeChartId    String?   @map("size_chart_id") @db.Uuid
   // 38f: up to 3 photo tiles shown among this category's products (checked by
   // categoryEditorialSchema in @nowoll/validation before saving and showing).
   editorial      Json      @default("[]")
@@ -227,9 +229,10 @@ model Category {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryTree")
-  products Product[]
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  products  Product[]
+  sizeChart SizeChart? @relation(fields: [sizeChartId], references: [id], onDelete: SetNull)
 
   @@index([parentId]) // fast "get children of X" when building the tree
   @@map("categories")
@@ -260,6 +263,8 @@ model Product {
   // Set by StockService when a size comes back in stock (0 → more) through a
   // manual change or CSV import — the "Restocked" badge. Never typed in.
   restockedAt      DateTime?                @map("restocked_at")
+  // 38f: this product's own measurement chart (else its category's is used).
+  sizeChartId      String?                  @map("size_chart_id") @db.Uuid
   seoTitle         String?                  @map("seo_title")
   seoDescription   String?                  @map("seo_description")
   createdAt        DateTime                 @default(now()) @map("created_at")
@@ -280,6 +285,7 @@ model Product {
   reviews    Review[]
   orderItems OrderItem[]
   blogPosts  BlogPostProduct[]
+  sizeChart  SizeChart?        @relation(fields: [sizeChartId], references: [id], onDelete: SetNull)
 
   @@index([categoryId])
   @@index([status, createdAt]) // storefront "new arrivals": active products, newest first
@@ -947,4 +953,36 @@ model Redirect {
 
   @@index([toPath]) // chains: find redirects that point at an address that moved again
   @@map("redirects")
+}
+
+// ============================================================================
+// SIZE CHARTS (38f) — measurement tables customers check before picking a size
+// ============================================================================
+
+enum SizeUnit {
+  INCH
+  CM
+}
+
+// Made once in Admin → Size charts, then used by products or whole categories
+// ("Three-piece — regular fit" for every three-piece). The tables (pieces →
+// measurements → one row per size) live in ONE JSON column: a chart is always
+// read and saved whole, never searched cell by cell, so separate tables would
+// only add joins. sizeChartSchema (@nowoll/validation) checks it on every save
+// and every read. Archive (isActive = false) instead of deleting — the shop
+// then simply stops showing it.
+model SizeChart {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String // admin-only label, e.g. "Three-piece — regular fit"
+  unit      SizeUnit @default(INCH) // what the numbers are in; the shop can show the other unit
+  note      String? // "Measured flat, across the garment"
+  pieces    Json
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products   Product[]
+  categories Category[]
+
+  @@map("size_charts")
 }

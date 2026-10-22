@@ -84,6 +84,8 @@ export interface ProductFields {
   care: string | null
   fitNote: string | null
   readyToShip: boolean
+  /** 38f: its own size chart; null = the category's. */
+  sizeChartId: string | null
 }
 
 /** New products always start as DRAFT (API rule). */

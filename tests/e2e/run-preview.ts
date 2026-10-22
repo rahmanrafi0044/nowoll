@@ -2,6 +2,8 @@
 // pnpm design-preview — the real shop + admin on this PC with the stand-in
 // women's catalogue (support/launch-catalogue.ts), to LOOK at a design change
 // (38f) before it goes anywhere. Production builds, like the browser tests.
+// The root command (`pnpm design-preview`) builds the API first, as `pnpm
+// test:e2e` does — the API server runs its compiled copy (apps/api/dist).
 //
 //   shop   http://localhost:3100      admin  http://localhost:3102/admin/login
 //   (admin sign-in: the browser tests' pretend accounts — support/fixtures.ts)

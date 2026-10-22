@@ -120,6 +120,11 @@ export class CreateProductDto {
   @IsBoolean()
   readyToShip?: boolean
 
+  // 38f: a measurement chart (Admin → Size charts); null = none / unlink.
+  @IsOptional()
+  @IsUUID('all', { message: 'sizeChartId must be a size chart id' })
+  sizeChartId?: string | null
+
   // Create the product and its sizes/colors in one request (one transaction).
   @IsOptional()
   @IsArray()

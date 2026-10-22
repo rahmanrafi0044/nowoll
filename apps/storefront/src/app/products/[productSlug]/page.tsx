@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
 import { ProductCard } from '@/components/product-card'
+import { SizeChart } from '@/components/product/size-chart'
 import { Fold } from '@/components/product/fold'
 import { ProductInfoBox } from '@/components/product/product-info-box'
 import { ProductView } from '@/components/product/product-view'
@@ -77,6 +78,9 @@ export default async function ProductPage({ params }: Props) {
   const categorySlug = product.breadcrumb.at(-1)?.slug
   const category = categorySlug ? await apiGet<CategoryDetail>(`/categories/${categorySlug}`) : null
   const sizeGuide = category?.sizeGuide ?? null
+  // 38f: a measurement chart (the product's own, else its category's) comes first;
+  // the category's written guide is shown when there is no chart.
+  const sizeChart = product.sizeChart ?? null
   // Approved reviews (step 24) — refreshed with the page (ISR, 60 s). If the
   // reviews can't be loaded, the product page still works without them.
   const reviews = await apiGet<ProductReviewsView>(`/reviews/product/${product.id}`)
@@ -130,7 +134,7 @@ export default async function ProductPage({ params }: Props) {
       <ProductView
         product={product}
         sticky
-        sizeGuideHref={sizeGuide ? '#size-guide' : undefined}
+        sizeGuideHref={sizeChart || sizeGuide ? '#size-guide' : undefined}
         whatsapp={settings.store_whatsapp || undefined}
         pageUrl={absoluteUrl(`/products/${product.slug}`)}
         header={
@@ -173,12 +177,18 @@ export default async function ProductPage({ params }: Props) {
               {product.care && <p className="mt-2 whitespace-pre-line">{product.care}</p>}
             </Fold>
           )}
-          {sizeGuide && (
+          {sizeChart ? (
             <Fold id="size-guide" title="Size guide">
-              {/* Markdown since step 36b — a real table (Size | Chest | Length), written in
-                  Admin → Categories with a live preview. Same safe renderer as the pages. */}
-              <Markdown className="text-sm">{sizeGuide}</Markdown>
+              <SizeChart chart={sizeChart} />
             </Fold>
+          ) : (
+            sizeGuide && (
+              <Fold id="size-guide" title="Size guide">
+                {/* Markdown since step 36b — a real table (Size | Chest | Length), written in
+                  Admin → Categories with a live preview. Same safe renderer as the pages. */}
+                <Markdown className="text-sm">{sizeGuide}</Markdown>
+              </Fold>
+            )
           )}
         </div>
         <ProductReviews productId={product.id} initial={reviews} />

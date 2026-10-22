@@ -86,7 +86,8 @@ export function ProductPurchase({
         ? 'Out of stock'
         : null
 
-  function addToBag() {
+  /** openBag: false for "Buy now" — the bag panel would stay open over the checkout page. */
+  function addToBag(openBag = true) {
     if (!variant || blocker) return
     const image = product.images.find((i) => i.variantId === variant.id) ?? product.images[0]
     addItem(
@@ -116,6 +117,7 @@ export function ProductPurchase({
       ),
     )
     setAdded(true)
+    if (!openBag) return
     // decision #4: show the bag with a Checkout button right away (+ "Added to bag", 38f)
     openCart({
       productName: product.name,
@@ -124,11 +126,12 @@ export function ProductPurchase({
     })
   }
 
-  // 38f "Buy now": the same as Add to bag, then straight to checkout. (The bag
-  // is saved in this browser at once, so the checkout page finds it.)
+  // 38f "Buy now": the same as Add to bag (without opening the bag panel), then
+  // straight to checkout. (The bag is saved in this browser at once, so the
+  // checkout page finds it.)
   function buyNow() {
     if (!variant || blocker) return
-    addToBag()
+    addToBag(false)
     router.push('/checkout')
   }
 
@@ -139,7 +142,7 @@ export function ProductPurchase({
     : null
 
   const addButton = (
-    <Button size="lg" fullWidth onClick={addToBag} disabled={blocker !== null}>
+    <Button size="lg" fullWidth onClick={() => addToBag()} disabled={blocker !== null}>
       {blocker ?? (added ? 'Added ✓' : 'Add to bag')}
     </Button>
   )

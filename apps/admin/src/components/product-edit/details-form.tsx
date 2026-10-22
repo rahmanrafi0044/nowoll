@@ -4,6 +4,7 @@ import type { AdminProductDetail } from '@nowoll/types'
 import { Button, Input } from '@nowoll/ui'
 import { type FormEvent, useEffect, useState } from 'react'
 import { FormProblem, SelectField, TextArea } from '@/components/form-fields'
+import { SizeChartPicker } from '@/components/size-charts/size-chart-picker'
 import { flattenCategories } from '@/lib/categories'
 import { parsePrice, priceText } from '@/lib/money-input'
 import { type CategoryNode, type ProductFields, updateProduct } from '@/lib/products-api'
@@ -28,6 +29,8 @@ type Form = {
   care: string
   fitNote: string
   readyToShip: boolean
+  /** '' = none (the category's chart is used). */
+  sizeChartId: string
 }
 
 const toForm = (p: AdminProductDetail): Form => ({
@@ -46,6 +49,7 @@ const toForm = (p: AdminProductDetail): Form => ({
   care: p.care ?? '',
   fitNote: p.fitNote ?? '',
   readyToShip: p.readyToShip,
+  sizeChartId: p.sizeChartId ?? '',
 })
 
 const orNull = (s: string) => (s.trim() === '' ? null : s.trim())
@@ -95,6 +99,7 @@ export function changesOf(
     ]
   if (after.isFeatured !== before.isFeatured) changes.isFeatured = after.isFeatured
   if (after.readyToShip !== before.readyToShip) changes.readyToShip = after.readyToShip
+  if (after.sizeChartId !== before.sizeChartId) changes.sizeChartId = after.sizeChartId || null
   return { changes }
 }
 
@@ -268,6 +273,13 @@ export function DetailsForm({
             </span>
           </span>
         </label>
+        <SizeChartPicker
+          value={form.sizeChartId}
+          onChange={(v) => set('sizeChartId')(v)}
+          noneLabel="The category’s chart (if it has one)"
+          hint="Shown in the product page’s Size guide. Choose one only if this product fits differently."
+          disabled={readOnly}
+        />
         <Input
           label="Google title"
           value={form.seoTitle}

@@ -211,6 +211,36 @@ export async function seedLaunchCatalogue(): Promise<void> {
     await photo('women.jpg', '#9caf88', 1200, 1500, productGrain)
     await photo('tile-wide.jpg', '#a4532f', 2400, 1200, heroGrain)
     await photo('tile.jpg', '#e3b7b0', 1200, 1500, productGrain)
+    // 38f: a three-piece size chart, used by the Three-Piece category.
+    const threePieceChart = await db.sizeChart.create({
+      data: {
+        name: 'Three-piece — regular fit',
+        unit: 'INCH',
+        note: 'Measured flat across the garment. Between sizes? Choose the larger one.',
+        pieces: [
+          {
+            name: 'Kameez',
+            columns: ['Chest', 'Length', 'Sleeve', 'Shoulder'],
+            rows: [
+              { size: 'S', values: ['36', '40', '22', '14'] },
+              { size: 'M', values: ['38', '41', '22.5', '14.5'] },
+              { size: 'L', values: ['40', '42', '23', '15'] },
+              { size: 'XL', values: ['42-43', '43', '23.5', '15.5'] },
+            ],
+          },
+          {
+            name: 'Salwar',
+            columns: ['Waist', 'Hip', 'Length'],
+            rows: [
+              { size: 'S', values: ['26-28', '38', '38'] },
+              { size: 'M', values: ['28-30', '40', '39'] },
+              { size: 'L', values: ['30-32', '42', '40'] },
+              { size: 'XL', values: ['32-34', '44', '40'] },
+            ],
+          },
+        ],
+      },
+    })
     const women = await db.category.create({
       data: {
         name: 'Women',
@@ -258,6 +288,7 @@ export async function seedLaunchCatalogue(): Promise<void> {
           imageUrl: `/perf/${cat.slug}.jpg`,
           imageAlt: cat.name,
           editorial,
+          sizeChartId: c === 0 ? threePieceChart.id : null,
         },
       })
       for (let i = 0; i < PER_CATEGORY; i++) {
