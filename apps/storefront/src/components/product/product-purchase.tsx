@@ -11,6 +11,7 @@ import { colorOptions, findVariant, sizeOptions } from '@/lib/variants'
 import { useCartStore } from '@/stores/cart-store'
 import { track } from '@/stores/tracking-store'
 import { useUiStore } from '@/stores/ui-store'
+import { NotifyMe } from './notify-me'
 import { WishlistButton } from './wishlist-button'
 
 // A UI limit to catch typos ("100" instead of "1"), not a business rule —
@@ -53,12 +54,11 @@ export function ProductPurchase({
   const sizes = color ? sizeOptions(product.variants, color) : []
   const variant = color ? findVariant(product.variants, color, size) : undefined
 
-  // Picking a new color keeps the size only if that size exists (and is in stock) in the new color.
+  // Picking a new color keeps the size if that size exists in the new color
+  // (sold out too — then "Notify me" shows, 38f).
   function chooseColor(next: string) {
     onColorChange(next)
-    const stillAvailable = sizeOptions(product.variants, next).some(
-      (s) => s.size === size && s.inStock,
-    )
+    const stillAvailable = sizeOptions(product.variants, next).some((s) => s.size === size)
     if (!stillAvailable)
       setSize(
         sizeOptions(product.variants, next).length === 1
@@ -209,13 +209,13 @@ export function ProductPurchase({
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {sizes.map((s) => (
-              <label key={s.size} className={s.inStock ? 'cursor-pointer' : 'cursor-not-allowed'}>
+              // 38f: sold-out sizes can be chosen too — to ask "Notify me when it's back".
+              <label key={s.size} className="cursor-pointer">
                 <input
                   type="radio"
                   name={`size-${product.id}`}
                   value={s.size}
                   checked={s.size === size}
-                  disabled={!s.inStock}
                   onChange={() => setSize(s.size)}
                   aria-label={s.inStock ? s.size : `${s.size} (out of stock)`}
                   className="peer sr-only"
@@ -235,23 +235,36 @@ export function ProductPurchase({
         </fieldset>
       )}
 
-      <div className="flex items-end gap-3">
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Quantity
-          <select
-            value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-            className="h-12 rounded-control border border-border-strong bg-surface px-3 text-base"
-          >
-            {Array.from({ length: MAX_QTY }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex-1">{addButton}</div>
-      </div>
+      {variant && !variant.inStock ? (
+        <NotifyMe
+          key={variant.id}
+          variantId={variant.id}
+          label={`${variant.size} / ${variant.color}`}
+        />
+      ) : (
+        <div className="flex items-end gap-3">
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            Quantity
+            <select
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value))}
+              className="h-12 rounded-control border border-border-strong bg-surface px-3 text-base"
+            >
+              {Array.from({ length: MAX_QTY }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex-1">{addButton}</div>
+        </div>
+      )}
+      {!anyInStock && !variant && (
+        <p className="-mt-3 text-sm text-muted-foreground">
+          Choose your size to be told when it’s back.
+        </p>
+      )}
 
       {anyInStock && (
         <Button

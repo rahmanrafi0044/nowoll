@@ -60,10 +60,35 @@ describe('<ProductPurchase />', () => {
     )
   })
 
-  it('asks for a size before adding, and disables out-of-stock sizes', () => {
+  it('asks for a size before adding; a sold-out size offers "Notify me" instead (38f)', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ success: true, data: { waiting: true } }))),
+    )
+    vi.stubGlobal('fetch', fetchMock)
     render(<Harness />)
     expect(screen.getByRole('button', { name: 'Choose a size' })).toBeDisabled()
-    expect(screen.getByRole('radio', { name: /S \(out of stock\)/ })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('radio', { name: 'S (out of stock)' }))
+    expect(screen.queryByRole('button', { name: /Add to bag|Out of stock/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Notify me' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter your email')
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('Your email'), { target: { value: 'fan@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Notify me' }))
+    expect(await screen.findByText(/we’ll email you once when/)).toHaveTextContent('S / White')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/api/v1/stock-alerts',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ variantId: 'w-s', email: 'fan@example.com' }),
+      }),
+    )
+
+    // Back to an in-stock size: the normal Add to bag returns.
+    fireEvent.click(screen.getByRole('radio', { name: 'M' }))
+    expect(screen.getByRole('button', { name: 'Add to bag' })).toBeEnabled()
+    vi.unstubAllGlobals()
   })
 
   it('adds the chosen variant and quantity to the bag, and announces it', () => {

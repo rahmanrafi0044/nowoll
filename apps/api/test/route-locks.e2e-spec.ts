@@ -114,6 +114,9 @@ const OPEN_ROUTES: string[] = [
   'POST /api/v1/payment/sslcommerz/init',
   'POST /api/v1/payment/sslcommerz/ipn',
   'POST /api/v1/payment/sslcommerz/success',
+  // 38f "Notify me when it's back": shoppers need no account. Rate-limited 5/min per IP;
+  // only sold-out sizes of products for sale; the same answer for everyone (reveals nothing).
+  'POST /api/v1/stock-alerts',
   'POST /api/v1/subscribers',
   'POST /api/v1/subscribers/confirm',
   'POST /api/v1/subscribers/unsubscribe',

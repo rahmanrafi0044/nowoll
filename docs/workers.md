@@ -53,6 +53,7 @@ except `src/notifications/queued-notifiers.spec.ts`, which checks the jobs in a 
 | `return-approved` / `return-rejected` | admin approves / rejects a return | instructions / reason — only while that is the status |
 | `refund-processed` | a refund is really done (manual, SSLCommerz success, reconcile, admin resolve) | amount; wording by how the money went back |
 | `order-shipped` / `order-delivered` | **the admin order screen (step 31)** — nothing calls these yet | courier + tracking / the return window |
+| `back-in-stock` (38f) | a sold-out size is **restocked by the shop** (inventory change or CSV import — not a cancelled order) **and** someone asked “Notify me” | “It’s back” to everyone still waiting for that size — once each (`stock_alerts.notified_at`); skipped if it sold out again or is no longer for sale |
 
 Every job is added only **after** the change is saved; the same event twice is one job (fixed ids).
 

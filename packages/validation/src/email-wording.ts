@@ -29,6 +29,7 @@ export const EMAIL_KINDS = {
     placeholders: ['name', 'order', 'amount', 'store'],
   },
   'newsletter-confirm': { label: 'Newsletter: please confirm', placeholders: ['store'] },
+  'back-in-stock': { label: 'Back in stock (“Notify me”)', placeholders: ['product', 'store'] },
 } as const satisfies Record<string, { label: string; placeholders: readonly string[] }>
 
 export type EmailKind = keyof typeof EMAIL_KINDS
@@ -39,6 +40,7 @@ export const PLACEHOLDER_HELP: Record<string, string> = {
   name: 'the customer’s first name',
   order: 'the order number, e.g. NW-10001',
   amount: 'the amount, e.g. ৳1,550',
+  product: 'the product and size, e.g. Mehr Three-Piece (M / Ivory)',
   store: 'your store name',
 }
 

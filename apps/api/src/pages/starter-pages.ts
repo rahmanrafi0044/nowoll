@@ -23,6 +23,7 @@ This page explains what information Nowoll collects when you shop with us, why, 
 - To deliver your order and contact you about it.
 - To handle returns and refunds.
 - To send our newsletter — only if you signed up. Every email has an unsubscribe link.
+- To email you once when a sold-out size is back — only if you asked (“Notify me”). That email is the only one, and nothing else is sent because of it.
 
 ## Cookies and tracking
 - **Necessary** (always on): your bag, signing in and checkout. The shop doesn't work without them.

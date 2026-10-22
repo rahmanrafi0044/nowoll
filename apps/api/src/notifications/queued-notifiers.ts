@@ -157,6 +157,15 @@ export class QueuedCustomerNotifier implements CustomerNotifier {
   async emailTest(tag: string, to: string, wording: unknown) {
     await this.queue.add('email-test', { tag, to, wording }, { attempts: 2 })
   }
+  async backInStock(variantId: string) {
+    // One job per restock (a time in the id): restocked again next month = new emails
+    // for whoever is waiting by then. The worker emails each person once (notifiedAt).
+    await this.queue.add(
+      'back-in-stock',
+      { variantId },
+      { jobId: notificationJobId('back-in-stock', `${variantId}_${Date.now()}`) },
+    )
+  }
   async newsletterSyncAll() {
     // One per minute at most (double clicks are one job).
     const minute = Math.floor(Date.now() / 60_000)

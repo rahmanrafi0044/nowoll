@@ -79,6 +79,8 @@ export interface AdminVariant {
   weightGrams: number | null
   isActive: boolean
   sortOrder: number
+  /** 38f: shoppers waiting for a "back in stock" email for this size. */
+  waiting: number
 }
 
 export interface AdminImage {

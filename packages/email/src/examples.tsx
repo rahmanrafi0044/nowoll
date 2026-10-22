@@ -4,6 +4,7 @@ import { orderLink } from './links.js'
 import type { EmailContent } from './render.js'
 import { lowStockEmail } from './templates/admin.js'
 import {
+  backInStockEmail,
   newsletterConfirmEmail,
   orderConfirmationEmail,
   orderDeliveredEmail,
@@ -104,6 +105,12 @@ export const EXAMPLES: Record<string, EmailContent> = {
   newsletterConfirm: newsletterConfirmEmail({
     confirmUrl: `${SITE}/newsletter/confirm?token=abc`,
     unsubscribeUrl: `${SITE}/newsletter/unsubscribe?token=abc`,
+  }),
+  backInStock: backInStockEmail({
+    productName: 'Mehr Three-Piece',
+    variantLabel: 'M / Ivory',
+    price: '1890',
+    productUrl: `${SITE}/products/mehr-three-piece`,
   }),
   lowStock: lowStockEmail({
     items: [

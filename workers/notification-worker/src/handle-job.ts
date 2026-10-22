@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@nowoll/database'
 import {
+  backInStockEmail,
   type EmailContent,
   type EmailSender,
   exampleByTag,
@@ -203,8 +204,77 @@ export async function handleNotificationJob(job: NotificationJob, deps: Deps): P
     case 'newsletter-sync-all':
       return syncAll(newsletterDeps(deps))
 
+    // 38f "Notify me when it's back": a size was restocked. Re-check that it
+    // really is for sale now, then email everyone still waiting — each ONCE
+    // (notifiedAt is set right after their email). If the email service has a
+    // hiccup halfway, the retry carries on with those not yet emailed.
+    case 'back-in-stock': {
+      const v = await deps.db.productVariant.findUnique({
+        where: { id: data.variantId },
+        include: { product: true },
+      })
+      if (!v) throw new UnrecoverableError('Size not found')
+      const forSale =
+        v.isActive &&
+        !v.deletedAt &&
+        v.stock > 0 &&
+        v.product.status === 'ACTIVE' &&
+        !v.product.deletedAt
+      if (!forSale) return 'skipped: not in stock or not for sale'
+      const waiting = await deps.db.stockAlert.findMany({
+        where: { variantId: v.id, notifiedAt: null },
+        orderBy: { createdAt: 'asc' },
+      })
+      if (waiting.length === 0) return 'skipped: nobody waiting'
+      const email = await render(
+        deps,
+        backInStockEmail({
+          productName: v.product.name,
+          variantLabel: `${v.size} / ${v.color}`,
+          price: (v.price ?? v.product.basePrice).toString(),
+          productUrl: `${site}/products/${v.product.slug}`,
+        }),
+      )
+      let sent = 0
+      let refused = 0
+      for (const alert of waiting) {
+        const result = await deps.sender.send({
+          ...email,
+          to: alert.email,
+          // Per person: a retry of this job never emails someone twice.
+          idempotencyKey: `${job.id ?? 'back-in-stock'}_${alert.id}`,
+        })
+        if (!result.ok && result.retryable) throw new Error(result.reason) // try again later
+        // Sent — or refused for good (e.g. a mistyped address): either way, done with them.
+        await deps.db.stockAlert.update({
+          where: { id: alert.id },
+          data: { notifiedAt: new Date() },
+        })
+        if (result.ok) sent++
+        else refused++
+      }
+      return `sent back-in-stock to ${sent}${refused ? ` (${refused} refused)` : ''}`
+    }
+
     default:
       throw new UnrecoverableError(`Unknown job: ${String(job.name)}`)
+  }
+}
+
+/** An email ready to send to anyone: subject, HTML, text, tag and reply-to. */
+async function render(deps: Deps, content: EmailContent) {
+  // The store's name, tagline, colour and reply-to address come from Admin → Settings (step 38).
+  const settings = readSettings(await deps.db.setting.findMany())
+  // Step 43b: Admin → Content → Emails — wording, footer and (if switched on) the logo.
+  const wording = await deps.db.contentBlock.findUnique({ where: { key: 'email_wording' } })
+  const email = await renderEmail(content, emailBrand(settings, wording))
+  const replyTo = settings.store_email
+  return {
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+    tag: email.tag,
+    ...(replyTo && { replyTo }),
   }
 }
 
@@ -214,19 +284,10 @@ async function send(
   to: string,
   content: EmailContent,
 ): Promise<string> {
-  // The store's name, tagline, colour and reply-to address come from Admin → Settings (step 38).
-  const settings = readSettings(await deps.db.setting.findMany())
-  // Step 43b: Admin → Content → Emails — wording, footer and (if switched on) the logo.
-  const wording = await deps.db.contentBlock.findUnique({ where: { key: 'email_wording' } })
-  const email = await renderEmail(content, emailBrand(settings, wording))
-  const replyTo = settings.store_email
+  const email = await render(deps, content)
   const result = await deps.sender.send({
     to,
-    subject: email.subject,
-    html: email.html,
-    text: email.text,
-    tag: email.tag,
-    ...(replyTo && { replyTo }),
+    ...email,
     ...(job.id && { idempotencyKey: job.id }),
   })
   if (result.ok) return `sent ${email.tag} (${result.id ?? 'no id'})`

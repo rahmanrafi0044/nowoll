@@ -27,6 +27,9 @@ findings fixed or accepted with a reason; tests added so the important rules can
   public by nature. Sign-in, password reset, newsletter, discount check and order tracking are open but rate-limited
   (5/minute). SSLCommerz's notifications are verified with SSLCommerz (A08). The Resend webhook is signature-checked.
   The receipt and payment status are reached by an unguessable order id (finding 1).
+- **Added in 38f:** `POST /stock-alerts` ("Notify me when it's back") — open so shoppers need no account;
+  rate-limited 5/minute per IP, only for sold-out sizes of products on sale, and it gives everyone the same answer
+  (it never reveals who else asked). The emails sit in `stock_alerts` (RLS on, server-only).
 - **Finding 1 fixed:** `GET /orders/:id/receipt` answers for **24 hours** after the order (confirmation page,
   refresh, return from online payment), then "not found" — the same as a wrong id. Later, customers use
   **Track your order** (number + phone/email; no street address) or their account. The confirmation page now says

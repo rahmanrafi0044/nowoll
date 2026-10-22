@@ -221,7 +221,15 @@ function VariantRow({
             onChange={(e) => set('lowStockThreshold')(e.target.value)}
           />
         </td>
-        <td className="py-2 pr-2 text-right tabular-nums">{v.stock}</td>
+        <td className="py-2 pr-2 text-right tabular-nums">
+          {v.stock}
+          {/* 38f: shoppers who asked "Notify me" — they get an email when you restock this size. */}
+          {v.waiting > 0 && (
+            <span className="block text-xs whitespace-nowrap text-warning">
+              {v.waiting} waiting
+            </span>
+          )}
+        </td>
         <td className="py-2 pr-2">
           <input
             type="checkbox"

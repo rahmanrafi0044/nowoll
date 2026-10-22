@@ -100,6 +100,8 @@ export class AdminProductsService {
         variants: {
           where: { deletedAt: null },
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+          // 38f: how many shoppers asked "Notify me" for each size (a restock hint).
+          include: { _count: { select: { stockAlerts: { where: { notifiedAt: null } } } } },
         },
         images: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
       },
@@ -140,6 +142,7 @@ export class AdminProductsService {
         weightGrams: v.weightGrams,
         isActive: v.isActive,
         sortOrder: v.sortOrder,
+        waiting: v._count.stockAlerts,
       })),
       images: p.images.map((i) => ({
         id: i.id,
