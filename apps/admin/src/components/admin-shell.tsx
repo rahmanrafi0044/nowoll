@@ -83,44 +83,51 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <>
       {/* print:hidden — printed pages (the invoice) are just the page itself. */}
       <header className="border-b border-border bg-surface print:hidden">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-6">
+        {/* Two rows (38f): the name and "Sign out" on top, always visible; the
+            sections below, wrapping onto more lines on narrow screens instead of
+            pushing "Sign out" off the edge. */}
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 pt-3 pb-2">
+          <div className="flex items-center justify-between gap-4">
             <span className="font-semibold">Nowoll Admin</span>
-            <nav aria-label="Admin sections" className="flex gap-4 text-sm">
+            <div className="flex items-center gap-3 text-sm">
+              <span className="hidden whitespace-nowrap text-muted-foreground sm:inline">
+                {admin.fullName ?? admin.email} · {admin.role === 'ADMIN' ? 'Admin' : 'Staff'}
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="whitespace-nowrap"
+                onClick={async () => {
+                  await signOut()
+                  window.location.replace(LOGIN_PATH)
+                }}
+              >
+                Sign out
+              </Button>
+            </div>
+          </div>
+          <nav aria-label="Admin sections">
+            <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
               {NAV.filter((item) => !item.adminOnly || admin.role === 'ADMIN').map((item) => {
                 const current = pathname === item.href || pathname.startsWith(`${item.href}/`)
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={current ? 'page' : undefined}
-                    className={
-                      current
-                        ? 'font-medium text-foreground underline underline-offset-8'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }
-                  >
-                    {item.label}
-                  </Link>
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={current ? 'page' : undefined}
+                      className={`inline-block py-1.5 ${
+                        current
+                          ? 'font-medium text-foreground underline underline-offset-8'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
                 )
               })}
-            </nav>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="hidden text-muted-foreground sm:inline">
-              {admin.fullName ?? admin.email} · {admin.role === 'ADMIN' ? 'Admin' : 'Staff'}
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={async () => {
-                await signOut()
-                window.location.replace(LOGIN_PATH)
-              }}
-            >
-              Sign out
-            </Button>
-          </div>
+            </ul>
+          </nav>
         </div>
       </header>
       <AdminContext.Provider value={admin}>{children}</AdminContext.Provider>
