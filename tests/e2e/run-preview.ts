@@ -8,7 +8,8 @@
 //   shop   http://localhost:3100      admin  http://localhost:3102/admin/login
 //   (admin sign-in: the browser tests' pretend accounts — support/fixtures.ts)
 //
-// Options: --skip-build (reuse the last builds). Stop with Ctrl+C: everything
+// Options: --skip-build (reuse the last ADMIN build — the shop is always rebuilt,
+// see below). Stop with Ctrl+C: everything
 // it started stops with it. The e2e database is wiped and re-filled each run.
 // ============================================================================
 /* eslint-disable no-console -- command-line script: it reports by printing */
@@ -45,10 +46,16 @@ async function main(): Promise<number> {
   const api = start('api', 'node', ['--import', 'tsx/esm', 'test/e2e-server.ts'], API_DIR, apiEnv)
   await waitFor(`${API_URL}/api/v1/health`, 'API', api)
 
+  // The shop is ALWAYS rebuilt: the database was just refilled, so every size
+  // has a NEW id — and the shop's saved (pre-built) product pages hold the old
+  // ones. Reusing them gave "No longer available" in the bag and a "Notify me"
+  // that couldn't find the size. (The admin draws its pages in the browser
+  // from fresh data, so its build can be reused.)
+  console.log('▸ Building the shop (a few minutes)…')
+  if ((await run('pnpm', ['exec', 'next', 'build'], SHOP_DIR, shopEnv)) !== 0)
+    throw new Error('Storefront build failed')
   if (!skipBuild) {
-    console.log('▸ Building the shop and the admin panel (a few minutes)…')
-    if ((await run('pnpm', ['exec', 'next', 'build'], SHOP_DIR, shopEnv)) !== 0)
-      throw new Error('Storefront build failed')
+    console.log('▸ Building the admin panel…')
     if ((await run('pnpm', ['exec', 'next', 'build'], ADMIN_DIR, adminEnv)) !== 0)
       throw new Error('Admin build failed')
   }
