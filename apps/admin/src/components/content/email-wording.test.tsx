@@ -109,6 +109,10 @@ describe('Admin → Content → Emails (step 43b)', () => {
     expect(mocked.clearEmailWording).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Yes, remove' }))
     await waitFor(() => expect(mocked.clearEmailWording).toHaveBeenCalled())
-    expect(within(section(/Welcome \(new account\)/)).getByLabelText('Subject')).toHaveValue('')
+    // Wait for the page to redraw too: the call returns BEFORE the fields empty
+    // (on a slower machine the check above used to win that race — CI, #82).
+    await waitFor(() =>
+      expect(within(section(/Welcome \(new account\)/)).getByLabelText('Subject')).toHaveValue(''),
+    )
   })
 })
