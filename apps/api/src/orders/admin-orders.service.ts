@@ -1,8 +1,17 @@
-import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import {
+  BadGatewayException,
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common'
 import { Prisma } from '@nowoll/database'
 import { OrderStatus, PaymentMethod, PaymentStatus } from '@nowoll/database/enums'
 import type { AdminOrderDetail, AdminOrderList, AdminOrderRow, OrderInvoice } from '@nowoll/types'
 import { addDays, startOfStoreDay, storeDate } from '../analytics/store-time.js'
+import { COURIER, type CourierProvider, type ParcelBooking } from '../courier/courier.js'
 import { CUSTOMER_NOTIFIER, type CustomerNotifier } from '../notifications/customer-notifier.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import { SettingsService } from '../settings/settings.service.js'
@@ -95,6 +104,7 @@ export class AdminOrdersService {
     private readonly orders: OrdersService,
     private readonly settings: SettingsService,
     @Inject(CUSTOMER_NOTIFIER) private readonly notifier: CustomerNotifier,
+    @Inject(COURIER) private readonly courier: CourierProvider,
   ) {}
 
   /** GET /orders — newest first. */
@@ -134,7 +144,10 @@ export class AdminOrdersService {
 
   /** GET /orders/:id */
   async detail(id: string): Promise<AdminOrderDetail> {
-    const o = await this.prisma.order.findUnique({ where: { id }, include: DETAIL_INCLUDE })
+    const [o, settings] = await Promise.all([
+      this.prisma.order.findUnique({ where: { id }, include: DETAIL_INCLUDE }),
+      this.settings.all(),
+    ])
     if (!o) throw new NotFoundException('Order not found')
     const money = (d: Prisma.Decimal) => d.toString()
     return {
@@ -191,6 +204,13 @@ export class AdminOrdersService {
       })),
       courierName: o.courierName,
       trackingNumber: o.trackingNumber,
+      courierConsignmentId: o.courierConsignmentId,
+      courierStatus: o.courierStatus,
+      courierStatusAt: o.courierStatusAt?.toISOString() ?? null,
+      courierBooking: {
+        name: this.courier.name,
+        readiness: settings.steadfast_enabled ? this.courier.readiness() : 'off',
+      },
       customerNote: o.customerNote,
       adminNotes: o.adminNotes,
       cancelReason: o.cancelReason,
@@ -281,6 +301,120 @@ export class AdminOrdersService {
     // AFTER the commit: the customer is told only about what really happened.
     if (dto.to === OrderStatus.SHIPPED) await this.tell(() => this.notifier.orderShipped(id))
     if (dto.to === OrderStatus.DELIVERED) await this.tell(() => this.notifier.orderDelivered(id))
+    return this.detail(id)
+  }
+
+  /**
+   * POST /orders/:id/courier — "Book with Steadfast" (Phase 2). Books the parcel
+   * through the courier's API and marks the order SHIPPED with its tracking
+   * code (Rafi's decision 1A: the same moment as the manual way), then emails
+   * the customer. The amount to collect is automatic (decision 2A): the order
+   * total for an unpaid cash-on-delivery order, 0 when it's already paid.
+   *
+   * The order row stays LOCKED while the courier answers: a double click (or two
+   * staff at once) waits, then finds the order already shipped — never two
+   * parcels for one order.
+   */
+  async bookCourier(id: string, from: OrderStatus, actorId: string | null) {
+    const settings = await this.settings.all()
+    if (!settings.steadfast_enabled)
+      throw new ConflictException({
+        message: `Booking with ${this.courier.name} is switched off (Admin → Settings → Delivery).`,
+        code: 'COURIER_OFF',
+      })
+    const readiness = this.courier.readiness()
+    if (readiness !== 'ready')
+      throw new ConflictException({
+        message:
+          readiness === 'no_keys'
+            ? `${this.courier.name} isn’t connected: its API key and secret key aren’t in the server settings yet.`
+            : `The ${this.courier.name} connection isn’t finished yet. Book in the ${this.courier.name} app and enter the tracking number by hand.`,
+        code: 'COURIER_NOT_READY',
+      })
+
+    const now = new Date()
+    let tracking = ''
+    await this.prisma.$transaction(
+      async (tx) => {
+        const locked = await tx.$queryRaw<
+          { id: string }[]
+        >`SELECT id FROM orders WHERE id = ${id}::uuid FOR UPDATE`
+        if (locked.length === 0) throw new NotFoundException('Order not found')
+        const order = await tx.order.findUniqueOrThrow({ where: { id } })
+        if (order.status !== from) throw changedMeanwhile(order.orderNumber, order.status)
+        if (order.courierConsignmentId)
+          throw new ConflictException({
+            message: `This order is already booked with ${order.courierName ?? 'the courier'} (${order.trackingNumber}).`,
+            code: 'COURIER_ALREADY_BOOKED',
+          })
+        if (!allowedNext(order).includes(OrderStatus.SHIPPED))
+          throw new ConflictException({
+            message: `An order that is ${order.status.toLowerCase()} can't be shipped.`,
+            code: 'STATUS_CHANGE_NOT_ALLOWED',
+          })
+
+        const parcel: ParcelBooking = {
+          invoice: displayNumber(order.orderNumber),
+          recipientName: order.customerName,
+          recipientPhone: order.phone,
+          recipientAddress: [
+            order.shippingAddressLine1,
+            order.shippingAddressLine2,
+            order.shippingArea,
+            order.shippingDistrict,
+          ]
+            .filter((x) => x && x.trim())
+            .join(', '),
+          codAmount:
+            order.paymentMethod === PaymentMethod.COD && order.paymentStatus !== PaymentStatus.PAID
+              ? order.total.toNumber()
+              : 0,
+          note: order.customerNote,
+        }
+        const result = await this.courier.book(parcel)
+        if (!result.ok) {
+          // Nothing was booked: the order stays as it was.
+          if (result.retryable)
+            throw new ServiceUnavailableException({
+              message: `${this.courier.name} didn’t answer — nothing was booked. Try again in a minute. (${result.reason})`,
+              code: 'COURIER_UNAVAILABLE',
+            })
+          throw new BadGatewayException({
+            message: `${this.courier.name} refused the parcel: ${result.reason}`,
+            code: 'COURIER_REFUSED',
+          })
+        }
+
+        tracking = result.trackingCode
+        await tx.order.update({
+          where: { id },
+          data: {
+            status: OrderStatus.SHIPPED,
+            shippedAt: now,
+            courierName: this.courier.name,
+            trackingNumber: result.trackingCode,
+            courierConsignmentId: result.consignmentId,
+            courierStatus: result.status,
+            courierStatusAt: now,
+            statusHistory: {
+              create: {
+                fromStatus: order.status,
+                toStatus: OrderStatus.SHIPPED,
+                note: `Booked with ${this.courier.name} · ${result.trackingCode}${
+                  parcel.codAmount > 0 ? ` · collect ৳${parcel.codAmount}` : ''
+                }`,
+                changedById: actorId,
+              },
+            },
+          },
+        })
+      },
+      // The courier may take a few seconds; the row stays locked meanwhile.
+      { timeout: 30_000, maxWait: 10_000 },
+    )
+
+    this.logger.log(`Order ${id} booked with ${this.courier.name}: ${tracking}`)
+    await this.tell(() => this.notifier.orderShipped(id))
     return this.detail(id)
   }
 

@@ -18,6 +18,7 @@ import {
   PAYMENT_STATUS,
 } from '@/lib/order-labels'
 import {
+  bookCourier,
   changeOrderStatus,
   fetchOrder,
   markCashCollected,
@@ -303,6 +304,9 @@ function ActionForm({
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-3">
       <p className="text-sm font-medium">{ACTION_LABEL[to]}</p>
+      {to === 'SHIPPED' && order.courierBooking.readiness !== 'off' && (
+        <BookWithCourier order={order} onDone={onDone} />
+      )}
       {to === 'SHIPPED' && (
         <>
           <Input
@@ -523,5 +527,76 @@ function Notes({ order, onChanged }: { order: AdminOrderDetail; onChanged: () =>
         </Button>
       )}
     </form>
+  )
+}
+
+const NOT_READY: Record<'no_keys' | 'not_built', string> = {
+  no_keys: 'isn’t connected yet: its API key and secret key aren’t in the server settings.',
+  not_built: 'isn’t connected yet (the connection is waiting for its official API documentation).',
+}
+
+/**
+ * Phase 2: "Book with Steadfast" — one click books the parcel through the
+ * courier's API, marks the order shipped with the tracking code and emails the
+ * customer (Rafi's decision 1A). The amount to collect is automatic (2A).
+ * Typing a tracking number by hand (below) always stays possible.
+ */
+function BookWithCourier({
+  order,
+  onDone,
+}: {
+  order: AdminOrderDetail
+  onDone: (message: string | null) => void
+}) {
+  const { name, readiness } = order.courierBooking
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+  const collect =
+    order.paymentMethod === 'COD' && order.paymentStatus !== 'PAID' ? order.totals.total : null
+  const from = order.status === 'CONFIRMED' || order.status === 'PROCESSING' ? order.status : null
+
+  async function book() {
+    if (!from) return
+    setBusy(true)
+    setProblem(null)
+    const r = await bookCourier(order.id, from)
+    setBusy(false)
+    if (r.ok) return onDone(null)
+    if (r.error === 'ORDER_CHANGED') return onDone(r.message)
+    setProblem(r.message)
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-control border border-border p-3">
+      {readiness === 'ready' ? (
+        <p className="text-sm text-muted-foreground">
+          Sends {order.customer.name}’s name, phone and address to {name}
+          {collect ? (
+            <>
+              {' '}
+              — the rider collects <strong>{formatBdt(collect)}</strong> in cash
+            </>
+          ) : (
+            ' — already paid, nothing to collect'
+          )}
+          . The tracking code is saved and the customer gets the “shipped” email.
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {name} {readiness === 'off' ? 'is switched off.' : NOT_READY[readiness]} Book in the{' '}
+          {name} app and enter the tracking number below.
+        </p>
+      )}
+      <FormProblem message={problem} />
+      <Button
+        variant="secondary"
+        disabled={readiness !== 'ready' || busy || !from}
+        onClick={() => void book()}
+        className="self-start"
+      >
+        {busy ? `Booking with ${name}…` : `Book with ${name}`}
+      </Button>
+      <p className="text-xs text-muted-foreground">Or, if you booked it yourself:</p>
+    </div>
   )
 }

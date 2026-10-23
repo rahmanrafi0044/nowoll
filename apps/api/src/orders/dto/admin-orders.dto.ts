@@ -121,6 +121,15 @@ export class OrderStatusChangeDto {
   cashCollected?: boolean
 }
 
+// POST /orders/:id/courier — "Book with Steadfast". `from` = the status the admin
+// saw, so a booking never happens on an order that changed meanwhile.
+export class BookCourierDto {
+  @IsIn(['CONFIRMED', 'PROCESSING'], {
+    message: 'Only a confirmed or processing order can be booked',
+  })
+  from!: 'CONFIRMED' | 'PROCESSING'
+}
+
 // PATCH /orders/:id/tracking — fixing a typo after shipping
 export class OrderTrackingDto {
   @Trim()

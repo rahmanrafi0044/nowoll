@@ -24,7 +24,43 @@ No API integration required for Phase 1.
 
 ---
 
-## Phase 2 — Pathao Commerce API (TODO after launch)
+## Phase 2 — Steadfast Courier (in progress, October 2026)
+
+Rafi's choice: **Steadfast first** (he has a merchant account). Two parts:
+
+**Part A — built (no Steadfast API calls yet):**
+- `apps/api/src/courier/courier.ts` — OUR courier contract (adapter pattern, like payments):
+  `book(parcel) → { consignmentId, trackingCode, status }` or a refusal (`retryable` = down/slow).
+  Our own field names: `invoice` (order number), `recipientName`, `recipientPhone`,
+  `recipientAddress`, `codAmount`, `note`. The adapter maps them to Steadfast's.
+- `apps/api/src/courier/steadfast.courier.ts` — **placeholder**: `readiness()` is `no_keys`
+  without both keys, else `not_built`; `book()` always refuses. Nothing is sent anywhere.
+- Admin order page → "Mark shipped" → **Book with Steadfast** (POST `/orders/:id/courier`):
+  - decision **1A**: booking = the order becomes SHIPPED with the tracking code, customer emailed;
+  - decision **2A**: amount to collect = the order total for an unpaid COD order, ৳0 when paid;
+  - the order row stays locked while the courier answers → two clicks = one parcel;
+  - refused / courier down → nothing changes, the reason is shown; manual tracking always stays.
+- Orders: `courier_consignment_id`, `courier_status`, `courier_status_at` (migration
+  `order_courier_booking`).
+- Admin → Settings → Delivery: `steadfast_enabled` (off by default).
+- Keys: `STEADFAST_API_KEY`, `STEADFAST_SECRET_KEY` — server `.env` ONLY (Rules 3 and 9).
+- Tests: `apps/api/test/courier-booking.e2e-spec.ts` with a fake courier (`test/utils/fake-courier.ts`).
+
+**Part B — waiting for Steadfast's official API documentation** (it's only inside the merchant
+dashboard → "API and plugins"; Rafi sends it, WITHOUT the keys). Then, from that document only:
+1. Write here: base URL, how the keys are sent, the create-order endpoint and its exact fields,
+   the response (consignment id, tracking code, status), all status values, and whether Steadfast
+   calls us back (webhook) or we ask (status by consignment id / invoice / tracking code).
+2. Implement `SteadfastCourier.book()` + a fake Steadfast for the tests; set `built = true`.
+3. Delivery updates: delivered → DELIVERED (+ email), returned/cancelled → flag for the admin.
+4. One real test parcel with Rafi.
+
+TODO: confirm with Steadfast — is our order number accepted as their `invoice` (unique per
+merchant)? Does booking the same invoice twice create two parcels?
+
+---
+
+## Phase 2b — Pathao Commerce API (later, not started)
 
 **Status:** NOT IMPLEMENTED YET — do not write any Pathao API code until Rafi provides:
 - Official Pathao Commerce API documentation URL
@@ -47,6 +83,9 @@ export class PathaoAdapter implements CourierProvider {
 ---
 
 ## Courier Provider Interface
+
+> **Superseded (Phase 2):** the contract in use is `apps/api/src/courier/courier.ts` (see above).
+> The sketch below is the original Phase 1 idea, kept for history.
 
 ```typescript
 // packages/shipping/src/types.ts
@@ -90,4 +129,4 @@ Rates are configurable per zone from the admin panel. Do not hardcode.
 
 ---
 
-*Claude Code: do NOT implement any courier API in Phase 1. The manual flow is sufficient for launch. Only implement API integration when explicitly instructed and when official documentation is provided.*
+*Claude Code: never write a courier's API calls from memory, blogs or unofficial SDKs — only from the courier's official documentation recorded in this file (CLAUDE.md Rule 2). The manual flow always stays as the fallback.*

@@ -81,6 +81,7 @@ const LABEL: Record<SettingKey, string> = {
   newsletter_checkout_optin: '“Email me new arrivals and offers” box at checkout (unticked)',
   newsletter_resend_enabled: 'Copy subscribers to Resend',
   newsletter_resend_segment_id: 'Resend segment id',
+  steadfast_enabled: '“Book with Steadfast” on orders',
 }
 
 /** Admin → Settings → Heading font (38f): the shop loads only the one chosen. */
@@ -110,6 +111,7 @@ const BOOLEAN_KEYS = new Set<SettingKey>([
   'newsletter_footer_enabled',
   'newsletter_checkout_optin',
   'newsletter_resend_enabled',
+  'steadfast_enabled',
 ])
 const PHONE_KEYS = new Set<SettingKey>(['store_phone', 'store_whatsapp'])
 
@@ -443,6 +445,21 @@ export function SettingsForm({ initial }: { initial: StoreSettings }) {
           placeholder: '78261eea-8f8b-4381-83c6-79fa7120f1cf',
           hint: 'Resend → Audience → Segments → your “Newsletter” segment → its id. Not secret.',
         })}
+      </Section>
+
+      <Section
+        title="Delivery (Steadfast)"
+        note="Books a parcel with Steadfast straight from an order. Also needs the Steadfast API key and secret key in the server settings file — never here. Without them the button says it isn't connected, and you can still enter tracking numbers by hand."
+      >
+        <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={form.steadfast_enabled === 'true'}
+            onChange={(e) => set('steadfast_enabled')(String(e.target.checked))}
+          />
+          {LABEL.steadfast_enabled}
+        </label>
       </Section>
 
       <Section

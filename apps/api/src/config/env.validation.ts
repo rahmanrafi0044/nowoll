@@ -78,6 +78,18 @@ export class EnvironmentVariables {
   @IsIn(['true', 'false'])
   SSLCOMMERZ_IS_LIVE?: 'true' | 'false'
 
+  // Steadfast Courier (Phase 2, docs/integrations/courier.md) — SERVER ONLY,
+  // never admin-editable (Rule 9). From the Steadfast merchant dashboard →
+  // "API and plugins". Optional: without them "Book with Steadfast" says it
+  // isn't connected and tracking numbers are entered by hand.
+  @IsOptional()
+  @IsString()
+  STEADFAST_API_KEY?: string
+
+  @IsOptional()
+  @IsString()
+  STEADFAST_SECRET_KEY?: string
+
   // Meta Conversions API (step 39b, docs/integrations/meta.md). SERVER ONLY,
   // never admin-editable (CLAUDE.md Rule 9). Optional: without it, server
   // events are skipped and Admin → Marketing says the token is missing.

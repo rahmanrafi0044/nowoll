@@ -92,3 +92,7 @@ tests/e2e/playwright-report/
 # Speed audit output (pnpm lighthouse, step 51)
 tests/e2e/lighthouse-report/
 apps/storefront/public/perf/
+
+# Courier docs screenshots from the Steadfast merchant dashboard — kept on this PC only
+# (the repository is public; they can show account details).
+docs/steadfast-docs/

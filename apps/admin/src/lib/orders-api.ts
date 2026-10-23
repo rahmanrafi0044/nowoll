@@ -34,6 +34,10 @@ export const fetchInvoice = (id: string) => call<OrderInvoice>('GET', `/orders/$
 export const changeOrderStatus = (id: string, body: OrderStatusChange) =>
   call<AdminOrderDetail>('PATCH', `/orders/${id}/status`, body)
 
+/** Phase 2: "Book with Steadfast" — books the parcel, marks the order shipped. */
+export const bookCourier = (id: string, from: 'CONFIRMED' | 'PROCESSING') =>
+  call<AdminOrderDetail>('POST', `/orders/${id}/courier`, { from })
+
 export const updateTracking = (id: string, body: { courierName: string; trackingNumber: string }) =>
   call<AdminOrderDetail>('PATCH', `/orders/${id}/tracking`, body)
 
