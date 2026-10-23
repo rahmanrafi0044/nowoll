@@ -319,6 +319,27 @@ describe('/products/[productSlug]', () => {
     expect(lds.find((l) => l['@type'] === 'BreadcrumbList').itemListElement).toHaveLength(4)
   })
 
+  it('38f: "Previous / Next" link to the neighbouring products, each named', async () => {
+    responses.set('/products/oxford-shirt', productDetail())
+    responses.set('/products/oxford-shirt/neighbours', {
+      previous: { name: 'Linen Shirt', slug: 'linen-shirt', image: null },
+      next: null,
+    })
+    await renderServer(ProductPage({ params: Promise.resolve({ productSlug: 'oxford-shirt' }) }))
+    const nav = within(screen.getByRole('navigation', { name: 'More in this category' }))
+    expect(nav.getByRole('link', { name: 'Previous product: Linen Shirt' })).toHaveAttribute(
+      'href',
+      '/products/linen-shirt',
+    )
+    expect(nav.getAllByRole('link')).toHaveLength(1) // no "Next" at the end of the list
+  })
+
+  it('no neighbours → no "Previous / Next" at all', async () => {
+    responses.set('/products/oxford-shirt', productDetail())
+    await renderServer(ProductPage({ params: Promise.resolve({ productSlug: 'oxford-shirt' }) }))
+    expect(screen.queryByRole('navigation', { name: 'More in this category' })).toBeNull()
+  })
+
   it('38f: a size chart comes before the written guide, as real tables', async () => {
     responses.set(
       '/products/oxford-shirt',

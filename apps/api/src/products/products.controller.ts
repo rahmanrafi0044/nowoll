@@ -80,6 +80,12 @@ export class ProductsController {
     return this.products.findBySlug(slug)
   }
 
+  /** 38f: the products before and after this one in its category (product page "‹ ›"). */
+  @Get(':slug/neighbours')
+  neighbours(@Param('slug') slug: string) {
+    return this.products.neighbours(slug)
+  }
+
   @Post()
   @AdminOnly()
   create(@Body() dto: CreateProductDto) {

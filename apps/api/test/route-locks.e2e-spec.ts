@@ -92,6 +92,7 @@ const OPEN_ROUTES: string[] = [
   'GET /api/v1/payment/status/:orderId',
   'GET /api/v1/products',
   'GET /api/v1/products/:slug',
+  'GET /api/v1/products/:slug/neighbours', // 38f: names + first photos of public products only
   'GET /api/v1/products/facets',
   'GET /api/v1/redirects',
   'GET /api/v1/reviews/product/:productId',

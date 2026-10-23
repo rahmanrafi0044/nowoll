@@ -119,6 +119,17 @@ export interface ProductDetailView extends Omit<
   sizeChart: SizeChartView | null
 }
 
+/** GET /products/:slug/neighbours (38f) — the product page's "‹ Previous · Next ›". */
+export interface ProductNeighbourView {
+  name: string
+  slug: string
+  image: { url: string; altText: string } | null
+}
+export interface ProductNeighboursView {
+  previous: ProductNeighbourView | null
+  next: ProductNeighbourView | null
+}
+
 export interface ContentBlockView<T> {
   key: string
   data: T

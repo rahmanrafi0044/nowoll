@@ -86,6 +86,13 @@ export interface ProductDetail extends Omit<ProductCard, 'image' | 'images' | 'c
   sizeChart: PublicSizeChart | null
 }
 
+/** 38f: a neighbouring product, for the product page's "‹ Previous · Next ›". */
+export interface ProductNeighbour {
+  name: string
+  slug: string
+  image: { url: string; altText: string } | null
+}
+
 export interface ProductFacets {
   sizes: string[]
   colors: { color: string; colorHex: string | null }[]
@@ -356,6 +363,56 @@ export class ProductsService {
       categoryId = category?.parentId ?? null
     }
     return null
+  }
+
+  /**
+   * 38f: the product page's "‹ Previous · Next ›" — the neighbours in the same
+   * category, in the order "New arrivals" uses (newest first; ties by id so
+   * the order never wobbles). null at either end, and for a product customers
+   * can't see. Only what the link needs: name, address and the first photo.
+   */
+  async neighbours(slug: string): Promise<{
+    previous: ProductNeighbour | null
+    next: ProductNeighbour | null
+  }> {
+    let p: ProductWithRelations
+    try {
+      p = await this.findVisible({ slug })
+    } catch (error) {
+      if (error instanceof NotFoundException) return { previous: null, next: null }
+      throw error
+    }
+    const base = { categoryId: p.categoryId, status: ProductStatus.ACTIVE, deletedAt: null }
+    const select = {
+      name: true,
+      slug: true,
+      images: { orderBy: [{ sortOrder: 'asc' as const }, { createdAt: 'asc' as const }], take: 1 },
+    }
+    const [newer, older] = await Promise.all([
+      this.prisma.product.findFirst({
+        where: {
+          ...base,
+          OR: [{ createdAt: { gt: p.createdAt } }, { createdAt: p.createdAt, id: { gt: p.id } }],
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select,
+      }),
+      this.prisma.product.findFirst({
+        where: {
+          ...base,
+          OR: [{ createdAt: { lt: p.createdAt } }, { createdAt: p.createdAt, id: { lt: p.id } }],
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select,
+      }),
+    ])
+    const view = (n: typeof newer): ProductNeighbour | null =>
+      n && {
+        name: n.name,
+        slug: n.slug,
+        image: n.images[0] ? { url: n.images[0].url, altText: n.images[0].altText } : null,
+      }
+    return { previous: view(newer), next: view(older) }
   }
 
   /**

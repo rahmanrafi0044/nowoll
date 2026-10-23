@@ -5,6 +5,8 @@ import type {
   ProductDetailView,
   ProductReviewsView,
   ShippingRateView,
+  ProductNeighboursView,
+  ProductNeighbourView,
 } from '@nowoll/types'
 import { Markdown } from '@nowoll/ui'
 import { productInfoLines, productInfoSchema } from '@nowoll/validation'
@@ -86,10 +88,12 @@ export default async function ProductPage({ params }: Props) {
   const reviews = await apiGet<ProductReviewsView>(`/reviews/product/${product.id}`)
   // The "Delivery and returns" box (Admin → Content → Product info, step 38d):
   // off until saved; its automatic lines follow the live fees and rules.
-  const [settings, infoBlock, zones] = await Promise.all([
+  const [settings, infoBlock, zones, around] = await Promise.all([
     getSettings(),
     apiGet<{ data: unknown }>('/content-blocks/product_info'),
     apiGet<ShippingRateView[]>('/shipping/rates'),
+    // 38f "‹ Previous · Next ›" in the same category (cached 60 s like the rest).
+    apiGet<ProductNeighboursView>(`/products/${encodeURIComponent(product.slug)}/neighbours`),
   ])
   const info = infoBlock ? productInfoSchema.safeParse(infoBlock.data) : null
   // 38f "You may also like": others from the same category (cached 60 s like the rest).
@@ -113,23 +117,26 @@ export default async function ProductPage({ params }: Props) {
         })}
       />
 
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-muted-foreground">
-        <ol className="flex flex-wrap items-center gap-1">
-          <li>
-            <Link href="/" className="hover:underline">
-              Home
-            </Link>
-          </li>
-          {product.breadcrumb.map((b) => (
-            <li key={b.id} className="flex items-center gap-1">
-              <span aria-hidden="true">/</span>
-              <Link href={`/shop/${b.slug}`} className="hover:underline">
-                {b.name}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-sm text-muted-foreground">
+        <nav aria-label="Breadcrumb">
+          <ol className="flex flex-wrap items-center gap-1">
+            <li>
+              <Link href="/" className="hover:underline">
+                Home
               </Link>
             </li>
-          ))}
-        </ol>
-      </nav>
+            {product.breadcrumb.map((b) => (
+              <li key={b.id} className="flex items-center gap-1">
+                <span aria-hidden="true">/</span>
+                <Link href={`/shop/${b.slug}`} className="hover:underline">
+                  {b.name}
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </nav>
+        <ProductNeighbours around={around} />
+      </div>
 
       <ProductView
         product={product}
@@ -209,5 +216,33 @@ export default async function ProductPage({ params }: Props) {
         </section>
       )}
     </div>
+  )
+}
+
+/**
+ * 38f: "‹ Previous · Next ›" — the neighbouring products in the same category,
+ * newest first like "New arrivals". Each link says which product it opens
+ * (the name is in the link, shown on wider screens and always to screen readers).
+ */
+function ProductNeighbours({ around }: { around: ProductNeighboursView | null }) {
+  if (!around || (!around.previous && !around.next)) return null
+  const item = (p: ProductNeighbourView, dir: 'previous' | 'next') => (
+    <Link
+      href={`/products/${p.slug}`}
+      aria-label={`${dir === 'previous' ? 'Previous' : 'Next'} product: ${p.name}`}
+      className="inline-flex items-center gap-1.5 hover:text-foreground"
+    >
+      {dir === 'previous' && <span aria-hidden="true">‹</span>}
+      {/* Phones: just the word; wider screens: the product's name. */}
+      <span className="sm:hidden">{dir === 'previous' ? 'Previous' : 'Next'}</span>
+      <span className="hidden max-w-48 truncate sm:inline">{p.name}</span>
+      {dir === 'next' && <span aria-hidden="true">›</span>}
+    </Link>
+  )
+  return (
+    <nav aria-label="More in this category" className="flex items-center gap-4">
+      {around.previous && item(around.previous, 'previous')}
+      {around.next && item(around.next, 'next')}
+    </nav>
   )
 }
