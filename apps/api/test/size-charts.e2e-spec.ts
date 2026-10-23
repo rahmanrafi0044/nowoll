@@ -91,7 +91,7 @@ describe('size charts (38f)', () => {
     // Switching the product's own chart off → the category's shows again.
     await http()
       .patch(`${admin}/${own.id}`)
-      .send(chart('Own chart', { isActive: false }))
+      .send(chart('Own chart', { isActive: false, pieces: [{ ...kameez, name: 'Kurti' }] }))
       .expect(200)
     expect((await pdp(p2.slug)).sizeChart).toMatchObject({ pieces: [{ name: 'Kameez' }] })
 

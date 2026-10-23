@@ -74,13 +74,17 @@ describe('back-in-stock alerts (38f)', () => {
     await ask(soldOut.id, 'b@example.com').expect(200)
 
     // A cancelled order putting a piece back is not the shop restocking.
-    await db.$transaction((tx) =>
-      app.get(StockService).adjust(tx, {
+    // (Reported the way the order code does it: after the change is saved.)
+    const stock = app.get(StockService)
+    const change = await db.$transaction((tx) =>
+      stock.adjust(tx, {
         variantId: soldOut.id,
         adjustment: { change: 1 },
         reason: 'ORDER_CANCELLED',
       }),
     )
+    await stock.notifyLowStock([change])
+    expect(change.backInStock).toBe(false)
     expect(events.filter((e) => e.type === 'back-in-stock')).toEqual([])
     await db.productVariant.update({ where: { id: soldOut.id }, data: { stock: 0 } })
 
