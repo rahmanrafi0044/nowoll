@@ -20,7 +20,15 @@ export function ProductGallery({
   images: ProductImageView[]
   productName: string
 }) {
-  const [index, setIndex] = useState(0)
+  const [index, setIndexRaw] = useState(0)
+  // The soft fade only once the shopper switches photos — never on the first
+  // photo: a photo fading in from invisible counts as "not shown yet" for
+  // Lighthouse's main-content timing (it cost the product page ~0.5 s, 38f).
+  const [switched, setSwitched] = useState(false)
+  const setIndex = (next: number | ((i: number) => number)) => {
+    setSwitched(true)
+    setIndexRaw(next)
+  }
   const [zoomed, setZoomed] = useState(false)
   const touchX = useRef<number | null>(null)
   const count = images.length
@@ -60,9 +68,12 @@ export function ProductGallery({
             src={current.url}
             alt={current.altText}
             fill
-            priority={index === 0} // the main product photo is the page's largest element (LCP)
+            // The main product photo is the page's largest element (LCP): load it
+            // at once and first (Next.js 16: `priority` became these two).
+            loading={index === 0 ? 'eager' : undefined}
+            fetchPriority={index === 0 ? 'high' : undefined}
             sizes="(min-width: 768px) 45vw, 100vw"
-            className="object-cover motion-safe:animate-[fade-in_0.4s_ease-out]"
+            className={`object-cover ${switched ? 'motion-safe:animate-[fade-in_0.4s_ease-out]' : ''}`}
           />
         </button>
         {count > 1 && (

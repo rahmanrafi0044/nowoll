@@ -50,6 +50,24 @@ product photo; on the other pages it is the cookie-banner text (see fix 1).
   cached for 60 s: the first visitor of a filter pays 0.3–0.6 s on the server, everyone after ~0.05 s. To be
   checked under load in step 49.
 
+## After the design refresh (38f, 23 Oct 2026)
+
+Same tool and launch catalogue, now with the new design (women's stand-in catalogue, hero slides, new homepage
+sections, 2–4 photos per card). PC speed 2172–2797.
+
+| Page | Score | Main content | Frozen | Download |
+|---|---|---|---|---|
+| Homepage | **96** | 2.6 s | 68 ms | 385 KB |
+| Shop (all products) | **95** | 2.9 s | 42 ms | 455 KB |
+| Category | **98** | 2.2 s | 65 ms | 454 KB |
+| Product | **98** | 2.4 s | 59 ms | 356 KB |
+
+**One problem found and fixed:** the product page first scored 87 — its main photo faded in from invisible
+(the new soft fade), and a photo at opacity 0 doesn't count as shown, so "main content" took 3.9 s. Now the
+first photo appears at once (the fade only plays when switching photos) and is marked `fetchPriority="high"`
+(Next.js 16 replaced `priority` with `preload` / `loading` + `fetchPriority`). A run on a busy PC (speed 1494–1818,
+under the 1800 warning) scored 85–91 on every page; the quiet re-run above is the one that counts.
+
 ## Measuring again
 
 ```bash
