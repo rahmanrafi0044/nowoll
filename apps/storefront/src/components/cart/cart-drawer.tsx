@@ -62,7 +62,7 @@ export function CartDrawer({ freeDelivery = null }: { freeDelivery?: FreeDeliver
           {justAdded && (
             <div
               role="status"
-              className="flex items-center gap-3 border-b border-border bg-surface-muted px-5 py-3 text-sm motion-safe:animate-[fade-in_0.4s_ease-out]"
+              className="flex items-center gap-3 border-b border-border bg-surface-muted px-5 py-3 text-sm"
             >
               {justAdded.imageUrl && (
                 <span className="relative block h-12 w-9 shrink-0 overflow-hidden bg-surface">

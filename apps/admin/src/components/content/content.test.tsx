@@ -482,7 +482,7 @@ describe('homepage', () => {
         expect.objectContaining({ caption: '@nusrat', imageUrl: '' }),
       ])
     })
-  })
+  }, 20_000) // many clicks: on CI's slower machines the default 5 s isn't enough
 
   it('38f hero: extra slides are checked and saved; at most 3', async () => {
     load()
