@@ -76,12 +76,63 @@ describe('categories API — as admin', () => {
     ['blank name', { name: '   ' }],
     ['bad slug', { name: 'X', slug: 'Not A Slug' }],
     ['non-https image', { name: 'X', imageUrl: 'http://example.com/a.jpg' }],
+    ['image on another site via //', { name: 'X', imageUrl: '//evil.example/a.jpg' }],
     ['bad parentId', { name: 'X', parentId: 'not-a-uuid' }],
     ['negative sortOrder', { name: 'X', sortOrder: -1 }],
     ['unknown field', { name: 'X', deletedAt: null }],
   ])('rejects invalid input: %s', async (_label, payload) => {
     const res = await http().post('/api/v1/categories').send(payload).expect(400)
     expect(res.body).toMatchObject({ success: false, error: 'VALIDATION_ERROR' })
+  })
+
+  it('38f: a photo can also be a file on the shop itself (the same rule as the homepage)', async () => {
+    const { body } = await http()
+      .post('/api/v1/categories')
+      .send({ name: 'Women', imageUrl: '/perf/women.jpg', imageAlt: 'Women' })
+      .expect(201)
+    expect(body.data.imageUrl).toBe('/perf/women.jpg')
+    // …so an existing category with such a photo can be saved again (it once failed).
+    await http().patch(`/api/v1/categories/${body.data.id}`).send({ name: 'Woman' }).expect(200)
+  })
+
+  it('38f: photo tiles are checked, saved and shown on the category', async () => {
+    const { body } = await http().post('/api/v1/categories').send({ name: 'Kurtis' }).expect(201)
+    const tile = {
+      imageUrl: 'https://example.supabase.co/storage/v1/object/public/content/eid.jpg',
+      imageAlt: 'A model in a blush kurti',
+      heading: 'The Eid edit',
+      text: 'Soft colours for long days.',
+      href: '/shop/kurtis?tag=eid',
+      position: 4,
+      wide: true,
+    }
+    await http()
+      .patch(`/api/v1/categories/${body.data.id}`)
+      .send({ editorial: [tile] })
+      .expect(200)
+    const pub = await http().get('/api/v1/categories/kurtis').expect(200)
+    expect(pub.body.data.editorial).toEqual([tile])
+
+    // Problems come back as a list, tile by tile; nothing is saved.
+    const bad = await http()
+      .patch(`/api/v1/categories/${body.data.id}`)
+      .send({
+        editorial: [
+          { ...tile, imageUrl: 'http://not-secure.example/x.jpg', href: 'javascript:alert(1)' },
+        ],
+      })
+      .expect(400)
+    expect(bad.body.error).toBe('INVALID_EDITORIAL')
+    expect(bad.body.details.join(' ')).toMatch(/Tile 1 › imageUrl/)
+    expect(bad.body.details.join(' ')).toMatch(/Tile 1 › href/)
+    // More than 3 tiles never reaches the service.
+    await http()
+      .patch(`/api/v1/categories/${body.data.id}`)
+      .send({ editorial: [tile, tile, tile, tile] })
+      .expect(400)
+    expect((await http().get('/api/v1/categories/kurtis').expect(200)).body.data.editorial).toEqual(
+      [tile],
+    )
   })
 
   it('400s on a malformed id and 404s on an unknown one', async () => {

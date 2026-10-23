@@ -163,6 +163,10 @@ const metaVerification = z
 export const SHOP_PAGE_SIZES = [12, 24, 36, 48] as const
 export const SHOP_SORTS = ['newest', 'price_asc', 'price_desc'] as const
 
+/** Heading fonts (38f): two serifs for a premium look, or the body font. */
+export const HEADING_FONTS = ['serif_elegant', 'serif_classic', 'same_as_body'] as const
+export type HeadingFont = (typeof HEADING_FONTS)[number]
+
 export const SETTINGS_SCHEMA = z.object({
   // Store
   store_name: text(60).min(1, 'Write the store name'),
@@ -209,6 +213,12 @@ export const SETTINGS_SCHEMA = z.object({
   font: z.enum(['system', 'inter', 'poppins', 'hind_siliguri'], {
     error: 'Choose one of the fonts on the list',
   }),
+  // Design refresh (38f): the font of headings and product names.
+  heading_font: z.enum(HEADING_FONTS, { error: 'Choose one of the heading fonts on the list' }),
+  // How long the "New" and "Restocked" badges show on products (0 = never).
+  badge_days: z.int('Whole days').min(0).max(90, 'At most 90 days'),
+  // Words shown under the search box, comma-separated ("Lawn, Eid, Chiffon").
+  search_suggestions: z.string().trim().max(200, 'At most 200 letters'),
   // Payments (step 38c). At least one method stays on (checked by the API
   // against the saved values, since a save may change only one of them).
   payment_cod_enabled: z.boolean(),
@@ -296,6 +306,9 @@ export const SETTING_DEFAULTS: StoreSettings = {
   share_image_url: '',
   brand_color: '#111111',
   font: 'system',
+  heading_font: 'serif_elegant',
+  badge_days: 14,
+  search_suggestions: '',
   payment_cod_enabled: true,
   payment_online_enabled: true,
   payment_cod_description: '',
@@ -338,6 +351,9 @@ export const PUBLIC_SETTING_KEYS = [
   'share_image_url',
   'brand_color',
   'font',
+  'heading_font',
+  'badge_days',
+  'search_suggestions',
   // Not secret (checkout shows them) — the product page's info box needs them (step 38d).
   'payment_cod_enabled',
   'cod_max_total',
@@ -377,3 +393,11 @@ export const localPhone = (e164: string) => e164.replace(/^\+88/, '')
 
 /** A WhatsApp chat link for a stored +880… number. */
 export const whatsappLink = (e164: string) => `https://wa.me/${e164.replace(/^\+/, '')}`
+
+/** "Lawn, Eid ,, Chiffon" → ["Lawn", "Eid", "Chiffon"] (at most 8, no blanks). */
+export const searchSuggestions = (raw: string): string[] =>
+  raw
+    .split(',')
+    .map((w) => w.trim())
+    .filter(Boolean)
+    .slice(0, 8)

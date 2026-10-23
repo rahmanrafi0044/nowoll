@@ -1,3 +1,4 @@
+import type { EditorialTileView } from './catalog.js'
 // ============================================================================
 // Categories in the admin panel (step 36b). Unlike the shop's /categories
 // (visible ones only), the admin sees hidden categories too, with counts.
@@ -13,6 +14,9 @@ export interface AdminCategoryNode {
   imageAlt: string | null
   /** Markdown (tables!) — shown on every product page in this category. */
   sizeGuide: string | null
+  /** 38f: the size chart for every product here (a product's own wins). */
+  sizeChartId: string | null
+  editorial: EditorialTileView[]
   seoTitle: string | null
   seoDescription: string | null
   /** Its own switch. Customers see it only when it AND every parent are on. */

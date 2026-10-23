@@ -231,6 +231,40 @@ describe('bag drawer', () => {
     fireEvent.click(within(drawer).getByRole('button', { name: 'Close bag' }))
     expect(useUiStore.getState().cartOpen).toBe(false)
   })
+
+  it('38f: says "Added to bag" only when it opened after adding', async () => {
+    await add(item('a'))
+    render(<CartDrawer />)
+    act(() =>
+      useUiStore
+        .getState()
+        .openCart({ productName: 'Shirt a', variantLabel: 'M / Blue', imageUrl: null }),
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('Added to bag')
+    expect(screen.getByRole('status')).toHaveTextContent('Added to bag Shirt a, M / Blue')
+    act(() => useUiStore.getState().closeCart())
+    act(() => useUiStore.getState().openCart()) // the bag icon
+    expect(screen.queryByText('Added to bag')).not.toBeInTheDocument()
+  })
+
+  it('38f: free-delivery bar — how much more, then "free delivery"', async () => {
+    await add(item('a', 1490))
+    render(<CartDrawer freeDelivery={{ threshold: 2000, zone: 'Inside Dhaka' }} />)
+    act(() => useUiStore.getState().openCart())
+    expect(await screen.findByText(/more for free delivery \(Inside Dhaka\)/)).toHaveTextContent(
+      '৳510 more for free delivery (Inside Dhaka)',
+    )
+    await add(item('b', 1490))
+    expect(await screen.findByText(/Your order gets free delivery/)).toBeInTheDocument()
+  })
+
+  it('38f: no free delivery set in Admin → Shipping = no bar', async () => {
+    await add(item('a'))
+    render(<CartDrawer />)
+    act(() => useUiStore.getState().openCart())
+    expect(await screen.findByRole('link', { name: 'Checkout' })).toBeInTheDocument()
+    expect(screen.queryByText(/free delivery/)).not.toBeInTheDocument()
+  })
 })
 
 describe('<QuantityStepper />', () => {

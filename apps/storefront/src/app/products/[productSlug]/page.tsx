@@ -5,6 +5,8 @@ import type {
   ProductDetailView,
   ProductReviewsView,
   ShippingRateView,
+  ProductNeighboursView,
+  ProductNeighbourView,
 } from '@nowoll/types'
 import { Markdown } from '@nowoll/ui'
 import { productInfoLines, productInfoSchema } from '@nowoll/validation'
@@ -12,6 +14,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
+import { ProductCard } from '@/components/product-card'
+import { SizeChart } from '@/components/product/size-chart'
+import { Fold } from '@/components/product/fold'
 import { ProductInfoBox } from '@/components/product/product-info-box'
 import { ProductView } from '@/components/product/product-view'
 import { ProductReviews } from '@/components/reviews/product-reviews'
@@ -75,17 +80,30 @@ export default async function ProductPage({ params }: Props) {
   const categorySlug = product.breadcrumb.at(-1)?.slug
   const category = categorySlug ? await apiGet<CategoryDetail>(`/categories/${categorySlug}`) : null
   const sizeGuide = category?.sizeGuide ?? null
+  // 38f: a measurement chart (the product's own, else its category's) comes first;
+  // the category's written guide is shown when there is no chart.
+  const sizeChart = product.sizeChart ?? null
   // Approved reviews (step 24) — refreshed with the page (ISR, 60 s). If the
   // reviews can't be loaded, the product page still works without them.
   const reviews = await apiGet<ProductReviewsView>(`/reviews/product/${product.id}`)
   // The "Delivery and returns" box (Admin → Content → Product info, step 38d):
   // off until saved; its automatic lines follow the live fees and rules.
-  const [settings, infoBlock, zones] = await Promise.all([
+  const [settings, infoBlock, zones, around] = await Promise.all([
     getSettings(),
     apiGet<{ data: unknown }>('/content-blocks/product_info'),
     apiGet<ShippingRateView[]>('/shipping/rates'),
+    // 38f "‹ Previous · Next ›" in the same category (cached 60 s like the rest).
+    apiGet<ProductNeighboursView>(`/products/${encodeURIComponent(product.slug)}/neighbours`),
   ])
   const info = infoBlock ? productInfoSchema.safeParse(infoBlock.data) : null
+  // 38f "You may also like": others from the same category (cached 60 s like the rest).
+  const related = categorySlug
+    ? ((
+        await apiGet<Paginated<ProductCardView>>(`/products?category=${categorySlug}&pageSize=5`)
+      )?.items
+        .filter((p) => p.id !== product.id)
+        .slice(0, 4) ?? [])
+    : []
 
   return (
     // Extra bottom padding on phones so the sticky "Add to bag" bar never covers content.
@@ -99,33 +117,48 @@ export default async function ProductPage({ params }: Props) {
         })}
       />
 
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-muted-foreground">
-        <ol className="flex flex-wrap items-center gap-1">
-          <li>
-            <Link href="/" className="hover:underline">
-              Home
-            </Link>
-          </li>
-          {product.breadcrumb.map((b) => (
-            <li key={b.id} className="flex items-center gap-1">
-              <span aria-hidden="true">/</span>
-              <Link href={`/shop/${b.slug}`} className="hover:underline">
-                {b.name}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-sm text-muted-foreground">
+        <nav aria-label="Breadcrumb">
+          <ol className="flex flex-wrap items-center gap-1">
+            <li>
+              <Link href="/" className="hover:underline">
+                Home
               </Link>
             </li>
-          ))}
-        </ol>
-      </nav>
+            {product.breadcrumb.map((b) => (
+              <li key={b.id} className="flex items-center gap-1">
+                <span aria-hidden="true">/</span>
+                <Link href={`/shop/${b.slug}`} className="hover:underline">
+                  {b.name}
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </nav>
+        <ProductNeighbours around={around} />
+      </div>
 
       <ProductView
         product={product}
         sticky
-        sizeGuideHref={sizeGuide ? '#size-guide' : undefined}
+        sizeGuideHref={sizeChart || sizeGuide ? '#size-guide' : undefined}
+        whatsapp={settings.store_whatsapp || undefined}
+        pageUrl={absoluteUrl(`/products/${product.slug}`)}
         header={
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">{product.name}</h1>
+          <div className="flex flex-col gap-2">
+            <h1 className="text-4xl leading-tight md:text-5xl">{product.name}</h1>
             {product.shortDescription && (
-              <p className="mt-2 text-muted-foreground">{product.shortDescription}</p>
+              <p className="text-muted-foreground">{product.shortDescription}</p>
+            )}
+            {(product.badges?.readyToShip || product.fabric) && (
+              <p className="text-sm text-accent">
+                {[
+                  product.fabric,
+                  product.badges?.readyToShip && product.inStock ? 'Ready to ship' : null,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              </p>
             )}
           </div>
         }
@@ -136,31 +169,80 @@ export default async function ProductPage({ params }: Props) {
             lines={productInfoLines(info.data, zones ?? [], settings)}
           />
         )}
-        {product.description && (
-          <section aria-labelledby="details" className="border-t border-border pt-6">
-            <h2 id="details" className="text-lg font-semibold">
-              Details
-            </h2>
-            {/* Plain text with line breaks kept — never rendered as HTML */}
-            <p className="mt-2 whitespace-pre-line text-muted-foreground">{product.description}</p>
-          </section>
-        )}
-        {sizeGuide && (
-          <section
-            id="size-guide"
-            aria-labelledby="size-guide-title"
-            className="scroll-mt-24 border-t border-border pt-6"
-          >
-            <h2 id="size-guide-title" className="text-lg font-semibold">
-              Size guide
-            </h2>
-            {/* Markdown since step 36b — a real table (Size | Chest | Length), written in
-                Admin → Categories with a live preview. Same safe renderer as the pages. */}
-            <Markdown className="mt-2 text-sm">{sizeGuide}</Markdown>
-          </section>
-        )}
+        {/* 38f: the details as folds — the first one open. */}
+        <div className="border-t border-border">
+          {product.description && (
+            <Fold title="Details" open>
+              {/* Plain text with line breaks kept — never rendered as HTML */}
+              <p className="whitespace-pre-line">{product.description}</p>
+              {product.fitNote && <p className="mt-3">{product.fitNote}</p>}
+            </Fold>
+          )}
+          {(product.fabric || product.care) && (
+            <Fold title="Fabric and care">
+              {product.fabric && <p>Fabric: {product.fabric}</p>}
+              {product.care && <p className="mt-2 whitespace-pre-line">{product.care}</p>}
+            </Fold>
+          )}
+          {sizeChart ? (
+            <Fold id="size-guide" title="Size guide">
+              <SizeChart chart={sizeChart} />
+            </Fold>
+          ) : (
+            sizeGuide && (
+              <Fold id="size-guide" title="Size guide">
+                {/* Markdown since step 36b — a real table (Size | Chest | Length), written in
+                  Admin → Categories with a live preview. Same safe renderer as the pages. */}
+                <Markdown className="text-sm">{sizeGuide}</Markdown>
+              </Fold>
+            )
+          )}
+        </div>
         <ProductReviews productId={product.id} initial={reviews} />
       </ProductView>
+
+      {related.length > 0 && (
+        <section aria-labelledby="related-title" className="mt-20" data-reveal>
+          <h2 id="related-title" className="text-3xl">
+            You may also like
+          </h2>
+          <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4">
+            {related.map((p) => (
+              <li key={p.id}>
+                <ProductCard product={p} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
+  )
+}
+
+/**
+ * 38f: "‹ Previous · Next ›" — the neighbouring products in the same category,
+ * newest first like "New arrivals". Each link says which product it opens
+ * (the name is in the link, shown on wider screens and always to screen readers).
+ */
+function ProductNeighbours({ around }: { around: ProductNeighboursView | null }) {
+  if (!around || (!around.previous && !around.next)) return null
+  const item = (p: ProductNeighbourView, dir: 'previous' | 'next') => (
+    <Link
+      href={`/products/${p.slug}`}
+      aria-label={`${dir === 'previous' ? 'Previous' : 'Next'} product: ${p.name}`}
+      className="inline-flex items-center gap-1.5 hover:text-foreground"
+    >
+      {dir === 'previous' && <span aria-hidden="true">‹</span>}
+      {/* Phones: just the word; wider screens: the product's name. */}
+      <span className="sm:hidden">{dir === 'previous' ? 'Previous' : 'Next'}</span>
+      <span className="hidden max-w-48 truncate sm:inline">{p.name}</span>
+      {dir === 'next' && <span aria-hidden="true">›</span>}
+    </Link>
+  )
+  return (
+    <nav aria-label="More in this category" className="flex items-center gap-4">
+      {around.previous && item(around.previous, 'previous')}
+      {around.next && item(around.next, 'next')}
+    </nav>
   )
 }

@@ -11,7 +11,7 @@ import { type EmailOrderLine, type EmailTotals, OrderLines, Totals } from './ord
 
 const firstName = (name: string | null | undefined) => name?.trim().split(/\s+/)[0] || 'there'
 type Link = { url: string; label: string }
-type Vars = Partial<Record<'name' | 'order' | 'amount', string>>
+type Vars = Partial<Record<'name' | 'order' | 'amount' | 'product', string>>
 
 // ---- Admin → Content → Emails (step 43b) ------------------------------------------
 // The admin may replace the SUBJECT, HEADING and OPENING paragraph of each email
@@ -470,4 +470,51 @@ function OrderNumber({ n }: { n: string }) {
       Order number: <strong>{n}</strong>
     </Note>
   )
+}
+
+// ---- 38f. Back in stock ("Notify me when it's back") --------------------------------
+/**
+ * One sold-out size is back. Sent once to each person who asked; they need no
+ * account, and nothing else is ever sent to them because of it.
+ */
+export function backInStockEmail(d: {
+  productName: string
+  variantLabel: string
+  price: Money
+  productUrl: string
+}): EmailContent {
+  const product = `${d.productName} (${d.variantLabel})`
+  return {
+    tag: 'back-in-stock',
+    subject: worded('back-in-stock', { product }, `Back in stock: ${product}`),
+    element: (
+      <Layout preview={`${product} is available again.`}>
+        <Opening
+          tag="back-in-stock"
+          vars={{ product }}
+          heading="It’s back"
+          intro={
+            <P>
+              You asked us to tell you: <strong>{d.productName}</strong> in{' '}
+              <strong>{d.variantLabel}</strong> is available again. Sizes go quickly, so don’t wait
+              too long.
+            </P>
+          }
+          facts={
+            <P>
+              <strong>{product}</strong>
+            </P>
+          }
+        />
+        <Note>
+          Price: <strong>{formatBdt(d.price)}</strong>
+        </Note>
+        <CallToAction href={d.productUrl}>Shop it now</CallToAction>
+        <P muted>
+          You get this email once, because you asked on our website. We won’t email you about it
+          again.
+        </P>
+      </Layout>
+    ),
+  }
 }

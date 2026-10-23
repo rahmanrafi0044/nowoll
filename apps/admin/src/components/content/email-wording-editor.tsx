@@ -64,6 +64,7 @@ const BUILT_IN: Record<EmailKind, { subject: string; heading: string }> = {
     subject: 'Confirm your {store} newsletter subscription',
     heading: 'One click to confirm',
   },
+  'back-in-stock': { subject: 'Back in stock: {product}', heading: 'It’s back' },
 }
 
 /** What stays fixed in each email (shown so nobody expects to edit it here). */
@@ -79,6 +80,8 @@ const FIXED: Record<EmailKind, string> = {
   'return-rejected': 'the order number, your reason and the button',
   'refund-processed': 'the amount refunded, how it comes back, and the button',
   'newsletter-confirm': 'the “Yes, subscribe me” button and the unsubscribe line',
+  'back-in-stock':
+    'the product, size and price, the “Shop it now” button, and the “we email you once” note',
 }
 
 export function EmailWordingEditor() {

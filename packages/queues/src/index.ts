@@ -111,6 +111,11 @@ export interface NotificationJobs {
    * to the signed-in admin's own address.
    */
   'email-test': { tag: string; to: string; wording: unknown }
+  /**
+   * 38f: a sold-out size was restocked and people asked to be told — email
+   * everyone still waiting (the worker re-checks that it is really in stock).
+   */
+  'back-in-stock': { variantId: string }
 }
 export type NotificationJobName = keyof NotificationJobs
 

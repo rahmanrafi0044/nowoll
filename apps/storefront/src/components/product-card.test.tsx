@@ -18,6 +18,10 @@ const base: ProductCardView = {
   ],
   sizes: ['M', 'L'],
   inStock: true,
+  images: [{ id: 'i1', url: '/demo/linen.webp', altText: 'Linen shirt in beige', variantId: null }],
+  fabric: null,
+  fromPrice: null,
+  badges: { isNew: false, restocked: false, readyToShip: false },
 }
 
 describe('<ProductCard />', () => {
@@ -55,7 +59,58 @@ describe('<ProductCard />', () => {
   })
 
   it('shows a placeholder when there is no photo', () => {
-    render(<ProductCard product={{ ...base, image: null }} />)
+    render(<ProductCard product={{ ...base, image: null, images: [] }} />)
     expect(screen.getByText('No photo')).toBeInTheDocument()
+  })
+
+  it('38f: "From ৳…" when sizes cost different amounts', () => {
+    render(<ProductCard product={{ ...base, fromPrice: '1690' }} />)
+    expect(screen.getByText('From ৳1,690')).toBeInTheDocument()
+  })
+
+  it('38f: fabric, the only colour, and "Ready to ship" under the name', () => {
+    render(
+      <ProductCard
+        product={{
+          ...base,
+          fabric: 'Lawn',
+          colors: [{ color: 'Sage', colorHex: '#9caf88' }],
+          badges: { isNew: false, restocked: false, readyToShip: true },
+        }}
+      />,
+    )
+    expect(screen.getByText('In Sage', { exact: false })).toBeInTheDocument()
+    expect(screen.getByText('Lawn')).toBeInTheDocument()
+    expect(screen.getByText('Ready to ship')).toBeInTheDocument()
+  })
+
+  it('38f: at most two badges — sale first, then New, then Restocked', () => {
+    render(
+      <ProductCard
+        product={{
+          ...base,
+          compareAtPrice: '2290',
+          badges: { isNew: true, restocked: true, readyToShip: false },
+        }}
+      />,
+    )
+    expect(screen.getByText('-17%')).toBeInTheDocument()
+    expect(screen.getByText('New')).toBeInTheDocument()
+    expect(screen.queryByText('Restocked')).not.toBeInTheDocument()
+  })
+
+  it('38f: a sold-out product shows only "Sold out" — never "Ready to ship"', () => {
+    render(
+      <ProductCard
+        product={{
+          ...base,
+          inStock: false,
+          badges: { isNew: true, restocked: false, readyToShip: true },
+        }}
+      />,
+    )
+    expect(screen.getByText('Sold out')).toBeInTheDocument()
+    expect(screen.queryByText('New')).not.toBeInTheDocument()
+    expect(screen.queryByText('Ready to ship')).not.toBeInTheDocument()
   })
 })

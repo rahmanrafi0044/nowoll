@@ -82,3 +82,49 @@ export function distinctColors(variants: Pick<VariantRow, 'color' | 'colorHex'>[
 export const distinctSizes = (variants: Pick<VariantRow, 'size'>[]) => [
   ...new Set(variants.map((v) => v.size)),
 ]
+
+// ── Design refresh (38f): badges and "From ৳…" ──────────────────────────────
+
+export interface ProductBadges {
+  /** Added within the last `badgeDays` days. */
+  isNew: boolean
+  /** A size came back in stock within the last `badgeDays` days (StockService sets it). */
+  restocked: boolean
+  /** The admin ticked "Ready to ship" (made and in the warehouse — no tailoring wait). */
+  readyToShip: boolean
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * The badges a product card shows. `badgeDays` comes from Admin → Settings
+ * (0 = no New/Restocked badges at all). A sold-out product is never shown as
+ * "Restocked" — that would be a broken promise.
+ */
+export function productBadges(
+  p: { createdAt: Date; restockedAt: Date | null; readyToShip: boolean },
+  inStock: boolean,
+  badgeDays: number,
+  now = Date.now(),
+): ProductBadges {
+  const within = (d: Date | null) => !!d && badgeDays > 0 && now - d.getTime() < badgeDays * DAY_MS
+  return {
+    isNew: within(p.createdAt),
+    restocked: inStock && within(p.restockedAt) && !within(p.createdAt), // "New" says it already
+    readyToShip: p.readyToShip,
+  }
+}
+
+/**
+ * The lowest price when the sizes/colours don't all cost the same — the card
+ * then says "From ৳2,450". null when every variant costs the same (or none).
+ */
+export function fromPrice(
+  variants: Pick<VariantRow, 'price'>[],
+  basePrice: Decimal,
+): Decimal | null {
+  if (variants.length === 0) return null
+  const prices = variants.map((v) => v.price ?? basePrice)
+  const min = prices.reduce((a, b) => (b.lessThan(a) ? b : a))
+  return prices.some((p) => !p.equals(min)) ? min : null
+}

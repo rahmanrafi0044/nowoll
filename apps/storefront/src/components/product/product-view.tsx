@@ -15,19 +15,25 @@ export function ProductView({
   children,
   sticky = false,
   sizeGuideHref,
+  whatsapp,
+  pageUrl,
 }: {
   product: ProductDetailView
   header?: ReactNode
   children?: ReactNode
   sticky?: boolean
   sizeGuideHref?: string
+  whatsapp?: string
+  pageUrl?: string
 }) {
   const initial = initialSelection(product.variants)
   const [color, setColor] = useState(initial.color)
   const images = imagesForColor(product.images, product.variants, color)
 
   return (
-    <div className="grid gap-8 md:grid-cols-2 md:gap-12">
+    // minmax(0, …): a column never grows wider than its share to fit something
+    // wide inside (e.g. a size chart in cm) — that scrolls in its own box instead.
+    <div className="grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:gap-14">
       {/* key: start again at the first photo when the color changes */}
       <ProductGallery key={color ?? 'all'} images={images} productName={product.name} />
       <div className="flex flex-col gap-6">
@@ -39,6 +45,8 @@ export function ProductView({
           initialSize={initial.size}
           sticky={sticky}
           sizeGuideHref={sizeGuideHref}
+          whatsapp={whatsapp}
+          pageUrl={pageUrl}
         />
         {children}
       </div>

@@ -161,6 +161,13 @@ describe('customer events → notification jobs (step 28)', () => {
       `newsletter-confirm_s1_${'b'.repeat(12)}`,
     ])
   })
+
+  it('38f back in stock: one job per restock, carrying only the size id', async () => {
+    await customer.backInStock('v1')
+    const [job] = await nJobs()
+    expect(job).toMatchObject({ name: 'back-in-stock', data: { variantId: 'v1' } })
+    expect(job!.id).toMatch(/^back-in-stock_v1_\d+$/)
+  })
 })
 
 describe('Meta server events (step 39b) — only for customers who allowed Marketing', () => {

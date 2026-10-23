@@ -2,6 +2,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express'
 import request from 'supertest'
 import { LOW_STOCK_ALERTER } from '../src/inventory/low-stock-alerter.js'
+import { StockService } from '../src/inventory/stock.service.js'
 import { createTestApp } from './utils/app.js'
 import { makeCategory, makeProduct } from './utils/factories.js'
 import type { RecordingLowStockAlerter } from './utils/services.js'
@@ -157,6 +158,46 @@ describe('inventory API — as admin', () => {
         threshold: 5,
       }),
     ])
+  })
+
+  it('restocking a sold-out size marks the product "Restocked" (38f badge)', async () => {
+    const { tee } = await seed()
+    // An older product (a new one shows "New" instead of "Restocked").
+    await db.product.update({
+      where: { id: tee.id },
+      data: { createdAt: new Date(Date.now() - 60 * 24 * 3600_000) },
+    })
+    const sold = tee.variants[0]! // S: stock 0
+    const card = async () =>
+      (await http().get(`/api/v1/products/${tee.slug}`).expect(200)).body.data.badges
+
+    // A cancelled order putting a piece back is not the shop restocking.
+    await db.$transaction((tx) =>
+      app.get(StockService).adjust(tx, {
+        variantId: sold.id,
+        adjustment: { change: 1 },
+        reason: 'ORDER_CANCELLED',
+      }),
+    )
+    expect((await db.product.findUniqueOrThrow({ where: { id: tee.id } })).restockedAt).toBeNull()
+    await db.productVariant.update({ where: { id: sold.id }, data: { stock: 0 } })
+
+    await http()
+      .patch(`/api/v1/inventory/${sold.id}/adjust`)
+      .send({ change: 5, note: 'Back from the tailor' })
+      .expect(200)
+    const after = await db.product.findUniqueOrThrow({ where: { id: tee.id } })
+    expect(after.restockedAt).not.toBeNull()
+    expect(await card()).toMatchObject({ isNew: false, restocked: true })
+
+    // More stock for a size that wasn't sold out doesn't move the date.
+    await http()
+      .patch(`/api/v1/inventory/${tee.variants[1]!.id}/adjust`)
+      .send({ change: 2, note: 'Two more' })
+      .expect(200)
+    expect((await db.product.findUniqueOrThrow({ where: { id: tee.id } })).restockedAt).toEqual(
+      after.restockedAt,
+    )
   })
 
   it('refuses to remove more than is in stock', async () => {

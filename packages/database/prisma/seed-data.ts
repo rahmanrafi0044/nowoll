@@ -41,6 +41,11 @@ export const defaultSettings: SettingSeed[] = [
     description: 'Alert when a variant’s stock drops to this number or below',
   },
   {
+    key: 'badge_days',
+    value: 14,
+    description: 'Days a product shows the "New" / "Restocked" badge (0 = never)',
+  },
+  {
     key: 'return_window_days',
     value: 7,
     description: 'Days after delivery a customer may request a return',

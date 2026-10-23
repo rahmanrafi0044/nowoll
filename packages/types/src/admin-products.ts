@@ -79,6 +79,8 @@ export interface AdminVariant {
   weightGrams: number | null
   isActive: boolean
   sortOrder: number
+  /** 38f: shoppers waiting for a "back in stock" email for this size. */
+  waiting: number
 }
 
 export interface AdminImage {
@@ -105,6 +107,13 @@ export interface AdminProductDetail {
   tags: string[]
   seoTitle: string | null
   seoDescription: string | null
+  /** 38f: shown on the card and the product page. */
+  fabric: string | null
+  care: string | null
+  fitNote: string | null
+  readyToShip: boolean
+  /** 38f: its own size chart (null = the category's, if any). */
+  sizeChartId: string | null
   variants: AdminVariant[]
   images: AdminImage[]
   /** What it still needs before it can go live (empty = ready). */

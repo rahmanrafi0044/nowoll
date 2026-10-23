@@ -218,10 +218,115 @@ describe('GET /products/facets', () => {
       sizes: ['M'],
       colors: [{ color: 'Blue', colorHex: null }],
       price: { min: '1499.5', max: '1499.5' },
+      counts: { sizes: { M: 1 }, colors: { Blue: 1 } },
+      fabrics: [],
     })
+  })
+
+  it('38f: counts PRODUCTS per size/colour and lists fabrics; the list filters by fabric', async () => {
+    const c = await makeCategory()
+    // M in two colours is still ONE product with an M.
+    await makeProduct({
+      categoryId: c.id,
+      fabric: 'Lawn',
+      variants: [
+        { size: 'M', color: 'Blue' },
+        { size: 'M', color: 'Red' },
+        { size: 'L', color: 'Blue' },
+      ],
+    })
+    await makeProduct({
+      categoryId: c.id,
+      fabric: 'Lawn',
+      variants: [{ size: 'M', color: 'Blue' }],
+    })
+    await makeProduct({
+      categoryId: c.id,
+      fabric: 'Chiffon',
+      variants: [{ size: 'S', color: 'Red' }],
+    })
+    // Not counted: a draft, and a size that is switched off.
+    await makeProduct({ categoryId: c.id, fabric: 'Silk', status: 'DRAFT' })
+    await makeProduct({
+      categoryId: c.id,
+      variants: [
+        { size: 'XL', color: 'Green', isActive: false },
+        { size: 'S', color: 'Green' },
+      ],
+    })
+
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/products/facets?category=${c.slug}`)
+      .expect(200)
+    expect(res.body.data.counts).toEqual({
+      sizes: { M: 2, L: 1, S: 2 },
+      colors: { Blue: 2, Red: 2, Green: 1 },
+    })
+    expect(res.body.data.fabrics).toEqual([
+      { fabric: 'Chiffon', count: 1 },
+      { fabric: 'Lawn', count: 2 },
+    ])
+
+    const lawn = await request(app.getHttpServer())
+      .get(`/api/v1/products?category=${c.slug}&fabric=lawn`)
+      .expect(200)
+    expect(lawn.body.data.total).toBe(2)
+    expect(lawn.body.data.items.every((p: { fabric: string }) => p.fabric === 'Lawn')).toBe(true)
+  })
+
+  it('38f: fabrics typed in different case count as ONE choice, with the usual spelling', async () => {
+    const c = await makeCategory()
+    for (const fabric of ['Lawn', 'Lawn', 'lawn ']) await makeProduct({ categoryId: c.id, fabric })
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/products/facets?category=${c.slug}`)
+      .expect(200)
+    expect(res.body.data.fabrics).toEqual([{ fabric: 'Lawn', count: 3 }])
   })
 
   it('rejects unknown query parameters', async () => {
     await request(app.getHttpServer()).get('/api/v1/products/facets?size=M').expect(400)
+  })
+})
+
+describe('GET /products/:slug/neighbours (38f)', () => {
+  let app: NestExpressApplication
+  const db = testPrisma()
+  beforeAll(async () => {
+    app = await createTestApp({ asAdmin: false })
+  })
+  afterAll(() => app.close())
+  beforeEach(() => resetDatabase())
+  const around = async (slug: string) =>
+    (await request(app.getHttpServer()).get(`/api/v1/products/${slug}/neighbours`).expect(200)).body
+      .data as { previous: { slug: string } | null; next: { slug: string } | null }
+
+  it('the newer and older product in the same category; nothing past the ends', async () => {
+    const c = await makeCategory()
+    const other = await makeCategory()
+    const day = (n: number) => new Date(Date.UTC(2026, 9, n))
+    const oldest = await makeProduct({ categoryId: c.id, name: 'Oldest', createdAt: day(1) })
+    const middle = await makeProduct({ categoryId: c.id, name: 'Middle', createdAt: day(2) })
+    const newest = await makeProduct({ categoryId: c.id, name: 'Newest', createdAt: day(3) })
+    // Not neighbours: another category, a draft, an archived product.
+    await makeProduct({ categoryId: other.id, name: 'Elsewhere', createdAt: day(2) })
+    await makeProduct({ categoryId: c.id, name: 'Draft', status: 'DRAFT', createdAt: day(2) })
+    const gone = await makeProduct({ categoryId: c.id, name: 'Gone', createdAt: day(2) })
+    await db.product.update({
+      where: { id: gone.id },
+      data: { status: 'ARCHIVED', deletedAt: new Date() },
+    })
+
+    const m = await around(middle.slug)
+    expect([m.previous?.slug, m.next?.slug]).toEqual([newest.slug, oldest.slug])
+    expect(m.previous).toMatchObject({ name: 'Newest', image: { url: expect.any(String) } })
+    expect(await around(newest.slug)).toMatchObject({ previous: null, next: { slug: middle.slug } })
+    expect(await around(oldest.slug)).toMatchObject({ previous: { slug: middle.slug }, next: null })
+  })
+
+  it('a product customers cannot see has no neighbours (not a 404)', async () => {
+    const c = await makeCategory()
+    const draft = await makeProduct({ categoryId: c.id, status: 'DRAFT' })
+    expect(await around(draft.slug)).toEqual({ previous: null, next: null })
+    expect(await around('no-such-product')).toEqual({ previous: null, next: null })
   })
 })

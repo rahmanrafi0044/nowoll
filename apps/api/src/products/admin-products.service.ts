@@ -100,6 +100,8 @@ export class AdminProductsService {
         variants: {
           where: { deletedAt: null },
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+          // 38f: how many shoppers asked "Notify me" for each size (a restock hint).
+          include: { _count: { select: { stockAlerts: { where: { notifiedAt: null } } } } },
         },
         images: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
       },
@@ -122,6 +124,11 @@ export class AdminProductsService {
       tags: p.tags,
       seoTitle: p.seoTitle,
       seoDescription: p.seoDescription,
+      fabric: p.fabric,
+      care: p.care,
+      fitNote: p.fitNote,
+      readyToShip: p.readyToShip,
+      sizeChartId: p.sizeChartId,
       variants: p.variants.map((v) => ({
         id: v.id,
         sku: v.sku,
@@ -135,6 +142,7 @@ export class AdminProductsService {
         weightGrams: v.weightGrams,
         isActive: v.isActive,
         sortOrder: v.sortOrder,
+        waiting: v._count.stockAlerts,
       })),
       images: p.images.map((i) => ({
         id: i.id,

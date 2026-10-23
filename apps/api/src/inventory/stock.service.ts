@@ -1,6 +1,14 @@
-import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common'
 import type { Prisma } from '@nowoll/database'
 import { type InventoryChangeReason, ProductStatus } from '@nowoll/database/enums'
+import { CUSTOMER_NOTIFIER, type CustomerNotifier } from '../notifications/customer-notifier.js'
 import { SettingsService } from '../settings/settings.service.js'
 import { LOW_STOCK_ALERTER, type LowStockAlert, type LowStockAlerter } from './low-stock-alerter.js'
 
@@ -12,6 +20,9 @@ import { LOW_STOCK_ALERTER, type LowStockAlert, type LowStockAlerter } from './l
 //   2. Simultaneous changes (an admin adjusting while a customer checks out)
 //      can never overwrite each other — see the two modes below.
 // ============================================================================
+
+/** Stock changes that count as the shop restocking a sold-out size (38f badge). */
+const RESTOCK_REASONS = new Set<InventoryChangeReason>(['MANUAL_ADJUSTMENT', 'CSV_IMPORT'])
 
 export type StockAdjustment =
   | { change: number } // add/remove: "received 20" (+20), "2 damaged" (-2)
@@ -33,6 +44,8 @@ export interface StockChange {
   change: number
   logId: string | null // null when nothing changed (e.g. "set to 7" when it's already 7)
   alert: LowStockAlert | null // set when this change made the variant cross its threshold
+  /** 38f: a sold-out size was restocked AND someone asked to be told ("Notify me"). */
+  backInStock: boolean
 }
 
 @Injectable()
@@ -42,6 +55,8 @@ export class StockService {
   constructor(
     private readonly settings: SettingsService,
     @Inject(LOW_STOCK_ALERTER) private readonly alerter: LowStockAlerter,
+    // 38f "Notify me" emails (optional for hand-built tests).
+    @Optional() @Inject(CUSTOMER_NOTIFIER) private readonly customers?: CustomerNotifier,
   ) {}
 
   /**
@@ -81,7 +96,22 @@ export class StockService {
     }
 
     const change = after - before
-    if (change === 0) return { variantId, before, after, change, logId: null, alert: null }
+    if (change === 0)
+      return { variantId, before, after, change, logId: null, alert: null, backInStock: false }
+
+    // 38f "Restocked" badge: a size that was sold out is back because the shop
+    // RESTOCKED it (a manual change or a CSV import) — not a new product's first
+    // stock, and not one cancelled order putting a piece back.
+    const restocked = before === 0 && after > 0 && RESTOCK_REASONS.has(input.reason)
+    if (restocked) {
+      await tx.$executeRaw`
+        UPDATE products SET restocked_at = now()
+        WHERE id = (SELECT product_id FROM product_variants WHERE id = ${variantId}::uuid)`
+    }
+    // 38f: is anyone waiting for this size? (Only then is an email job queued —
+    // a CSV import restocking 300 sizes shouldn't add 300 empty jobs.)
+    const backInStock =
+      restocked && (await tx.stockAlert.count({ where: { variantId, notifiedAt: null } })) > 0
 
     const log = await tx.inventoryLog.create({
       data: {
@@ -102,6 +132,7 @@ export class StockService {
       change,
       logId: log.id,
       alert: await this.lowStockAlert(tx, variantId, before, after),
+      backInStock,
     }
   }
 
@@ -113,10 +144,15 @@ export class StockService {
    */
   async notifyLowStock(changes: StockChange[]): Promise<void> {
     const alerts = changes.flatMap((c) => (c.alert ? [c.alert] : []))
-    if (alerts.length === 0) return
-    await this.alerter
-      .notify(alerts)
-      .catch((e: unknown) => this.logger.error(`Low-stock alert failed: ${String(e)}`))
+    if (alerts.length > 0)
+      await this.alerter
+        .notify(alerts)
+        .catch((e: unknown) => this.logger.error(`Low-stock alert failed: ${String(e)}`))
+    // 38f: the same moment (after commit) tells waiting shoppers a size is back.
+    for (const c of changes.filter((x) => x.backInStock))
+      await this.customers
+        ?.backInStock(c.variantId)
+        .catch((e: unknown) => this.logger.error(`Back-in-stock job failed: ${String(e)}`))
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────

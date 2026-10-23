@@ -1,15 +1,25 @@
 // Sold-out sizes, and stock that runs out while the customer is checking out.
 import { e2eDb, setStock, stockOf } from '../support/db.js'
 import { SHIRT } from '../support/fixtures.js'
-import { addShirtToBag, checkoutToReview } from '../support/flows.js'
+import { addShirtToBag, addToBagButton, checkoutToReview, chooseSize } from '../support/flows.js'
 import { expect, test } from '../support/test.js'
 
-test('a sold-out size cannot be chosen', async ({ page }) => {
+test('a sold-out size offers "Notify me when it\'s back" instead of Add to bag (38f)', async ({
+  page,
+}) => {
   await page.goto(`/products/${SHIRT.slug}`)
-  await expect(
-    page.getByRole('radio', { name: `${SHIRT.soldOutSize} (out of stock)` }),
-  ).toBeDisabled()
-  await expect(page.getByRole('radio', { name: 'M', exact: true })).toBeEnabled()
+  await chooseSize(page, `${SHIRT.soldOutSize} (out of stock)`)
+  await expect(addToBagButton(page)).toBeHidden()
+  const email = `waiting-${Date.now()}@example.com`
+  await page.getByRole('textbox', { name: 'Your email', exact: true }).fill(email)
+  await page.getByRole('button', { name: 'Notify me' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'we’ll email you once' })).toBeVisible()
+  const saved = await e2eDb().stockAlert.findFirst({ where: { email } })
+  expect(saved).toMatchObject({ notifiedAt: null })
+
+  // An in-stock size brings Add to bag back.
+  await chooseSize(page, 'M')
+  await expect(addToBagButton(page)).toBeEnabled()
 })
 
 test.describe('stock runs out between review and "Place order"', () => {

@@ -1,3 +1,4 @@
+import type { EditorialTileView } from '@nowoll/types'
 import type { AdminArchivedCategory, AdminCategoryNode } from '@nowoll/types'
 import { call } from '@/lib/api'
 
@@ -13,9 +14,13 @@ export interface CategoryFields {
   imageUrl: string | null
   imageAlt: string | null
   sizeGuide: string | null
+  /** 38f: the measurement chart for every product here; null = none. */
+  sizeChartId: string | null
   isActive: boolean
   seoTitle: string | null
   seoDescription: string | null
+  /** 38f: photo tiles among the products. */
+  editorial: EditorialTileView[]
 }
 
 /** One category as the API returns it after create / edit. */

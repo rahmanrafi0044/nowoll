@@ -2,11 +2,13 @@
 
 import type { AdminCategoryNode } from '@nowoll/types'
 import { Button, Input, Markdown } from '@nowoll/ui'
-import { SLUG_PATTERN, slugify } from '@nowoll/validation'
+import { categoryEditorialSchema, SLUG_PATTERN, slugify } from '@nowoll/validation'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ImageField } from '@/components/content/fields'
+import { SizeChartPicker } from '@/components/size-charts/size-chart-picker'
+import { EditorialTiles, type TileForm, toTile, toTileForm } from './editorial-tiles'
 import { Panel } from '@/components/dashboard/panel'
 import { useLoad } from '@/components/dashboard/use-load'
 import { SelectField, TextArea } from '@/components/form-fields'
@@ -107,8 +109,10 @@ export function CategoryForm({
   const [imageAlt, setImageAlt] = useState(category?.imageAlt ?? '')
   const [isActive, setIsActive] = useState(category?.isActive ?? true)
   const [sizeGuide, setSizeGuide] = useState(category?.sizeGuide ?? '')
+  const [sizeChartId, setSizeChartId] = useState(category?.sizeChartId ?? '')
   const [seoTitle, setSeoTitle] = useState(category?.seoTitle ?? '')
   const [seoDescription, setSeoDescription] = useState(category?.seoDescription ?? '')
+  const [tiles, setTiles] = useState<TileForm[]>(() => (category?.editorial ?? []).map(toTileForm))
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<Problem | null>(null)
   const [done, setDone] = useState<string | null>(null)
@@ -121,9 +125,11 @@ export function CategoryForm({
     imageUrl,
     imageAlt: imageUrl ? imageAlt.trim() || null : null,
     sizeGuide: sizeGuide.trim() || null,
+    sizeChartId: sizeChartId || null,
     isActive,
     seoTitle: seoTitle.trim() || null,
     seoDescription: seoDescription.trim() || null,
+    editorial: tiles.map(toTile),
   }
   const base: CategoryFields | null = saved && {
     name: saved.name,
@@ -132,9 +138,11 @@ export function CategoryForm({
     imageUrl: saved.imageUrl,
     imageAlt: saved.imageAlt,
     sizeGuide: saved.sizeGuide,
+    sizeChartId: saved.sizeChartId ?? null,
     isActive: saved.isActive,
     seoTitle: saved.seoTitle,
     seoDescription: saved.seoDescription,
+    editorial: saved.editorial ?? [],
   }
   const dirty =
     saved === null
@@ -166,6 +174,11 @@ export function CategoryForm({
     if (slug && !SLUG_PATTERN.test(slug))
       p.push('Web address: use lowercase letters, numbers and single hyphens only')
     if (imageUrl && !fields.imageAlt) p.push('Describe the picture (for screen readers and Google)')
+    // 38f photo tiles: the same rules the API checks with.
+    const tilesCheck = categoryEditorialSchema.safeParse(fields.editorial)
+    if (!tilesCheck.success)
+      for (const issue of tilesCheck.error.issues)
+        p.push(`Tile ${Number(issue.path[0]) + 1}: ${issue.message}`)
     return p
   }
 
@@ -288,7 +301,15 @@ export function CategoryForm({
         )}
       </div>
 
-      <section aria-label="Size guide" className="flex flex-col gap-2">
+      <section aria-label="Size guide" className="flex flex-col gap-4">
+        <div className="max-w-md">
+          <SizeChartPicker
+            value={sizeChartId}
+            onChange={setSizeChartId}
+            noneLabel="No size chart"
+            hint="Every product in this category and its subcategories shows it — unless a subcategory or product has its own. On product pages it replaces the written guide below."
+          />
+        </div>
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="flex flex-col gap-2">
             <TextArea
@@ -323,6 +344,8 @@ export function CategoryForm({
           </div>
         </div>
       </section>
+
+      <EditorialTiles tiles={tiles} onChange={setTiles} />
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="mb-2 text-sm font-semibold">Google (optional)</legend>

@@ -4,6 +4,7 @@ import type { AdminProductDetail } from '@nowoll/types'
 import { Button, Input } from '@nowoll/ui'
 import { type FormEvent, useEffect, useState } from 'react'
 import { FormProblem, SelectField, TextArea } from '@/components/form-fields'
+import { SizeChartPicker } from '@/components/size-charts/size-chart-picker'
 import { flattenCategories } from '@/lib/categories'
 import { parsePrice, priceText } from '@/lib/money-input'
 import { type CategoryNode, type ProductFields, updateProduct } from '@/lib/products-api'
@@ -24,6 +25,12 @@ type Form = {
   isFeatured: boolean
   seoTitle: string
   seoDescription: string
+  fabric: string
+  care: string
+  fitNote: string
+  readyToShip: boolean
+  /** '' = none (the category's chart is used). */
+  sizeChartId: string
 }
 
 const toForm = (p: AdminProductDetail): Form => ({
@@ -38,6 +45,11 @@ const toForm = (p: AdminProductDetail): Form => ({
   isFeatured: p.isFeatured,
   seoTitle: p.seoTitle ?? '',
   seoDescription: p.seoDescription ?? '',
+  fabric: p.fabric ?? '',
+  care: p.care ?? '',
+  fitNote: p.fitNote ?? '',
+  readyToShip: p.readyToShip,
+  sizeChartId: p.sizeChartId ?? '',
 })
 
 const orNull = (s: string) => (s.trim() === '' ? null : s.trim())
@@ -66,7 +78,15 @@ export function changesOf(
     changes.compareAtPrice = n
   }
   // Compared AFTER trimming: typing spaces into an empty box changes nothing.
-  for (const k of ['shortDescription', 'description', 'seoTitle', 'seoDescription'] as const)
+  for (const k of [
+    'shortDescription',
+    'description',
+    'seoTitle',
+    'seoDescription',
+    'fabric',
+    'care',
+    'fitNote',
+  ] as const)
     if (orNull(after[k]) !== orNull(before[k])) changes[k] = orNull(after[k])
   if (after.tags !== before.tags)
     changes.tags = [
@@ -78,6 +98,8 @@ export function changesOf(
       ),
     ]
   if (after.isFeatured !== before.isFeatured) changes.isFeatured = after.isFeatured
+  if (after.readyToShip !== before.readyToShip) changes.readyToShip = after.readyToShip
+  if (after.sizeChartId !== before.sizeChartId) changes.sizeChartId = after.sizeChartId || null
   return { changes }
 }
 
@@ -214,6 +236,50 @@ export function DetailsForm({
           />
           Featured on the homepage
         </label>
+        {/* 38f — shown on the shop's product cards and product page. */}
+        <Input
+          label="Fabric"
+          value={form.fabric}
+          maxLength={40}
+          onChange={(e) => set('fabric')(e.target.value)}
+          hint="Short, e.g. Lawn, Chiffon, Cotton. Shown on the product card and as a shop filter."
+        />
+        <TextArea
+          label="Care"
+          value={form.care}
+          maxLength={2000}
+          rows={3}
+          onChange={(e) => set('care')(e.target.value)}
+          hint="e.g. Dry clean only. Shown in the product page’s Care section."
+        />
+        <Input
+          label="Fit note"
+          value={form.fitNote}
+          maxLength={200}
+          onChange={(e) => set('fitNote')(e.target.value)}
+          hint="e.g. Model wears S, height 5′5″. Relaxed fit."
+        />
+        <label className="flex items-start gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4"
+            checked={form.readyToShip}
+            onChange={(e) => set('readyToShip')(e.target.checked)}
+          />
+          <span>
+            Ready to ship
+            <span className="block font-normal text-muted-foreground">
+              Made and in stock here — shows a “Ready to ship” note on the shop.
+            </span>
+          </span>
+        </label>
+        <SizeChartPicker
+          value={form.sizeChartId}
+          onChange={(v) => set('sizeChartId')(v)}
+          noneLabel="The category’s chart (if it has one)"
+          hint="Shown in the product page’s Size guide. Choose one only if this product fits differently."
+          disabled={readOnly}
+        />
         <Input
           label="Google title"
           value={form.seoTitle}

@@ -95,6 +95,36 @@ export class CreateProductDto {
   @MaxLength(160)
   seoDescription?: string | null
 
+  // ── Design refresh (38f): shown on the card and the product page ──
+  // "Lawn", "Chiffon" — short, because it's also a filter on the shop.
+  @TrimOrNull()
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  fabric?: string | null
+
+  @TrimOrNull()
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  care?: string | null
+
+  @TrimOrNull()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  fitNote?: string | null
+
+  // The "Ready to ship" badge: made and waiting in the warehouse.
+  @IsOptional()
+  @IsBoolean()
+  readyToShip?: boolean
+
+  // 38f: a measurement chart (Admin → Size charts); null = none / unlink.
+  @IsOptional()
+  @IsUUID('all', { message: 'sizeChartId must be a size chart id' })
+  sizeChartId?: string | null
+
   // Create the product and its sizes/colors in one request (one transaction).
   @IsOptional()
   @IsArray()

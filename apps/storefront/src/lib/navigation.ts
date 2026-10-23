@@ -21,8 +21,11 @@ export interface NavLink {
   href: string
   /** A full https:// link to another site — opens in a new tab. */
   external: boolean
-  /** A category's subcategories (only the phone menu shows them, as before). */
+  /** A category's subcategories — the desktop drop-down and the phone menu show them. */
   children: NavLink[]
+  /** A category's photo (Admin → Categories) — shown in the drop-down menu (38f). */
+  imageUrl?: string | null
+  imageAlt?: string | null
 }
 
 const categoryLink = (c: CategoryNode, label?: string | null): NavLink => ({
@@ -31,6 +34,8 @@ const categoryLink = (c: CategoryNode, label?: string | null): NavLink => ({
   href: `/shop/${c.slug}`,
   external: false,
   children: (c.children ?? []).map((k) => categoryLink(k)),
+  imageUrl: c.imageUrl,
+  imageAlt: c.imageAlt ?? c.name,
 })
 
 const SHOP_ALL = (label?: string | null): NavLink => ({

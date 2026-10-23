@@ -18,21 +18,46 @@ const linkSchema = z
     message: 'Use a path like /shop/men or a full https:// link',
   })
 
-export const announcementBarSchema = z.object({
+const announcementMessage = z.object({
   text: z.string().trim().min(1).max(120),
   href: linkSchema.nullable().default(null),
 })
 
-export const homepageHeroSchema = z.object({
+/** The strip above the header. 38f: up to 3 more messages take turns with the first. */
+export const announcementBarSchema = announcementMessage.extend({
+  more: z.array(announcementMessage).max(3, 'At most 3 more messages').default([]),
+})
+
+/**
+ * A picture: an uploaded photo (a full https:// address — Supabase), or a file
+ * on this shop itself ("/perf/hero.jpg", 38f — the stand-in photos of
+ * `pnpm design-preview`). Never http://, "//other-site", or javascript:.
+ */
+export const imageUrlSchema = z
+  .string()
+  .trim()
+  .min(1, 'Upload a photo')
+  .max(500)
+  .refine(
+    (v) =>
+      v.startsWith('/')
+        ? !v.startsWith('//') && !v.includes('\\')
+        : URL.canParse(v) && new URL(v).protocol === 'https:',
+    { message: 'Upload a photo (an https:// address or a file on this shop)' },
+  )
+
+const heroSlide = z.object({
   heading: z.string().trim().min(1).max(80),
   subheading: z.string().trim().max(200).nullable().default(null),
   ctaLabel: z.string().trim().min(1).max(30),
   ctaHref: linkSchema,
-  imageUrl: z
-    .url({ protocol: /^https$/ })
-    .nullable()
-    .default(null),
+  imageUrl: imageUrlSchema.nullable().default(null),
   imageAlt: z.string().trim().max(200).nullable().default(null),
+})
+
+/** The homepage's first picture. 38f: up to 3 more slides take turns with it. */
+export const homepageHeroSchema = heroSlide.extend({
+  more: z.array(heroSlide).max(3, 'At most 3 more slides').default([]),
 })
 
 // ── Homepage builder (step 36) ────────────────────────────────────────────
@@ -45,7 +70,6 @@ const sectionBase = {
   visible: z.boolean().default(true),
 }
 const optionalTitle = z.string().trim().max(60).nullable().default(null)
-const httpsImage = z.url({ protocol: /^https$/ })
 
 /** The fixed set of trust-badge icons (drawn by the storefront — no uploads, no HTML). */
 export const TRUST_BADGE_ICONS = ['truck', 'cash', 'return', 'shield', 'phone', 'star'] as const
@@ -79,7 +103,7 @@ export const homepageSectionSchema = z.discriminatedUnion('type', [
     banners: z
       .array(
         z.object({
-          imageUrl: httpsImage,
+          imageUrl: imageUrlSchema,
           imageAlt: z.string().trim().min(1).max(200),
           text: z.string().trim().max(80).nullable().default(null),
           href: linkSchema.nullable().default(null),
@@ -97,6 +121,67 @@ export const homepageSectionSchema = z.discriminatedUnion('type', [
       .max(4),
   }),
   z.object({ ...sectionBase, type: z.literal('newsletter') }),
+  // ── Design refresh (38f) ──
+  // A photo on one side, words and a button on the other.
+  z.object({
+    ...sectionBase,
+    type: z.literal('split'),
+    imageUrl: imageUrlSchema,
+    imageAlt: z.string().trim().min(1, 'Describe the photo').max(200),
+    heading: z.string().trim().min(1, 'Write a heading').max(80),
+    text: z.string().trim().max(300).nullable().default(null),
+    ctaLabel: z.string().trim().max(30).nullable().default(null),
+    href: linkSchema.nullable().default(null),
+    imageSide: z.enum(['left', 'right']).default('left'),
+  }),
+  // Round photos with a word each: "Shop by occasion".
+  z.object({
+    ...sectionBase,
+    type: z.literal('circles'),
+    title: optionalTitle,
+    items: z
+      .array(
+        z.object({
+          imageUrl: imageUrlSchema,
+          imageAlt: z.string().trim().min(1, 'Describe the photo').max(200),
+          label: z.string().trim().min(1, 'Write a label').max(30),
+          href: linkSchema,
+        }),
+      )
+      .min(2, 'At least 2 circles')
+      .max(6, 'At most 6 circles'),
+  }),
+  // A few lines about the brand, with an optional photo.
+  z.object({
+    ...sectionBase,
+    type: z.literal('story'),
+    heading: z.string().trim().min(1, 'Write a heading').max(80),
+    text: z.string().trim().min(1, 'Write the story').max(600),
+    imageUrl: imageUrlSchema.nullable().default(null),
+    imageAlt: z.string().trim().max(200).nullable().default(null),
+    ctaLabel: z.string().trim().max(30).nullable().default(null),
+    href: linkSchema.nullable().default(null),
+  }),
+  // "Spotted": photos of customers (or well-known people) wearing the brand,
+  // each optionally linking to what they wear. Photos need the person's OK —
+  // see the hint in the admin editor.
+  z.object({
+    ...sectionBase,
+    type: z.literal('lookbook'),
+    title: optionalTitle,
+    text: z.string().trim().max(200).nullable().default(null),
+    items: z
+      .array(
+        z.object({
+          imageUrl: imageUrlSchema,
+          imageAlt: z.string().trim().min(1, 'Describe the photo').max(200),
+          caption: z.string().trim().max(60).nullable().default(null),
+          href: linkSchema.nullable().default(null),
+        }),
+      )
+      .min(3, 'At least 3 photos')
+      .max(12, 'At most 12 photos'),
+  }),
 ])
 
 /** What the admin SAVES: every section must be valid, at most 20, ids unique. */
@@ -224,3 +309,27 @@ export type TrustBadgeIcon = (typeof TRUST_BADGE_ICONS)[number]
 export type MenuItem = z.output<typeof menuItemSchema>
 export type MainMenu = z.output<typeof mainMenuSchema>
 export type Footer = z.output<typeof footerSchema>
+
+// ── Design refresh (38f): photo tiles inside a category's product grid ──────
+
+/**
+ * One editorial tile — a photo with a few words, placed among the products
+ * ("asymmetric" look). `position`: after which product it appears (1 = after
+ * the first). `wide`: two columns instead of one on tablets and computers.
+ */
+export const editorialTileSchema = z.object({
+  imageUrl: imageUrlSchema,
+  imageAlt: z.string().trim().min(1, 'Describe the photo (for screen readers and Google)').max(120),
+  heading: z.string().trim().min(1, 'Write a heading').max(60, 'Heading: at most 60 letters'),
+  text: z.string().trim().max(160, 'Text: at most 160 letters').nullable().default(null),
+  href: linkSchema.nullable().default(null),
+  position: z.int('A whole number').min(1).max(48, 'At most after product 48'),
+  wide: z.boolean().default(false),
+})
+
+/** A category's tiles (Admin → Categories): at most 3. */
+export const categoryEditorialSchema = z
+  .array(editorialTileSchema)
+  .max(3, 'At most 3 photo tiles per category')
+
+export type EditorialTile = z.output<typeof editorialTileSchema>

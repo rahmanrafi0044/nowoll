@@ -73,6 +73,7 @@ export class RecordingCustomerNotifier implements CustomerNotifier {
   newsletterSync = (id: string) => this.record('newsletter-sync', id)
   newsletterErase = (email: string) => this.record('newsletter-erase', email)
   newsletterSyncAll = () => this.record('newsletter-sync-all', 'all')
+  backInStock = (variantId: string) => this.record('back-in-stock', variantId)
   readonly tests: { tag: string; to: string; wording: unknown }[] = []
   emailTest = (tag: string, to: string, wording: unknown) => {
     this.tests.push({ tag, to, wording })

@@ -24,9 +24,22 @@ export function AnnouncementEditor() {
 }
 
 function Form({ block }: { block: AdminContentBlock }) {
-  const saved = (block.data ?? {}) as { text?: string; href?: string | null }
+  const saved = (block.data ?? {}) as {
+    text?: string
+    href?: string | null
+    more?: { text: string; href: string | null }[]
+  }
   const [text, setText] = useState(saved.text ?? '')
   const [href, setHref] = useState(saved.href ?? '')
+  // 38f: up to 3 more messages that take turns with the first on the shop.
+  const [more, setMore] = useState<{ text: string; href: string }[]>(() =>
+    [0, 1, 2].map((i) => ({
+      text: saved.more?.[i]?.text ?? '',
+      href: saved.more?.[i]?.href ?? '',
+    })),
+  )
+  const setMoreAt = (i: number, change: Partial<{ text: string; href: string }>) =>
+    setMore((rows) => rows.map((r, j) => (j === i ? { ...r, ...change } : r)))
   const [on, setOn] = useState(block.data ? block.isActive : true)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<{ message: string; details?: string[] } | null>(null)
@@ -50,7 +63,14 @@ function Form({ block }: { block: AdminContentBlock }) {
     if (!text.trim() && !href.trim() && savedData) return setConfirming('remove')
     if (!text.trim()) return setProblem({ message: 'Write the announcement (up to 120 letters).' })
     start()
-    const r = await saveContentBlock('announcement_bar', { text, href: href.trim() || null }, on)
+    const extra = more
+      .filter((m) => m.text.trim())
+      .map((m) => ({ text: m.text, href: m.href.trim() || null }))
+    const r = await saveContentBlock(
+      'announcement_bar',
+      { text, href: href.trim() || null, more: extra },
+      on,
+    )
     setBusy(false)
     if (!r.ok) return setProblem({ message: r.message, details: r.details })
     setSavedData(r.data.data)
@@ -87,6 +107,7 @@ function Form({ block }: { block: AdminContentBlock }) {
   function clear() {
     setText('')
     setHref('')
+    setMore([0, 1, 2].map(() => ({ text: '', href: '' })))
     setDone(null)
     setProblem(null)
   }
@@ -106,6 +127,27 @@ function Form({ block }: { block: AdminContentBlock }) {
         hint={`${text.length} / 120 — e.g. “Free delivery in Dhaka over ৳2,000”.`}
       />
       <LinkInput label="Link (optional)" value={href} onChange={setHref} />
+      <fieldset className="flex flex-col gap-4 rounded-control border border-border p-4">
+        <legend className="px-1 text-sm font-medium">More messages (optional)</legend>
+        <p className="text-sm text-muted-foreground">
+          They take turns with the first one on the shop, every 5 seconds. Empty ones are skipped.
+        </p>
+        {more.map((m, i) => (
+          <div key={i} className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label={`Message ${i + 2}`}
+              value={m.text}
+              maxLength={120}
+              onChange={(e) => setMoreAt(i, { text: e.target.value })}
+            />
+            <LinkInput
+              label={`Message ${i + 2} link (optional)`}
+              value={m.href}
+              onChange={(v) => setMoreAt(i, { href: v })}
+            />
+          </div>
+        ))}
+      </fieldset>
       <label className="flex items-center gap-2 text-sm font-medium">
         <input
           type="checkbox"

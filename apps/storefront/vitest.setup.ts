@@ -28,5 +28,11 @@ if (typeof HTMLDialogElement !== 'undefined') {
 // that gives each font its CSS variable class (no files are downloaded).
 vi.mock('next/font/google', () => {
   const font = (name: string) => () => ({ className: name, variable: `font-${name}`, style: {} })
-  return { Inter: font('inter'), Poppins: font('poppins'), Hind_Siliguri: font('hind-siliguri') }
+  return {
+    Inter: font('inter'),
+    Poppins: font('poppins'),
+    Hind_Siliguri: font('hind-siliguri'),
+    Cormorant_Garamond: font('cormorant'),
+    Playfair_Display: font('playfair'),
+  }
 })

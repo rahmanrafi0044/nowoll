@@ -103,6 +103,19 @@ describe('the look (step 38, part 2)', () => {
     expect(themeCss({ brand_color: '#111111', font: 'system' })).toBe('')
   })
 
+  it('theme (38f): another heading font is written; the elegant serif is the default', async () => {
+    const { themeCss } = await import('@/lib/theme')
+    const base = { brand_color: '#111111', font: 'system' } as const
+    expect(themeCss({ ...base, heading_font: 'serif_elegant' })).toBe('')
+    expect(themeCss({ ...base, heading_font: 'serif_classic' })).toBe(
+      ":root{--font-display:var(--font-playfair), Georgia, 'Times New Roman', 'Noto Serif Bengali', serif}",
+    )
+    expect(themeCss({ ...base, heading_font: 'same_as_body' })).toBe(
+      ':root{--font-display:var(--font-sans)}',
+    )
+    expect(themeCss({ ...base, heading_font: 'x;}' as 'serif_classic' })).toBe('')
+  })
+
   it('theme: anything that isn’t a checked colour or a listed font never reaches the CSS', async () => {
     const { themeCss } = await import('@/lib/theme')
     expect(themeCss({ brand_color: 'red;}body{display:none', font: 'system' })).toBe('')

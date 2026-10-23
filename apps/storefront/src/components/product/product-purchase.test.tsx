@@ -5,7 +5,14 @@ import { useCartStore } from '@/stores/cart-store'
 import { useUiStore } from '@/stores/ui-store'
 import { ProductPurchase } from './product-purchase'
 
-function Harness(props: { product?: ReturnType<typeof productDetail>; sticky?: boolean }) {
+const push = vi.fn()
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+
+function Harness(props: {
+  product?: ReturnType<typeof productDetail>
+  sticky?: boolean
+  whatsapp?: string
+}) {
   const product = props.product ?? productDetail()
   const [color, setColor] = useState<string | null>('White')
   return (
@@ -14,17 +21,74 @@ function Harness(props: { product?: ReturnType<typeof productDetail>; sticky?: b
       color={color}
       onColorChange={setColor}
       sticky={props.sticky}
+      whatsapp={props.whatsapp}
+      pageUrl="https://nowoll.com/products/oxford-shirt"
     />
   )
 }
 
 describe('<ProductPurchase />', () => {
-  beforeEach(() => useCartStore.getState().clear())
+  beforeEach(() => {
+    useCartStore.getState().clear()
+    push.mockClear()
+  })
 
-  it('asks for a size before adding, and disables out-of-stock sizes', () => {
+  it('38f: "Buy now" adds the chosen size to the bag and goes straight to checkout', () => {
+    render(<Harness />)
+    expect(screen.getByRole('button', { name: 'Buy now' })).toBeDisabled() // no size yet
+    fireEvent.click(screen.getByRole('radio', { name: 'M' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Buy now' }))
+    expect(useCartStore.getState().items).toEqual([
+      expect.objectContaining({ variantId: 'w-m', quantity: 1 }),
+    ])
+    expect(push).toHaveBeenCalledWith('/checkout')
+    // The bag panel stays shut — it would otherwise sit on top of the checkout page.
+    expect(useUiStore.getState().cartOpen).toBe(false)
+  })
+
+  it('38f: "Ask on WhatsApp" opens a chat with the store, the product named in it', () => {
+    const { unmount } = render(<Harness />)
+    expect(screen.queryByRole('link', { name: /WhatsApp/ })).not.toBeInTheDocument() // no number set
+    unmount()
+    render(<Harness whatsapp="+8801712345678" />)
+    const link = screen.getByRole('link', { name: 'Ask on WhatsApp' })
+    expect(link).toHaveAttribute('target', '_blank')
+    const href = new URL(link.getAttribute('href')!)
+    expect(href.origin + href.pathname).toBe('https://wa.me/8801712345678')
+    expect(href.searchParams.get('text')).toBe(
+      'Hi! A question about Oxford Shirt — https://nowoll.com/products/oxford-shirt',
+    )
+  })
+
+  it('asks for a size before adding; a sold-out size offers "Notify me" instead (38f)', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ success: true, data: { waiting: true } }))),
+    )
+    vi.stubGlobal('fetch', fetchMock)
     render(<Harness />)
     expect(screen.getByRole('button', { name: 'Choose a size' })).toBeDisabled()
-    expect(screen.getByRole('radio', { name: /S \(out of stock\)/ })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('radio', { name: 'S (out of stock)' }))
+    expect(screen.queryByRole('button', { name: /Add to bag|Out of stock/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Notify me' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter your email')
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('Your email'), { target: { value: 'fan@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Notify me' }))
+    expect(await screen.findByText(/we’ll email you once when/)).toHaveTextContent('S / White')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/api/v1/stock-alerts',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ variantId: 'w-s', email: 'fan@example.com' }),
+      }),
+    )
+
+    // Back to an in-stock size: the normal Add to bag returns.
+    fireEvent.click(screen.getByRole('radio', { name: 'M' }))
+    expect(screen.getByRole('button', { name: 'Add to bag' })).toBeEnabled()
+    vi.unstubAllGlobals()
   })
 
   it('adds the chosen variant and quantity to the bag, and announces it', () => {
@@ -48,6 +112,7 @@ describe('<ProductPurchase />', () => {
       'Added 2 × Oxford Shirt (M / White) to your bag.',
     )
     expect(useUiStore.getState().cartOpen).toBe(true) // decision #4: the bag drawer opens
+    expect(useUiStore.getState().justAdded).toMatchObject({ productName: expect.any(String) })
   })
 
   it("shows the selected variant's own price", () => {

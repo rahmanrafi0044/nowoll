@@ -186,15 +186,15 @@ describe('forgot / reset password', () => {
 })
 
 describe('header and account page', () => {
-  it('header: "Sign in" for visitors, the first name for customers', async () => {
+  it('header: the account icon says "Sign in" to visitors, "Your account" to customers', async () => {
     const { unmount } = render(<AccountButton />)
     expect(await screen.findByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
     unmount()
     useSessionStore.setState({ status: 'unknown', user: null })
     answer = () => ok({ user: RAFI })
     render(<AccountButton />)
+    // 38f: an icon now (no name in the header) — its accessible name says where it goes.
     const link = await screen.findByRole('link', { name: 'Your account' })
-    expect(link).toHaveTextContent('Rafi')
     expect(link).toHaveAttribute('href', '/account')
   })
 

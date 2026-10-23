@@ -3,16 +3,21 @@
 import Link from 'next/link'
 import type { CartQuoteState } from '@/hooks/use-cart-quote'
 import { formatBdt } from '@/lib/format'
+import type { FreeDeliveryOffer } from '@/lib/free-delivery'
+import { FreeDeliveryBar } from './free-delivery-bar'
 
 // Subtotal → discount → "Shipping & VAT at checkout" → estimated total (decision #5).
 export function CartSummary({
   summary,
   onNavigate,
   showViewBag = false,
+  freeDelivery = null,
 }: {
   summary: CartQuoteState
   onNavigate?: () => void
   showViewBag?: boolean
+  /** Admin → Shipping's free-delivery amount (38f bar); null = no bar. */
+  freeDelivery?: FreeDeliveryOffer | null
 }) {
   const { quote, loading, discount } = summary
   const subtotal = Number(quote?.subtotal ?? 0)
@@ -21,6 +26,9 @@ export function CartSummary({
 
   return (
     <div className="flex flex-col gap-3">
+      {freeDelivery && quote && (
+        <FreeDeliveryBar offer={freeDelivery} amount={subtotal - discountAmount} />
+      )}
       <dl className="flex flex-col gap-2 text-sm">
         <div className="flex justify-between">
           <dt>Subtotal</dt>

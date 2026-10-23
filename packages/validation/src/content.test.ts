@@ -7,6 +7,8 @@ import {
   readHomepageLayout,
   footerSchema,
   mainMenuSchema,
+  imageUrlSchema,
+  homepageSectionSchema,
 } from './content.js'
 
 describe('homepageHeroSchema', () => {
@@ -18,7 +20,20 @@ describe('homepageHeroSchema', () => {
       subheading: null,
       imageUrl: null,
       imageAlt: null,
+      more: [], // 38f: a saved hero without extra slides stays valid
     })
+  })
+
+  it('38f: up to 3 more slides, each checked like the first', () => {
+    const slide = { ...valid, imageUrl: '/perf/hero-2.jpg', imageAlt: 'Eid' }
+    expect(homepageHeroSchema.parse({ ...valid, more: [slide] }).more).toHaveLength(1)
+    expect(
+      homepageHeroSchema.safeParse({ ...valid, more: [slide, slide, slide, slide] }).success,
+    ).toBe(false)
+    expect(
+      homepageHeroSchema.safeParse({ ...valid, more: [{ ...slide, ctaHref: 'javascript:x' }] })
+        .success,
+    ).toBe(false)
   })
 
   it.each([
@@ -45,7 +60,31 @@ describe('announcementBarSchema', () => {
     expect(announcementBarSchema.parse({ text: 'Free delivery in Dhaka' })).toEqual({
       text: 'Free delivery in Dhaka',
       href: null,
+      more: [], // 38f: saved announcements without extra messages stay valid
     })
+  })
+
+  it('38f: up to 3 more messages take turns — each checked like the first', () => {
+    const msg = (text: string) => ({ text, href: null })
+    expect(
+      announcementBarSchema.parse({
+        text: 'One',
+        more: [msg('Two'), { text: 'Three', href: '/shop' }],
+      }).more,
+    ).toEqual([msg('Two'), { text: 'Three', href: '/shop' }])
+    expect(
+      announcementBarSchema.safeParse({
+        text: 'One',
+        more: [msg('2'), msg('3'), msg('4'), msg('5')],
+      }).success,
+    ).toBe(false)
+    expect(announcementBarSchema.safeParse({ text: 'One', more: [msg(' ')] }).success).toBe(false)
+    expect(
+      announcementBarSchema.safeParse({
+        text: 'One',
+        more: [{ text: 'Two', href: 'javascript:alert(1)' }],
+      }).success,
+    ).toBe(false)
   })
 
   it('rejects empty or very long text', () => {
@@ -207,6 +246,78 @@ describe('main menu and footer (step 38b)', () => {
     expect(ok({ columns: [col(1), col(2), col(3), col(4)] })).toBe(false)
     expect(
       ok({ columns: [{ id: 'c', title: 'Help', links: [{ label: 'x', href: 'javascript:x' }] }] }),
+    ).toBe(false)
+  })
+})
+
+describe('imageUrlSchema (38f)', () => {
+  it('accepts an uploaded https photo or a file on this shop', () => {
+    expect(
+      imageUrlSchema.parse('https://x.supabase.co/storage/v1/object/public/content/a.webp'),
+    ).toBe('https://x.supabase.co/storage/v1/object/public/content/a.webp')
+    expect(imageUrlSchema.parse('/perf/hero.jpg')).toBe('/perf/hero.jpg')
+  })
+
+  it('refuses anything that could lead elsewhere or run code', () => {
+    for (const bad of [
+      'http://x.example/a.jpg',
+      '//evil.example/a.jpg',
+      '/\\evil.example/a.jpg',
+      'javascript:alert(1)',
+      'data:image/png;base64,AAAA',
+      'a.jpg',
+      '',
+    ])
+      expect(imageUrlSchema.safeParse(bad).success, bad).toBe(false)
+  })
+})
+
+describe('38f homepage sections: split, circles, story, lookbook', () => {
+  const photo = { imageUrl: '/perf/a.jpg', imageAlt: 'A model in lawn' }
+  const parse = (section: object) =>
+    homepageSectionSchema.safeParse({ id: 's1', visible: true, ...section })
+
+  it('split: a photo and words, image on the left unless told otherwise', () => {
+    const r = parse({ type: 'split', ...photo, heading: 'Made in Dhaka' })
+    expect(r.success && r.data).toMatchObject({ imageSide: 'left', text: null, href: null })
+    expect(parse({ type: 'split', ...photo, heading: '' }).success).toBe(false)
+    expect(parse({ type: 'split', ...photo, heading: 'X', imageSide: 'top' }).success).toBe(false)
+  })
+
+  it('circles: 2 to 6, each with a photo, a label and a safe link', () => {
+    const item = { ...photo, label: 'Eid', href: '/shop/eid' }
+    expect(parse({ type: 'circles', items: [item, item] }).success).toBe(true)
+    expect(parse({ type: 'circles', items: [item] }).success).toBe(false)
+    expect(parse({ type: 'circles', items: Array(7).fill(item) }).success).toBe(false)
+    expect(
+      parse({ type: 'circles', items: [item, { ...item, href: '//evil.example' }] }).success,
+    ).toBe(false)
+  })
+
+  it('lookbook: 3 to 12 photos, each described; caption and link optional', () => {
+    const shot = { imageUrl: '/perf/a.jpg', imageAlt: 'Nusrat in the Mehr three-piece' }
+    const r = parse({ type: 'lookbook', items: [shot, shot, shot] })
+    expect(r.success && r.data).toMatchObject({
+      title: null,
+      text: null,
+      items: [{ caption: null, href: null }, {}, {}],
+    })
+    expect(parse({ type: 'lookbook', items: [shot, shot] }).success).toBe(false)
+    expect(parse({ type: 'lookbook', items: Array(13).fill(shot) }).success).toBe(false)
+    expect(
+      parse({ type: 'lookbook', items: [shot, shot, { ...shot, imageAlt: '' }] }).success,
+    ).toBe(false)
+    expect(
+      parse({ type: 'lookbook', items: [shot, shot, { ...shot, href: 'javascript:alert(1)' }] })
+        .success,
+    ).toBe(false)
+  })
+
+  it('story: words required, the photo optional', () => {
+    expect(parse({ type: 'story', heading: 'Always new', text: 'Since 2026.' }).success).toBe(true)
+    expect(parse({ type: 'story', heading: 'Always new', text: '' }).success).toBe(false)
+    expect(
+      parse({ type: 'story', heading: 'X', text: 'Y', imageUrl: 'http://x.example/a.jpg' }).success,
     ).toBe(false)
   })
 })

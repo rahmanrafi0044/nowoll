@@ -1,6 +1,7 @@
 import type {
   BreadcrumbItem,
   CategorySummary,
+  EditorialTileView,
   Paginated,
   ProductCardView,
   ProductFacetsView,
@@ -18,12 +19,20 @@ import {
   type SortValue,
   toApiQuery,
 } from '@/lib/listing'
+import { EditorialTile } from './editorial-tile'
+import { FilterDrawer } from './filter-drawer'
 import { FilterForm } from './filter-form'
-import { MobileFilters } from './mobile-filters'
+import { DensityToggle, type GridItem, ProductGrid } from './grid-density'
 import { Pagination } from './pagination'
 import { SortSelect } from './sort-select'
 
-const EMPTY_FACETS: ProductFacetsView = { sizes: [], colors: [], price: null }
+const EMPTY_FACETS: ProductFacetsView = {
+  sizes: [],
+  colors: [],
+  price: null,
+  counts: { sizes: {}, colors: {} },
+  fabrics: [],
+}
 
 // The product listing used by /shop and /shop/[category]: heading, filters,
 // sort, product grid with quick view, and pagination.
@@ -36,6 +45,7 @@ export async function ListingPage({
   category,
   params,
   search,
+  editorial = [],
 }: {
   basePath: string
   title: string
@@ -45,6 +55,8 @@ export async function ListingPage({
   category?: string
   params: ListingParams
   search?: boolean
+  /** 38f: a category's photo tiles (Admin → Categories). */
+  editorial?: EditorialTileView[]
 }) {
   const facetQuery = new URLSearchParams({
     ...(category && { category }),
@@ -74,8 +86,12 @@ export async function ListingPage({
       href: listingHref(basePath, params, { size: undefined }),
     },
     params.color && {
-      label: `Color: ${params.color}`,
+      label: `Colour: ${params.color}`,
       href: listingHref(basePath, params, { color: undefined }),
+    },
+    params.fabric && {
+      label: `Fabric: ${params.fabric}`,
+      href: listingHref(basePath, params, { fabric: undefined }),
     },
     params.minPrice !== undefined && {
       label: `From ${formatBdt(params.minPrice)}`,
@@ -90,6 +106,9 @@ export async function ListingPage({
       href: listingHref(basePath, params, { inStock: undefined }),
     },
   ].filter((c): c is { label: string; href: string } => Boolean(c))
+
+  // Photo tiles only on the plain first page — not inside filtered, sorted or searched results.
+  const showTiles = params.page === 1 && !hasActiveFilters(params) && !params.sort && !params.q
 
   const filterForm = (
     <FilterForm basePath={basePath} params={params} facets={facets ?? EMPTY_FACETS} />
@@ -123,9 +142,9 @@ export async function ListingPage({
         </nav>
       )}
 
-      <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-        {description && <p className="max-w-2xl text-muted-foreground">{description}</p>}
+      <header className="flex flex-col items-center gap-3 text-center">
+        <h1 className="text-4xl md:text-5xl">{title}</h1>
+        {description && <p className="max-w-xl text-muted-foreground">{description}</p>}
       </header>
 
       {search && (
@@ -164,25 +183,25 @@ export async function ListingPage({
         </ul>
       )}
 
-      <div className="mt-8 grid gap-8 md:grid-cols-[14rem_1fr]">
-        <aside aria-label="Filters" className="hidden md:block">
-          {filterForm}
-        </aside>
-
+      <div className="mt-10">
         <section aria-labelledby="products-heading">
           {/* For screen-reader users, who move through a page by its headings: the
               product cards are <h3>s, so the list needs an <h2> above them (step 52). */}
           <h2 id="products-heading" className="sr-only">
             Products
           </h2>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground" aria-live="polite">
-              {total} {total === 1 ? 'product' : 'products'}
-            </p>
-            {/* flex-wrap: on a 320 px phone (or 200% zoom) "Sort by" moves under
-                "Filters" instead of making the page scroll sideways (WCAG 1.4.10). */}
+          {/* 38f toolbar: Filter (a drawer on every screen) · count · per row · sort.
+              flex-wrap: on a 320 px phone (or 200% zoom) it wraps instead of
+              making the page scroll sideways (WCAG 1.4.10). */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border py-3">
+            <div className="flex flex-wrap items-center gap-4">
+              <FilterDrawer activeCount={chips.length}>{filterForm}</FilterDrawer>
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                {total} {total === 1 ? 'product' : 'products'}
+              </p>
+            </div>
             <div className="flex flex-wrap items-center gap-3">
-              <MobileFilters activeCount={chips.length}>{filterForm}</MobileFilters>
+              <DensityToggle />
               <SortSelect options={sortOptions} current={sort} />
             </div>
           </div>
@@ -219,13 +238,7 @@ export async function ListingPage({
               )}
             </div>
           ) : (
-            <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-3">
-              {products.map((product, i) => (
-                <li key={product.id}>
-                  <ProductCard product={product} priority={i < 2} quickView />
-                </li>
-              ))}
-            </ul>
+            <ProductGrid items={gridItems(products, showTiles ? editorial : [])} />
           )}
 
           <Pagination
@@ -237,4 +250,29 @@ export async function ListingPage({
       </div>
     </div>
   )
+}
+
+/**
+ * The cards with the category's photo tiles slotted in: a tile with
+ * position 4 comes after the 4th product (tiles past the last product are
+ * left out — they'd float alone at the end).
+ */
+function gridItems(products: ProductCardView[], tiles: EditorialTileView[]): GridItem[] {
+  const items: GridItem[] = []
+  products.forEach((product, i) => {
+    items.push({
+      key: product.id,
+      node: <ProductCard product={product} priority={i < 2} quickView />,
+    })
+    tiles
+      .filter((t) => t.position === i + 1)
+      .forEach((t, j) =>
+        items.push({
+          key: `tile-${i}-${j}`,
+          node: <EditorialTile tile={t} />,
+          wide: t.wide,
+        }),
+      )
+  })
+  return items
 }

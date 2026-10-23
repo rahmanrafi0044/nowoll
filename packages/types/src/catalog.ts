@@ -1,3 +1,4 @@
+import type { SizeChartView } from './size-charts.js'
 // ============================================================================
 // Public catalog data AS THE STOREFRONT RECEIVES IT (JSON over HTTP).
 // Money is a string ("1490" / "1490.5") because the API sends exact decimals,
@@ -21,6 +22,19 @@ export interface CategorySummary {
   seoDescription: string | null
 }
 
+/** 38f: a photo tile placed among a category's products. */
+export interface EditorialTileView {
+  imageUrl: string
+  imageAlt: string
+  heading: string
+  text: string | null
+  href: string | null
+  /** After which product (1 = after the first). */
+  position: number
+  /** Two columns wide on tablets and computers. */
+  wide: boolean
+}
+
 export interface CategoryNode extends CategorySummary {
   children: CategoryNode[]
 }
@@ -33,6 +47,8 @@ export interface BreadcrumbItem {
 
 export interface CategoryDetail extends CategorySummary {
   sizeGuide: string | null
+  /** 38f: photo tiles among the products (Admin → Categories). */
+  editorial: EditorialTileView[]
   breadcrumb: BreadcrumbItem[]
   children: CategorySummary[]
 }
@@ -65,19 +81,53 @@ export interface ProductCardView {
   isFeatured: boolean
   category: { name: string; slug: string }
   image: ProductImageView | null
+  /** Up to 4 photos: [0] = image, [1] = shown on hover, all = swipe on phones (38f). */
+  images: ProductImageView[]
   colors: { color: string; colorHex: string | null }[]
   sizes: string[]
   inStock: boolean
+  /** "Lawn", "Chiffon" — also a shop filter (38f). */
+  fabric: string | null
+  /** The lowest price when sizes/colours cost different amounts ("From ৳…"), else null. */
+  fromPrice: Money | null
+  badges: ProductBadgesView
 }
 
-export interface ProductDetailView extends Omit<ProductCardView, 'image' | 'colors' | 'sizes'> {
+/** Card/product-page badges, worked out by the API (Admin → Settings → badge days). */
+export interface ProductBadgesView {
+  isNew: boolean
+  restocked: boolean
+  readyToShip: boolean
+}
+
+export interface ProductDetailView extends Omit<
+  ProductCardView,
+  'image' | 'images' | 'colors' | 'sizes'
+> {
   description: string | null
+  /** The product page's Care fold (38f). */
+  care: string | null
+  /** "Model wears S, height 5'5" (38f). */
+  fitNote: string | null
   tags: string[]
   seoTitle: string | null
   seoDescription: string | null
   breadcrumb: BreadcrumbItem[]
   images: ProductImageView[]
   variants: ProductVariantView[]
+  /** 38f: the measurement chart — its own, else its category's; null = none. */
+  sizeChart: SizeChartView | null
+}
+
+/** GET /products/:slug/neighbours (38f) — the product page's "‹ Previous · Next ›". */
+export interface ProductNeighbourView {
+  name: string
+  slug: string
+  image: { url: string; altText: string } | null
+}
+export interface ProductNeighboursView {
+  previous: ProductNeighbourView | null
+  next: ProductNeighbourView | null
 }
 
 export interface ContentBlockView<T> {
@@ -90,6 +140,10 @@ export interface ProductFacetsView {
   sizes: string[]
   colors: { color: string; colorHex: string | null }[]
   price: { min: Money; max: Money } | null
+  /** 38f: how many products have each size / colour. */
+  counts: { sizes: Record<string, number>; colors: Record<string, number> }
+  /** 38f: the fabrics in this listing, with how many products each. */
+  fabrics: { fabric: string; count: number }[]
 }
 
 /** POST /discounts/validate — what a code would take off the bag (a preview). */

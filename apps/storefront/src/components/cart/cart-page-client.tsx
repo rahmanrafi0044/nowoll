@@ -2,9 +2,14 @@
 
 import { CartContents } from './cart-contents'
 import { CartSummary } from './cart-summary'
+import type { FreeDeliveryOffer } from '@/lib/free-delivery'
 import { DiscountForm } from './discount-form'
 
-export function CartPageClient() {
+export function CartPageClient({
+  freeDelivery = null,
+}: {
+  freeDelivery?: FreeDeliveryOffer | null
+}) {
   return (
     <CartContents>
       {(summary) => (
@@ -14,7 +19,7 @@ export function CartPageClient() {
         >
           <h2 className="text-lg font-semibold">Order summary</h2>
           <DiscountForm discount={summary.discount} />
-          <CartSummary summary={summary} />
+          <CartSummary summary={summary} freeDelivery={freeDelivery} />
         </aside>
       )}
     </CartContents>

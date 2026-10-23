@@ -43,6 +43,7 @@ export async function makeProduct(fields: {
   createdAt?: Date
   variants?: VariantSpec[]
   withImage?: boolean
+  fabric?: string
 }) {
   const n = next()
   const name = fields.name ?? `Product ${n}`
@@ -61,6 +62,7 @@ export async function makeProduct(fields: {
       description: fields.description ?? null,
       isFeatured: fields.isFeatured ?? false,
       ...(fields.createdAt && { createdAt: fields.createdAt }),
+      ...(fields.fabric && { fabric: fields.fabric }),
       variants: {
         create: variants.map((v, i) => ({
           sku: `SKU-${n}-${i}`,

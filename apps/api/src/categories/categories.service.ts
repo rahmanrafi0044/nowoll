@@ -5,7 +5,8 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common'
-import type { Category } from '@nowoll/database'
+import type { Category, Prisma } from '@nowoll/database'
+import { categoryEditorialSchema, type EditorialTile } from '@nowoll/validation'
 import { pickUniqueSlug, slugPrefixOf } from '../common/slugs.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import {
@@ -18,6 +19,7 @@ import {
 } from './category-tree.js'
 import type { CreateCategoryDto } from './dto/create-category.dto.js'
 import type { UpdateCategoryDto } from './dto/update-category.dto.js'
+import { SizeChartsService } from '../size-charts/size-charts.service.js'
 import { RedirectsService } from '../redirects/redirects.service.js'
 
 /** What customers see — no admin-only fields like isActive or deletedAt. */
@@ -46,6 +48,8 @@ export interface AdminCategoryNode {
   imageUrl: string | null
   imageAlt: string | null
   sizeGuide: string | null
+  sizeChartId: string | null
+  editorial: EditorialTile[]
   seoTitle: string | null
   seoDescription: string | null
   isActive: boolean
@@ -63,8 +67,35 @@ export interface AdminArchivedCategory {
 
 export interface PublicCategoryDetail extends PublicCategory {
   sizeGuide: string | null
+  /** 38f: photo tiles among the products (only valid ones). */
+  editorial: EditorialTile[]
   breadcrumb: Pick<PublicCategory, 'id' | 'name' | 'slug'>[] // top level → direct parent
   children: PublicCategory[] // direct, visible subcategories
+}
+
+/**
+ * 38f: the tiles to save — checked against the shared rules, or a 400 listing
+ * every problem (the same style as content blocks).
+ */
+function checkEditorial(value: unknown): Prisma.InputJsonValue {
+  const parsed = categoryEditorialSchema.safeParse(value)
+  if (!parsed.success)
+    throw new BadRequestException({
+      message: 'Some photo tiles need fixing — see the list.',
+      code: 'INVALID_EDITORIAL',
+      details: parsed.error.issues.map((i) =>
+        i.path.length
+          ? `Tile ${Number(i.path[0]) + 1} › ${i.path.slice(1).join(' › ')}: ${i.message}`
+          : i.message,
+      ),
+    })
+  return parsed.data as Prisma.InputJsonValue
+}
+
+/** Saved tiles, re-checked on the way out: anything that no longer fits is dropped. */
+function readEditorial(value: unknown): EditorialTile[] {
+  const parsed = categoryEditorialSchema.safeParse(value)
+  return parsed.success ? parsed.data : []
 }
 
 const toPublic = (c: Category): PublicCategory => ({
@@ -92,6 +123,8 @@ export class CategoriesService {
     private readonly prisma: PrismaService,
     // Step 43c: old address → new one when the slug changes (optional for hand-built tests).
     @Optional() private readonly redirects?: RedirectsService,
+    // 38f: checks a size chart exists before linking (optional for hand-built tests).
+    @Optional() private readonly sizeCharts?: SizeChartsService,
   ) {}
 
   // ── Public ─────────────────────────────────────────────────────────────
@@ -116,6 +149,7 @@ export class CategoriesService {
     return {
       ...toPublic(category),
       sizeGuide: category.sizeGuide,
+      editorial: readEditorial(category.editorial),
       breadcrumb: ancestorsOf(category.id, visible).map(({ id, name, slug }) => ({
         id,
         name,
@@ -185,6 +219,8 @@ export class CategoriesService {
       imageUrl: n.imageUrl,
       imageAlt: n.imageAlt,
       sizeGuide: n.sizeGuide,
+      sizeChartId: n.sizeChartId,
+      editorial: readEditorial(n.editorial),
       seoTitle: n.seoTitle,
       seoDescription: n.seoDescription,
       isActive: n.isActive,
@@ -250,16 +286,25 @@ export class CategoriesService {
 
   async create(dto: CreateCategoryDto): Promise<Category> {
     if (dto.parentId) await this.assertParentUsable(dto.parentId)
+    await this.sizeCharts?.assertExists(dto.sizeChartId)
 
     const slug = dto.slug
       ? await this.assertSlugAvailable(dto.slug)
       : await this.generateUniqueSlug(dto.name)
 
-    return this.prisma.category.create({ data: { ...dto, slug } })
+    const { editorial, ...fields } = dto
+    return this.prisma.category.create({
+      data: {
+        ...fields,
+        slug,
+        ...(editorial !== undefined && { editorial: checkEditorial(editorial) }),
+      },
+    })
   }
 
   async update(id: string, dto: UpdateCategoryDto): Promise<Category> {
     const existing = await this.findActiveOrThrow(id)
+    await this.sizeCharts?.assertExists(dto.sizeChartId)
 
     // `undefined` = "don't change the parent"; `null` = "move to top level".
     if (dto.parentId) {
@@ -277,7 +322,11 @@ export class CategoriesService {
     // Admins can still change the slug explicitly.
     if (dto.slug && dto.slug !== existing.slug) await this.assertSlugAvailable(dto.slug)
 
-    const updated = await this.prisma.category.update({ where: { id }, data: dto })
+    const { editorial, ...fields } = dto
+    const updated = await this.prisma.category.update({
+      where: { id },
+      data: { ...fields, ...(editorial !== undefined && { editorial: checkEditorial(editorial) }) },
+    })
     // New address → the old one keeps working (step 43c).
     if (updated.slug !== existing.slug)
       await this.redirects?.moved(`/shop/${existing.slug}`, `/shop/${updated.slug}`)

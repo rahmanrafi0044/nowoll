@@ -42,12 +42,8 @@ export function ProductReviews({
   }
 
   return (
-    <section
-      id="reviews"
-      aria-labelledby="reviews-title"
-      className="scroll-mt-24 border-t border-border pt-6"
-    >
-      <h2 id="reviews-title" className="text-lg font-semibold">
+    <section id="reviews" aria-labelledby="reviews-title" className="scroll-mt-24 pt-2">
+      <h2 id="reviews-title" className="text-lg">
         Reviews{' '}
         {summary.count > 0 && (
           <span className="font-normal text-muted-foreground">({summary.count})</span>
@@ -62,7 +58,7 @@ export function ProductReviews({
         <>
           <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
             <p className="flex items-center gap-2">
-              <span className="text-3xl font-semibold">{summary.average}</span>
+              <span className="font-display text-4xl">{summary.average}</span>
               <Stars value={summary.average ?? 0} className="text-lg" />
             </p>
             <ul aria-label="Ratings breakdown" className="flex flex-col gap-1 text-sm">
@@ -73,10 +69,10 @@ export function ProductReviews({
                     <span className="w-8">{stars}★</span>
                     <span
                       aria-hidden="true"
-                      className="h-2 w-32 overflow-hidden rounded-full bg-surface-muted"
+                      className="h-1.5 w-32 overflow-hidden bg-surface-muted"
                     >
                       <span
-                        className="block h-full bg-warning"
+                        className="block h-full bg-accent"
                         style={{ width: `${(n / summary.count) * 100}%` }}
                       />
                     </span>

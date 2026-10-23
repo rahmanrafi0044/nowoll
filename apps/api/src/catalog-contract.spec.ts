@@ -38,6 +38,7 @@ import type {
   DiscountPreviewView,
   ProductCardView,
   ProductDetailView,
+  ProductNeighbourView,
   ProductFacetsView,
   ProductVariantView,
   SavedAddressView,
@@ -74,7 +75,12 @@ import type { CatalogFeedService } from './feeds/catalog-feed.service.js'
 import type { BlogPost } from './blog/blog.service.js'
 import type { WishlistEntry } from './wishlist/wishlist.service.js'
 import type { PublicVariant } from './products/product-view.js'
-import type { ProductCard, ProductDetail, ProductFacets } from './products/products.service.js'
+import type {
+  ProductCard,
+  ProductDetail,
+  ProductFacets,
+  ProductNeighbour,
+} from './products/products.service.js'
 
 describe('API ↔ storefront contract', () => {
   it('categories', () => {
@@ -87,6 +93,7 @@ describe('API ↔ storefront contract', () => {
     expectTypeOf<Serialized<ProductDetail>>().toEqualTypeOf<ProductDetailView>()
     expectTypeOf<Serialized<PublicVariant>>().toEqualTypeOf<ProductVariantView>()
     expectTypeOf<Serialized<ProductFacets>>().toEqualTypeOf<ProductFacetsView>()
+    expectTypeOf<Serialized<ProductNeighbour>>().toEqualTypeOf<ProductNeighbourView>()
   })
 
   it('discounts', () => {

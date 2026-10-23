@@ -5,7 +5,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common'
-import { Prisma, type Product } from '@nowoll/database'
+import { Prisma, type Product, type SizeChart as SizeChartRow } from '@nowoll/database'
 import { InventoryChangeReason, ProductStatus } from '@nowoll/database/enums'
 import type { Paginated } from '@nowoll/types'
 import { CategoriesService } from '../categories/categories.service.js'
@@ -20,12 +20,26 @@ import type { UpdateProductDto } from './dto/update-product.dto.js'
 import {
   distinctColors,
   distinctSizes,
+  fromPrice,
+  type ProductBadges,
+  productBadges,
   type PublicImage,
   type PublicVariant,
   toPublicImage,
   toPublicVariant,
 } from './product-view.js'
 import { RedirectsService } from '../redirects/redirects.service.js'
+import { SettingsService } from '../settings/settings.service.js'
+import {
+  type PublicSizeChart,
+  readSizeChart,
+  SizeChartsService,
+} from '../size-charts/size-charts.service.js'
+
+/** Photos per card: the first, the hover one, and a few for swiping on phones. */
+const CARD_IMAGES = 4
+/** "New"/"Restocked" for this many days when Admin → Settings can't be read (hand-built tests). */
+const DEFAULT_BADGE_DAYS = 14
 
 const FALLBACK_SLUG = 'product'
 
@@ -47,25 +61,46 @@ export interface ProductCard {
   isFeatured: boolean
   category: { name: string; slug: string }
   image: PublicImage | null
+  /** Up to 4 photos: [0] = image, [1] = shown on hover, all = swipe on phones (38f). */
+  images: PublicImage[]
   colors: { color: string; colorHex: string | null }[]
   sizes: string[]
   inStock: boolean
+  fabric: string | null
+  /** The lowest price when the variants' prices differ ("From ৳…"), else null. */
+  fromPrice: Prisma.Decimal | null
+  badges: ProductBadges
 }
 
-export interface ProductDetail extends Omit<ProductCard, 'image' | 'colors' | 'sizes'> {
+export interface ProductDetail extends Omit<ProductCard, 'image' | 'images' | 'colors' | 'sizes'> {
   description: string | null
+  care: string | null
+  fitNote: string | null
   tags: string[]
   seoTitle: string | null
   seoDescription: string | null
   breadcrumb: { id: string; name: string; slug: string }[]
   images: PublicImage[]
   variants: PublicVariant[]
+  /** 38f: its own chart, else its category's; null = none (or switched off). */
+  sizeChart: PublicSizeChart | null
+}
+
+/** 38f: a neighbouring product, for the product page's "‹ Previous · Next ›". */
+export interface ProductNeighbour {
+  name: string
+  slug: string
+  image: { url: string; altText: string } | null
 }
 
 export interface ProductFacets {
   sizes: string[]
   colors: { color: string; colorHex: string | null }[]
   price: { min: Prisma.Decimal; max: Prisma.Decimal } | null
+  /** 38f: how many PRODUCTS have each size / colour ("M (12)"). */
+  counts: { sizes: Record<string, number>; colors: Record<string, number> }
+  /** 38f: the fabrics in this listing, with how many products each. */
+  fabrics: { fabric: string; count: number }[]
 }
 
 // Shared "include" for loading what a card or detail page needs in ONE query.
@@ -85,7 +120,16 @@ export class ProductsService {
     private readonly stock: StockService,
     // Step 43c: old address → new one when the slug changes (optional for hand-built tests).
     @Optional() private readonly redirects?: RedirectsService,
+    // 38f: how long "New"/"Restocked" badges show (optional for hand-built tests).
+    @Optional() private readonly settings?: SettingsService,
+    // 38f: checks a size chart exists before a product links to it (optional for hand-built tests).
+    @Optional() private readonly sizeCharts?: SizeChartsService,
   ) {}
+
+  /** Admin → Settings → badge days, read once per request. */
+  private async badgeDays(): Promise<number> {
+    return this.settings ? (await this.settings.all()).badge_days : DEFAULT_BADGE_DAYS
+  }
 
   // ── Public ─────────────────────────────────────────────────────────────
 
@@ -110,6 +154,8 @@ export class ProductsService {
       ...(ranks && { id: { in: [...ranks.keys()] } }),
       ...(query.featured !== undefined && { isFeatured: query.featured }),
       ...(query.tag && { tags: { has: query.tag } }),
+      // 38f: the fabric filter ("Lawn"), as the admin typed it, any letter case.
+      ...(query.fabric && { fabric: { equals: query.fabric, mode: 'insensitive' } }),
       ...((query.minPrice !== undefined || query.maxPrice !== undefined) && {
         // Filters on the "from" price (decision #6)
         basePrice: {
@@ -165,8 +211,9 @@ export class ProductsService {
       })
     }
 
+    const badgeDays = await this.badgeDays()
     return {
-      items: rows.map((p) => this.toCard(p)),
+      items: rows.map((p) => this.toCard(p, badgeDays)),
       total,
       page,
       pageSize,
@@ -181,7 +228,13 @@ export class ProductsService {
    * themselves, so choosing "M" doesn't make the other sizes disappear.
    */
   async facets(query: { category?: string; q?: string }): Promise<ProductFacets> {
-    const empty: ProductFacets = { sizes: [], colors: [], price: null }
+    const empty: ProductFacets = {
+      sizes: [],
+      colors: [],
+      price: null,
+      counts: { sizes: {}, colors: {} },
+      fabrics: [],
+    }
     const visibleCategoryIds = query.category
       ? await this.categories.visibleSubtreeIds(query.category)
       : [...(await this.categories.visibleCategoryIds())]
@@ -195,6 +248,32 @@ export class ProductsService {
       categoryId: { in: visibleCategoryIds },
       ...(ranks && { id: { in: [...ranks.keys()] } }),
     }
+    // 38f counts: one grouped query each, counting PRODUCTS (a product with
+    // "M" in three colours is one "M"). Values are SQL parameters, never pasted.
+    const scope = Prisma.sql`p.status = 'ACTIVE' AND p.deleted_at IS NULL
+      AND p.category_id = ANY(${visibleCategoryIds}::uuid[])
+      ${ranks ? Prisma.sql`AND p.id = ANY(${[...ranks.keys()]}::uuid[])` : Prisma.empty}`
+    const live = Prisma.sql`v.is_active AND v.deleted_at IS NULL`
+    const [sizeCounts, colorCounts, fabricCounts] = await Promise.all([
+      this.prisma.$queryRaw<{ key: string; n: number }[]>`
+        SELECT v.size AS key, count(DISTINCT v.product_id)::int AS n
+        FROM product_variants v JOIN products p ON p.id = v.product_id
+        WHERE ${live} AND ${scope} GROUP BY v.size`,
+      this.prisma.$queryRaw<{ key: string; n: number }[]>`
+        SELECT v.color AS key, count(DISTINCT v.product_id)::int AS n
+        FROM product_variants v JOIN products p ON p.id = v.product_id
+        WHERE ${live} AND ${scope} GROUP BY v.color`,
+      // Fabric is typed by hand: "Lawn" and "lawn " count as ONE choice (the shop's
+      // filter ignores case too), shown with its most common spelling.
+      this.prisma.$queryRaw<{ key: string; n: number }[]>`
+        SELECT mode() WITHIN GROUP (ORDER BY btrim(p.fabric)) AS key, count(*)::int AS n
+        FROM products p
+        WHERE ${scope} AND p.fabric IS NOT NULL AND btrim(p.fabric) <> ''
+        GROUP BY lower(btrim(p.fabric)) ORDER BY lower(btrim(p.fabric))`,
+    ])
+    const toRecord = (rows: { key: string; n: number }[]) =>
+      Object.fromEntries(rows.map((r) => [r.key, r.n]))
+
     const [variants, price] = await Promise.all([
       this.prisma.productVariant.findMany({
         where: { ...LIVE_VARIANT, product: productWhere },
@@ -215,6 +294,8 @@ export class ProductsService {
         price._min.basePrice && price._max.basePrice
           ? { min: price._min.basePrice, max: price._max.basePrice }
           : null,
+      counts: { sizes: toRecord(sizeCounts), colors: toRecord(colorCounts) },
+      fabrics: fabricCounts.map((r) => ({ fabric: r.key, count: r.n })),
     }
   }
 
@@ -233,16 +314,105 @@ export class ProductsService {
       if (error instanceof NotFoundException) return null
       throw error
     }
+    const {
+      images: _cardImages,
+      colors: _c,
+      sizes: _s,
+      image: _i,
+      ...card
+    } = this.toCard(product, await this.badgeDays())
     return {
-      ...this.toCard(product),
+      ...card,
       description: product.description,
+      care: product.care,
+      fitNote: product.fitNote,
       tags: product.tags,
       seoTitle: product.seoTitle,
       seoDescription: product.seoDescription,
       breadcrumb: await this.categories.breadcrumbFor(product.categoryId),
       images: product.images.map(toPublicImage),
       variants: product.variants.map((v) => toPublicVariant(v, product)),
+      sizeChart: await this.sizeChartFor(product.id),
     }
+  }
+
+  /**
+   * 38f: the product's own size chart if it has a working one, else the
+   * NEAREST category up the tree that has one (Three-Piece → Women): a chart
+   * set on "Women" covers every subcategory, and a subcategory's own chart
+   * wins over its parent's. Separate small queries, so product CARDS (lists
+   * of 24+) never load charts they don't show.
+   */
+  private async sizeChartFor(productId: string): Promise<PublicSizeChart | null> {
+    const row = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { sizeChart: true, categoryId: true },
+    })
+    const own = readSizeChart(row?.sizeChart)
+    if (own || !row) return own
+    let categoryId: string | null = row.categoryId
+    // 10 levels at most — the tree is never that deep; this only guards a broken parent loop.
+    for (let depth = 0; categoryId && depth < 10; depth++) {
+      const category: { sizeChart: SizeChartRow | null; parentId: string | null } | null =
+        await this.prisma.category.findUnique({
+          where: { id: categoryId },
+          select: { sizeChart: true, parentId: true },
+        })
+      const chart = readSizeChart(category?.sizeChart)
+      if (chart) return chart
+      categoryId = category?.parentId ?? null
+    }
+    return null
+  }
+
+  /**
+   * 38f: the product page's "‹ Previous · Next ›" — the neighbours in the same
+   * category, in the order "New arrivals" uses (newest first; ties by id so
+   * the order never wobbles). null at either end, and for a product customers
+   * can't see. Only what the link needs: name, address and the first photo.
+   */
+  async neighbours(slug: string): Promise<{
+    previous: ProductNeighbour | null
+    next: ProductNeighbour | null
+  }> {
+    let p: ProductWithRelations
+    try {
+      p = await this.findVisible({ slug })
+    } catch (error) {
+      if (error instanceof NotFoundException) return { previous: null, next: null }
+      throw error
+    }
+    const base = { categoryId: p.categoryId, status: ProductStatus.ACTIVE, deletedAt: null }
+    const select = {
+      name: true,
+      slug: true,
+      images: { orderBy: [{ sortOrder: 'asc' as const }, { createdAt: 'asc' as const }], take: 1 },
+    }
+    const [newer, older] = await Promise.all([
+      this.prisma.product.findFirst({
+        where: {
+          ...base,
+          OR: [{ createdAt: { gt: p.createdAt } }, { createdAt: p.createdAt, id: { gt: p.id } }],
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select,
+      }),
+      this.prisma.product.findFirst({
+        where: {
+          ...base,
+          OR: [{ createdAt: { lt: p.createdAt } }, { createdAt: p.createdAt, id: { lt: p.id } }],
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select,
+      }),
+    ])
+    const view = (n: typeof newer): ProductNeighbour | null =>
+      n && {
+        name: n.name,
+        slug: n.slug,
+        image: n.images[0] ? { url: n.images[0].url, altText: n.images[0].altText } : null,
+      }
+    return { previous: view(newer), next: view(older) }
   }
 
   /**
@@ -267,6 +437,7 @@ export class ProductsService {
   async create(dto: CreateProductDto): Promise<Product> {
     const { variants = [], ...fields } = dto
     await this.assertCategoryUsable(fields.categoryId)
+    await this.sizeCharts?.assertExists(fields.sizeChartId)
     assertCompareAtAbove(fields.basePrice, fields.compareAtPrice)
     assertNoDuplicateVariants(variants)
     for (const v of variants) assertCompareAtAbove(v.price ?? fields.basePrice, v.compareAtPrice)
@@ -306,6 +477,7 @@ export class ProductsService {
     const existing = await this.findAdminOrThrow(id)
 
     if (dto.categoryId) await this.assertCategoryUsable(dto.categoryId)
+    await this.sizeCharts?.assertExists(dto.sizeChartId)
     assertCompareAtAbove(
       dto.basePrice ?? existing.basePrice.toNumber(),
       dto.compareAtPrice === undefined ? existing.compareAtPrice?.toNumber() : dto.compareAtPrice,
@@ -356,16 +528,18 @@ export class ProductsService {
       include: PUBLIC_INCLUDE,
     })
     const byId = new Map(rows.map((r) => [r.id, r]))
+    const badgeDays = await this.badgeDays()
     return ids.flatMap((id) => {
       const row = byId.get(id)
-      return row ? [this.toCard(row)] : []
+      return row ? [this.toCard(row, badgeDays)] : []
     })
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
 
-  private toCard(p: ProductWithRelations): ProductCard {
+  private toCard(p: ProductWithRelations, badgeDays: number): ProductCard {
     const firstImage = p.images[0]
+    const inStock = p.variants.some((v) => v.stock > 0)
     return {
       id: p.id,
       name: p.name,
@@ -376,9 +550,13 @@ export class ProductsService {
       isFeatured: p.isFeatured,
       category: { name: p.category.name, slug: p.category.slug },
       image: firstImage ? toPublicImage(firstImage) : null,
+      images: p.images.slice(0, CARD_IMAGES).map(toPublicImage),
       colors: distinctColors(p.variants),
       sizes: distinctSizes(p.variants),
-      inStock: p.variants.some((v) => v.stock > 0),
+      inStock,
+      fabric: p.fabric,
+      fromPrice: fromPrice(p.variants, p.basePrice),
+      badges: productBadges(p, inStock, badgeDays),
     }
   }
 

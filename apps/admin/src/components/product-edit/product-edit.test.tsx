@@ -50,6 +50,11 @@ const PRODUCT: AdminProductDetail = {
   tags: ['cotton'],
   seoTitle: null,
   seoDescription: null,
+  fabric: null,
+  care: null,
+  fitNote: null,
+  readyToShip: false,
+  sizeChartId: null,
   variants: [
     {
       id: 'v1',
@@ -62,6 +67,7 @@ const PRODUCT: AdminProductDetail = {
       stock: 7,
       lowStockThreshold: null,
       weightGrams: null,
+      waiting: 0,
       isActive: true,
       sortOrder: 0,
     },
@@ -285,6 +291,16 @@ describe('ProductEditor — sizes and colours', () => {
         lowStockThreshold: 2,
         isActive: true,
       }),
+    )
+  })
+
+  it('38f: shows how many shoppers wait for a sold-out size', async () => {
+    mocked.fetchProduct.mockResolvedValue(
+      ok({ ...PRODUCT, variants: [{ ...PRODUCT.variants[0]!, stock: 0, waiting: 3 }] }),
+    )
+    await editor()
+    expect(within(section('Sizes and colours')).getByRole('row', { name: /M/ })).toHaveTextContent(
+      '3 waiting',
     )
   })
 

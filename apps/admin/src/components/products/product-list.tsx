@@ -120,6 +120,12 @@ export function ProductList({ filters }: { filters: ProductFilters }) {
             New product
           </Link>
           <Link
+            href="/admin/size-charts"
+            className="inline-flex h-11 items-center rounded-control border border-border-strong bg-surface px-5 text-sm font-medium hover:bg-surface-muted"
+          >
+            Size charts
+          </Link>
+          <Link
             href="/admin/products/import"
             className="inline-flex h-11 items-center rounded-control border border-border-strong bg-surface px-5 text-sm font-medium hover:bg-surface-muted"
           >

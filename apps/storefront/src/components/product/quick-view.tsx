@@ -2,6 +2,7 @@
 
 import type { ApiResult, ProductDetailView } from '@nowoll/types'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Modal } from '@/components/modal'
 import { publicEnv } from '@/lib/env'
@@ -13,7 +14,12 @@ type Load = { state: 'idle' | 'loading' | 'error' } | { state: 'ready'; product:
 // "Quick view" on listing pages: choose size/color and add to the bag without
 // leaving the list. Product details are loaded only when the button is used.
 export function QuickView({ slug, name }: { slug: string; name: string }) {
-  const [open, setOpen] = useState(false)
+  // Open only on the page where it was opened: "Buy now" inside it goes to
+  // /checkout, and the pop-up must not follow (it lives in the listing page's tree).
+  const pathname = usePathname()
+  const [openOn, setOpenOn] = useState<string | null>(null)
+  const open = openOn === pathname
+  const setOpen = (value: boolean) => setOpenOn(value ? pathname : null)
   const [load, setLoad] = useState<Load>({ state: 'idle' })
 
   // "Add to bag" opens the bag drawer — close this pop-up so they don't stack.
@@ -21,7 +27,7 @@ export function QuickView({ slug, name }: { slug: string; name: string }) {
   useEffect(
     () =>
       useUiStore.subscribe((state, previous) => {
-        if (state.cartOpen && !previous.cartOpen) setOpen(false)
+        if (state.cartOpen && !previous.cartOpen) setOpenOn(null)
       }),
     [],
   )
