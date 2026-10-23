@@ -439,6 +439,7 @@ function Delivery({ order, onChanged }: { order: AdminOrderDetail; onChanged: ()
         <span>
           {order.courierName} · <span className="font-medium">{order.trackingNumber}</span>
         </span>
+        {order.courierStatus && <CourierStatus order={order} />}
         {shipped && (
           <Button variant="ghost" size="sm" className="self-start" onClick={() => setEditing(true)}>
             Correct…
@@ -598,5 +599,42 @@ function BookWithCourier({
       </Button>
       <p className="text-xs text-muted-foreground">Or, if you booked it yourself:</p>
     </div>
+  )
+}
+
+/**
+ * Phase 2: the courier's own status in plain words (Steadfast's list,
+ * docs/integrations/courier.md). Highlighted when it needs the shop.
+ * "_approval_pending" is the rider's word, not final — shown, never acted on.
+ */
+const COURIER_STATUS: Record<string, { text: string; attention?: boolean }> = {
+  in_review: { text: 'Booked — waiting for the courier’s approval' },
+  pending: { text: 'With the courier — not delivered yet' },
+  hold: {
+    text: 'On hold — usually an address or payment question. Contact the courier.',
+    attention: true,
+  },
+  delivered_approval_pending: { text: 'Rider says delivered (not confirmed yet)' },
+  partial_delivered_approval_pending: { text: 'Rider says partly delivered (not confirmed yet)' },
+  cancelled_approval_pending: { text: 'Rider says not delivered (not confirmed yet)' },
+  unknown_approval_pending: { text: 'Waiting for the courier to confirm' },
+  delivered: { text: 'Delivered' },
+  partial_delivered: { text: 'Partly delivered — the rest comes back to you', attention: true },
+  cancelled: { text: 'Not delivered — the parcel comes back to you', attention: true },
+  exceptional: { text: 'Lost or damaged — contact the courier', attention: true },
+  unknown: { text: 'Unknown — ask the courier', attention: true },
+}
+
+function CourierStatus({ order }: { order: AdminOrderDetail }) {
+  const s = COURIER_STATUS[order.courierStatus ?? ''] ?? { text: order.courierStatus ?? '' }
+  return (
+    <p className={s.attention ? 'font-medium text-warning' : 'text-muted-foreground'}>
+      {order.courierName} says: {s.text}
+      {order.courierStatusAt && (
+        <span className="block text-xs font-normal text-muted-foreground">
+          Updated {formatInstantDateTime(order.courierStatusAt)}
+        </span>
+      )}
+    </p>
   )
 }

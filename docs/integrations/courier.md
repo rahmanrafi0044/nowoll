@@ -33,8 +33,8 @@ Rafi's choice: **Steadfast first** (he has a merchant account). Two parts:
   `book(parcel) → { consignmentId, trackingCode, status }` or a refusal (`retryable` = down/slow).
   Our own field names: `invoice` (order number), `recipientName`, `recipientPhone`,
   `recipientAddress`, `codAmount`, `note`. The adapter maps them to Steadfast's.
-- `apps/api/src/courier/steadfast.courier.ts` — **placeholder**: `readiness()` is `no_keys`
-  without both keys, else `not_built`; `book()` always refuses. Nothing is sent anywhere.
+- `apps/api/src/courier/steadfast.courier.ts` — the Steadfast adapter (Part B below);
+  `readiness()` is `no_keys` until both keys are in the server `.env`.
 - Admin order page → "Mark shipped" → **Book with Steadfast** (POST `/orders/:id/courier`):
   - decision **1A**: booking = the order becomes SHIPPED with the tracking code, customer emailed;
   - decision **2A**: amount to collect = the order total for an unpaid COD order, ৳0 when paid;
@@ -46,18 +46,33 @@ Rafi's choice: **Steadfast first** (he has a merchant account). Two parts:
 - Keys: `STEADFAST_API_KEY`, `STEADFAST_SECRET_KEY` — server `.env` ONLY (Rules 3 and 9).
 - Tests: `apps/api/test/courier-booking.e2e-spec.ts` with a fake courier (`test/utils/fake-courier.ts`).
 
-**Part B — waiting for Steadfast's official API documentation** (it's only inside the merchant
-dashboard → "API and plugins"; Rafi sends it, WITHOUT the keys). Then, from that document only:
-1. Write here: base URL, how the keys are sent, the create-order endpoint and its exact fields,
-   the response (consignment id, tracking code, status), all status values, and whether Steadfast
-   calls us back (webhook) or we ask (status by consignment id / invoice / tracking code).
-2. Implement `SteadfastCourier.book()` + a fake Steadfast for the tests; set `built = true`.
-3. Delivery updates: delivered → DELIVERED (+ email), returned/cancelled → flag for the admin.
-4. One real test parcel with Rafi.
+**Part B — built (October 2026), from Steadfast's official dashboard docs (below):**
+- `steadfast.courier.ts` — the real `POST /create_order` (keys in headers, their field names, phone sent as
+  `01XXXXXXXXX`, values trimmed to their limits and their stripped characters removed first, the parcel's
+  contents as `item_description`). Answers: booked → `consignment_id` + `tracking_code`; a rejected field →
+  refused with the field named; 401 keys / 403 account → refused with what to check; 429 / 5xx / no answer
+  → "try again" (safe: a repeated invoice is refused by them). Tests: `steadfast.courier.spec.ts` (a pretend
+  network — never Steadfast).
+- `POST /api/v1/webhooks/steadfast` (`steadfast-webhook.controller.ts` + `courier-updates.service.ts`):
+  Bearer token + `X-Signature` checked in constant time; `delivery_status` → delivered: order DELIVERED, COD
+  marked paid ("cash collected by the courier"), customer emailed once; partial / cancelled / hold /
+  exceptional: one note in the order's history, order unchanged; `_approval_pending`: only shown. Other
+  events answered and ignored. Tests: `test/steadfast-webhook.e2e-spec.ts`.
+- Admin order page shows "Steadfast says: …" in plain words, highlighted when it needs the shop.
 
-Answered by their docs: duplicate invoices are refused (see below), so our order number is safe as `invoice`.
+**Setup (Rafi, once):**
+1. Steadfast dashboard → **API keys** → create a key named e.g. "Nowoll shop". Copy the **API key** and
+   **secret key** into the server settings file (`/opt/nowoll/.env` on the VPS; `~/nowoll-preview/.env`
+   for the trial): `STEADFAST_API_KEY=…`, `STEADFAST_SECRET_KEY=…`. Never in chat, git or the admin.
+2. Dashboard → **Webhook**: callback URL `https://api.nowoll.com/api/v1/webhooks/steadfast`; press
+   **Generate** for the auth token, save; put the same token in the settings file as
+   `STEADFAST_WEBHOOK_TOKEN=…`. Restart the API.
+3. Admin → Settings → Delivery → tick **"Book with Steadfast" on orders**.
+4. One real test parcel: an order to yourself → Book with Steadfast → check the tracking code in the
+   Steadfast app → cancel it there if you don't want it sent.
 
----
+TODO (open, from the docs): if our request times out AFTER Steadfast created the parcel, the retry is refused
+as a duplicate invoice — then book/enter the tracking code by hand from the Steadfast app (rare).
 
 ### Steadfast API — from the merchant dashboard (screenshots, 23 Oct 2026)
 

@@ -122,6 +122,9 @@ const OPEN_ROUTES: string[] = [
   'POST /api/v1/subscribers/confirm',
   'POST /api/v1/subscribers/unsubscribe',
   'POST /api/v1/webhooks/resend',
+  // Phase 2: Steadfast delivery updates — Bearer token + HMAC-SHA256 X-Signature over the raw
+  // body, both constant-time; no token configured → 404.
+  'POST /api/v1/webhooks/steadfast',
 ]
 
 /**

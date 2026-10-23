@@ -23,6 +23,8 @@ export interface ParcelBooking {
   codAmount: number
   /** The customer's delivery note, if any. */
   note: string | null
+  /** What's in the parcel, e.g. "Mehr Three-Piece (M / Ivory) × 2" — for the rider. */
+  itemDescription?: string | null
 }
 
 export type BookingResult =
@@ -34,7 +36,7 @@ export type BookingResult =
  * Can "Book with …" be used right now?
  *  - ready:     connected
  *  - no_keys:   the API key / secret key aren't in the server .env
- *  - not_built: keys are there, but this adapter waits for the official docs
+ *  - not_built: keys are there, but the adapter isn't finished (a future courier)
  */
 export type CourierReadiness = 'ready' | 'no_keys' | 'not_built'
 

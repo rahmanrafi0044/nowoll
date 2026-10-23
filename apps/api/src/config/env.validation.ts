@@ -90,6 +90,12 @@ export class EnvironmentVariables {
   @IsString()
   STEADFAST_SECRET_KEY?: string
 
+  // The webhook's auth token (dashboard → Webhook → Auth token). SERVER ONLY.
+  // Without it, POST /webhooks/steadfast answers 404 (delivery updates off).
+  @IsOptional()
+  @IsString()
+  STEADFAST_WEBHOOK_TOKEN?: string
+
   // Meta Conversions API (step 39b, docs/integrations/meta.md). SERVER ONLY,
   // never admin-editable (CLAUDE.md Rule 9). Optional: without it, server
   // events are skipped and Admin → Marketing says the token is missing.

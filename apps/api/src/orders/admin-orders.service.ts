@@ -340,7 +340,7 @@ export class AdminOrdersService {
           { id: string }[]
         >`SELECT id FROM orders WHERE id = ${id}::uuid FOR UPDATE`
         if (locked.length === 0) throw new NotFoundException('Order not found')
-        const order = await tx.order.findUniqueOrThrow({ where: { id } })
+        const order = await tx.order.findUniqueOrThrow({ where: { id }, include: { items: true } })
         if (order.status !== from) throw changedMeanwhile(order.orderNumber, order.status)
         if (order.courierConsignmentId)
           throw new ConflictException({
@@ -370,6 +370,10 @@ export class AdminOrdersService {
               ? order.total.toNumber()
               : 0,
           note: order.customerNote,
+          itemDescription:
+            order.items
+              .map((i) => `${i.productName} (${i.variantLabel}) × ${i.quantity}`)
+              .join(', ') || null,
         }
         const result = await this.courier.book(parcel)
         if (!result.ok) {

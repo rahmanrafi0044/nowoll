@@ -330,6 +330,21 @@ describe('OrderDetail', () => {
       expect(within(next).getByLabelText('Tracking number')).toBeInTheDocument()
     })
 
+    it("shows the courier's latest status in plain words; problems highlighted", async () => {
+      mocked.fetchOrder.mockResolvedValue(
+        ok({
+          ...shipped,
+          courierName: 'Steadfast',
+          courierConsignmentId: '1424107',
+          courierStatus: 'cancelled',
+          courierStatusAt: '2026-10-24T06:45:30Z',
+        }),
+      )
+      await openOrder()
+      const note = await screen.findByText(/Steadfast says: Not delivered — the parcel comes back/)
+      expect(note).toHaveClass('text-warning')
+    })
+
     it('switched off in Settings: no Steadfast button at all', async () => {
       mocked.fetchOrder.mockResolvedValue(confirmed('off'))
       await openOrder()

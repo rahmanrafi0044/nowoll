@@ -8,7 +8,6 @@ import type { NestExpressApplication } from '@nestjs/platform-express'
 import { Prisma } from '@nowoll/database'
 import request from 'supertest'
 import { COURIER } from '../src/courier/courier.js'
-import { SteadfastCourier } from '../src/courier/steadfast.courier.js'
 import { CUSTOMER_NOTIFIER } from '../src/notifications/customer-notifier.js'
 import { createTestApp } from './utils/app.js'
 import type { FakeCourier } from './utils/fake-courier.js'
@@ -91,6 +90,7 @@ describe('courier booking (Steadfast, Phase 2)', () => {
         recipientAddress: 'House 1, Road 1, Flat 3B, Dhanmondi, Dhaka',
         codAmount: 1000,
         note: 'Call before coming',
+        itemDescription: null, // this test order has no items
       },
     ])
     expect(res).toMatchObject({
@@ -151,23 +151,5 @@ describe('courier booking (Steadfast, Phase 2)', () => {
     await switchOn()
     const o = await confirmedOrder({ status: 'PENDING' })
     await book(o.id, 'PENDING').expect(400)
-  })
-})
-
-describe('Steadfast adapter (placeholder until the official docs)', () => {
-  it('without both keys: no_keys; with them: not_built — and it never books', async () => {
-    expect(new SteadfastCourier({}).readiness()).toBe('no_keys')
-    expect(new SteadfastCourier({ apiKey: 'k' }).readiness()).toBe('no_keys')
-    const withKeys = new SteadfastCourier({ apiKey: 'k', secretKey: 's' })
-    expect(withKeys.readiness()).toBe('not_built')
-    const r = await withKeys.book({
-      invoice: 'NW-1',
-      recipientName: 'A',
-      recipientPhone: '+8801712345678',
-      recipientAddress: 'X',
-      codAmount: 0,
-      note: null,
-    })
-    expect(r).toMatchObject({ ok: false, retryable: false })
   })
 })
