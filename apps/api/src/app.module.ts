@@ -28,6 +28,7 @@ import { DiscountsModule } from './discounts/discounts.module.js'
 import { CartModule } from './cart/cart.module.js'
 import { CheckoutModule } from './checkout/checkout.module.js'
 import { ShippingModule } from './shipping/shipping.module.js'
+import { CourierModule } from './courier/courier.module.js'
 import { SizeChartsModule } from './size-charts/size-charts.module.js'
 import { StockAlertsModule } from './stock-alerts/stock-alerts.module.js'
 import { OrdersModule } from './orders/orders.module.js'
@@ -83,6 +84,7 @@ import { PrismaModule } from './prisma/prisma.module.js'
     CartModule,
     ShippingModule,
     SizeChartsModule,
+    CourierModule,
     StockAlertsModule,
     CheckoutModule,
     OrdersModule,

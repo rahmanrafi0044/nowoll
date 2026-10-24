@@ -17,6 +17,7 @@ vi.mock('@/lib/orders-api', () => ({
   updateTracking: vi.fn(),
   updateOrderNotes: vi.fn(),
   markCashCollected: vi.fn(),
+  bookCourier: vi.fn(),
 }))
 const mocked = vi.mocked(api)
 const ok = <T,>(data: T) => ({ ok: true as const, data })
@@ -94,6 +95,10 @@ const ORDER: AdminOrderDetail = {
   ],
   courierName: null,
   trackingNumber: null,
+  courierConsignmentId: null,
+  courierStatus: null,
+  courierStatusAt: null,
+  courierBooking: { name: 'Steadfast', readiness: 'off' },
   customerNote: 'Please call before coming',
   adminNotes: null,
   cancelReason: null,
@@ -274,6 +279,80 @@ describe('OrderDetail', () => {
         trackingNumber: 'SF123',
       }),
     )
+  })
+
+  describe('Phase 2: "Book with Steadfast"', () => {
+    const confirmed = (readiness: AdminOrderDetail['courierBooking']['readiness']) =>
+      ok({
+        ...ORDER,
+        status: 'CONFIRMED' as const,
+        allowedNext: ['PROCESSING', 'SHIPPED', 'CANCELLED'] as AdminOrderDetail['allowedNext'],
+        courierBooking: { name: 'Steadfast', readiness },
+      })
+
+    it('ready: says what is sent and what the rider collects; one click books it', async () => {
+      mocked.fetchOrder.mockResolvedValue(confirmed('ready'))
+      mocked.bookCourier.mockResolvedValue(ok(shipped))
+      await openOrder()
+      fireEvent.click(screen.getByRole('button', { name: 'Mark shipped' }))
+      const next = card('Next step')
+      expect(next).toHaveTextContent(/the rider collects ৳3,040 in cash/)
+      fireEvent.click(within(next).getByRole('button', { name: 'Book with Steadfast' }))
+      await waitFor(() => expect(mocked.bookCourier).toHaveBeenCalledWith('o1', 'CONFIRMED'))
+      expect(mocked.changeOrderStatus).not.toHaveBeenCalled()
+    })
+
+    it('refused by the courier → the reason is shown, the order stays', async () => {
+      mocked.fetchOrder.mockResolvedValue(confirmed('ready'))
+      mocked.bookCourier.mockResolvedValue({
+        ok: false,
+        status: 502,
+        error: 'COURIER_REFUSED',
+        message: 'Steadfast refused the parcel: Invalid phone number',
+      })
+      await openOrder()
+      fireEvent.click(screen.getByRole('button', { name: 'Mark shipped' }))
+      fireEvent.click(
+        within(card('Next step')).getByRole('button', { name: 'Book with Steadfast' }),
+      )
+      expect(await within(card('Next step')).findByRole('alert')).toHaveTextContent(
+        'Invalid phone number',
+      )
+    })
+
+    it('not connected yet: the button is greyed out with the reason; manual tracking still there', async () => {
+      mocked.fetchOrder.mockResolvedValue(confirmed('no_keys'))
+      await openOrder()
+      fireEvent.click(screen.getByRole('button', { name: 'Mark shipped' }))
+      const next = card('Next step')
+      expect(within(next).getByRole('button', { name: 'Book with Steadfast' })).toBeDisabled()
+      expect(next).toHaveTextContent(/API key and secret key/)
+      expect(within(next).getByLabelText('Tracking number')).toBeInTheDocument()
+    })
+
+    it("shows the courier's latest status in plain words; problems highlighted", async () => {
+      mocked.fetchOrder.mockResolvedValue(
+        ok({
+          ...shipped,
+          courierName: 'Steadfast',
+          courierConsignmentId: '1424107',
+          courierStatus: 'cancelled',
+          courierStatusAt: '2026-10-24T06:45:30Z',
+        }),
+      )
+      await openOrder()
+      const note = await screen.findByText(/Steadfast says: Not delivered — the parcel comes back/)
+      expect(note).toHaveClass('text-warning')
+    })
+
+    it('switched off in Settings: no Steadfast button at all', async () => {
+      mocked.fetchOrder.mockResolvedValue(confirmed('off'))
+      await openOrder()
+      fireEvent.click(screen.getByRole('button', { name: 'Mark shipped' }))
+      expect(
+        within(card('Next step')).queryByRole('button', { name: 'Book with Steadfast' }),
+      ).toBeNull()
+    })
   })
 
   it('deliver a COD order: "cash collected" is ticked by default and sent', async () => {

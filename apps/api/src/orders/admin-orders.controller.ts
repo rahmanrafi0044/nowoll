@@ -1,10 +1,22 @@
-import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common'
 import type { AdminProfile } from '../admin-auth/admin-auth.service.js'
 import { AdminOnly } from '../common/decorators/admin-only.decorator.js'
 import { CurrentAdmin } from '../common/guards/admin.guard.js'
 import { AdminOrdersService } from './admin-orders.service.js'
 import {
   AdminOrdersQuery,
+  BookCourierDto,
   OrderNotesDto,
   OrderStatusChangeDto,
   OrderTrackingDto,
@@ -45,6 +57,18 @@ export class AdminOrdersController {
     @CurrentAdmin() admin: AdminProfile | undefined,
   ) {
     return this.adminOrders.changeStatus(id, dto, admin?.id ?? null)
+  }
+
+  /** Phase 2: "Book with Steadfast" — books the parcel and marks the order shipped. */
+  @Post(':id/courier')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  bookCourier(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: BookCourierDto,
+    @CurrentAdmin() admin: AdminProfile | undefined,
+  ) {
+    return this.adminOrders.bookCourier(id, dto.from, admin?.id ?? null)
   }
 
   @Patch(':id/tracking')

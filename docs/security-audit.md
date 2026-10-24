@@ -30,6 +30,10 @@ findings fixed or accepted with a reason; tests added so the important rules can
 - **Added in 38f:** `POST /stock-alerts` ("Notify me when it's back") — open so shoppers need no account;
   rate-limited 5/minute per IP, only for sold-out sizes of products on sale, and it gives everyone the same answer
   (it never reveals who else asked). The emails sit in `stock_alerts` (RLS on, server-only).
+- **Added (Steadfast, Phase 2):** `POST /webhooks/steadfast` — open because Steadfast's servers call it; a
+  request is believed only when `Authorization: Bearer <token>` AND `X-Signature` (HMAC-SHA256 of the raw body)
+  both match `STEADFAST_WEBHOOK_TOKEN` (constant-time). No token configured → 404. It can only move a SHIPPED
+  order that we booked with Steadfast (matched by its consignment id) to DELIVERED, or add a note.
 - **Finding 1 fixed:** `GET /orders/:id/receipt` answers for **24 hours** after the order (confirmation page,
   refresh, return from online payment), then "not found" — the same as a wrong id. Later, customers use
   **Track your order** (number + phone/email; no street address) or their account. The confirmation page now says

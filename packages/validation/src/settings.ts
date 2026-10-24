@@ -263,6 +263,11 @@ export const SETTINGS_SCHEMA = z.object({
   newsletter_checkout_optin: z.boolean(),
   /** Copy confirmed subscribers to Resend (needs RESEND_API_KEY with full access). */
   newsletter_resend_enabled: z.boolean(),
+  /**
+   * Courier (Phase 2): "Book with Steadfast" on the admin order page. Also needs
+   * STEADFAST_API_KEY and STEADFAST_SECRET_KEY in the server .env — never here (Rule 9).
+   */
+  steadfast_enabled: z.boolean(),
   /** The Resend segment newsletters go to (not secret — an id, like a list name). */
   newsletter_resend_segment_id: z
     .string()
@@ -325,6 +330,7 @@ export const SETTING_DEFAULTS: StoreSettings = {
   newsletter_checkout_optin: false,
   newsletter_resend_enabled: false,
   newsletter_resend_segment_id: '',
+  steadfast_enabled: false,
 }
 
 /** Shown to everyone by GET /settings/public. Never the admin email or internal limits. */

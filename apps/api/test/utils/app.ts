@@ -9,9 +9,11 @@ import { LOW_STOCK_ALERTER } from '../../src/inventory/low-stock-alerter.js'
 import { CUSTOMER_NOTIFIER } from '../../src/notifications/customer-notifier.js'
 import { ORDER_NOTIFIER } from '../../src/orders/order-notifier.js'
 import { META_SENDER } from '../../src/marketing/meta-sender.js'
+import { COURIER } from '../../src/courier/courier.js'
 import { PAYMENT_GATEWAY } from '../../src/payments/payment-gateway.js'
 import { IMAGE_STORAGE } from '../../src/storage/image-storage.js'
 import { FakeAuthProvider } from './fake-auth-provider.js'
+import { FakeCourier } from './fake-courier.js'
 import { FakeMetaSender } from './fake-meta-sender.js'
 import { FakePaymentGateway } from './fake-payment-gateway.js'
 import { MemoryImageStorage } from './memory-image-storage.js'
@@ -32,6 +34,7 @@ import {
  * SSLCommerz is ALWAYS the fake — tests never move money: app.get(PAYMENT_GATEWAY)
  * Supabase Auth is ALWAYS the fake — tests never create real accounts: app.get(AUTH_PROVIDER)
  * Meta is ALWAYS the fake — tests never reach Meta: app.get(META_SENDER) (step 39b)
+ * The courier is ALWAYS the fake — tests never book a parcel: app.get(COURIER) (Phase 2)
  */
 export async function createTestApp(options: {
   asAdmin: boolean
@@ -53,6 +56,8 @@ export async function createTestApp(options: {
     .useValue(new FakeAuthProvider())
     .overrideProvider(META_SENDER)
     .useValue(new FakeMetaSender())
+    .overrideProvider(COURIER) // never a real parcel: app.get(COURIER).booked
+    .useValue(new FakeCourier())
   if (options.asAdmin) {
     const role = options.role ?? 'ADMIN'
     // Stands in for sign-in + 2FA only; the REAL role check (AdminRoleGuard) still runs.

@@ -486,8 +486,14 @@ model Order {
   discountCode   String? @map("discount_code") // snapshot of the code text
 
   // Phase 1 courier flow is manual: admin types these in (docs/integrations/courier.md)
-  courierName    String? @map("courier_name")
-  trackingNumber String? @map("tracking_number")
+  courierName          String?   @map("courier_name")
+  trackingNumber       String?   @map("tracking_number")
+  // Phase 2 (Steadfast): set when the parcel is booked through the courier's API
+  // from the admin ("Book with Steadfast"); the status is the courier's own word
+  // for where the parcel is, kept as text because each courier names them differently.
+  courierConsignmentId String?   @map("courier_consignment_id")
+  courierStatus        String?   @map("courier_status")
+  courierStatusAt      DateTime? @map("courier_status_at")
 
   customerNote String? @map("customer_note")
 

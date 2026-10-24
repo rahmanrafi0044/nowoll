@@ -84,6 +84,17 @@ export interface AdminOrderDetail {
   }[]
   courierName: string | null
   trackingNumber: string | null
+  /** Phase 2: set when booked through the courier's API ("Book with Steadfast"). */
+  courierConsignmentId: string | null
+  /** The courier's own word for where the parcel is, and when it last changed. */
+  courierStatus: string | null
+  courierStatusAt: string | null
+  /**
+   * Can "Book with …" be used on this shop right now? off = switched off in
+   * Settings; no_keys = the keys aren't in the server settings; not_built = the
+   * connection waits for the courier's official docs; ready = yes.
+   */
+  courierBooking: { name: string; readiness: 'off' | 'no_keys' | 'not_built' | 'ready' }
   /** What the customer wrote at checkout. */
   customerNote: string | null
   /** Staff only — never shown to the customer. */
