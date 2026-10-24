@@ -1,7 +1,8 @@
 'use client'
 
 import type { ProductDetailView } from '@nowoll/types'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
+import { useLiveVariants } from '@/lib/use-live-variants'
 import { imagesForColor, initialSelection } from '@/lib/variants'
 import { ProductGallery } from './product-gallery'
 import { ProductPurchase } from './product-purchase'
@@ -26,9 +27,13 @@ export function ProductView({
   whatsapp?: string
   pageUrl?: string
 }) {
+  // Live stock (see useLiveVariants): the saved page shows at once, then the
+  // sizes switch to what's really in stock right now.
+  const liveVariants = useLiveVariants(product.id, product.variants)
+  const live = useMemo(() => ({ ...product, variants: liveVariants }), [product, liveVariants])
   const initial = initialSelection(product.variants)
   const [color, setColor] = useState(initial.color)
-  const images = imagesForColor(product.images, product.variants, color)
+  const images = imagesForColor(live.images, live.variants, color)
 
   return (
     // minmax(0, …): a column never grows wider than its share to fit something
@@ -39,7 +44,7 @@ export function ProductView({
       <div className="flex flex-col gap-6">
         {header}
         <ProductPurchase
-          product={product}
+          product={live}
           color={color}
           onColorChange={setColor}
           initialSize={initial.size}
