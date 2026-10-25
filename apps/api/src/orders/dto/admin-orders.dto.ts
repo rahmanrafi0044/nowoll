@@ -1,3 +1,4 @@
+import { NOT_DELIVERED_REASONS, type NotDeliveredReason } from '@nowoll/types'
 import { Transform, Type } from 'class-transformer'
 import {
   ArrayMaxSize,
@@ -128,6 +129,22 @@ export class BookCourierDto {
     message: 'Only a confirmed or processing order can be booked',
   })
   from!: 'CONFIRMED' | 'PROCESSING'
+}
+
+// POST /orders/:id/not-delivered — the parcel came back to the shop
+export class NotDeliveredDto {
+  @IsIn(Object.keys(NOT_DELIVERED_REASONS), {
+    message: `reason must be one of: ${Object.keys(NOT_DELIVERED_REASONS).join(', ')}`,
+  })
+  reason!: NotDeliveredReason
+
+  /** Optional detail; required for OTHER (otherwise the history says nothing useful). */
+  @TrimOrNull()
+  @ValidateIf((o: NotDeliveredDto) => o.reason === 'OTHER' || (o.note ?? '') !== '')
+  @IsString()
+  @IsNotEmpty({ message: 'Say what happened' })
+  @MaxLength(300)
+  note?: string | null
 }
 
 // PATCH /orders/:id/tracking — fixing a typo after shipping

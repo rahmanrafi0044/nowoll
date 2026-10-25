@@ -1,6 +1,7 @@
 import type {
   AdminOrderDetail,
   AdminOrderList,
+  NotDeliveredReason,
   OrderInvoice,
   OrderStatusChange,
 } from '@nowoll/types'
@@ -33,6 +34,10 @@ export const fetchInvoice = (id: string) => call<OrderInvoice>('GET', `/orders/$
 
 export const changeOrderStatus = (id: string, body: OrderStatusChange) =>
   call<AdminOrderDetail>('PATCH', `/orders/${id}/status`, body)
+
+/** "Parcel came back (not delivered)" — stock back on sale, order cancelled, no email. */
+export const markNotDelivered = (id: string, body: { reason: NotDeliveredReason; note?: string }) =>
+  call<AdminOrderDetail>('POST', `/orders/${id}/not-delivered`, body)
 
 /** Phase 2: "Book with Steadfast" — books the parcel, marks the order shipped. */
 export const bookCourier = (id: string, from: 'CONFIRMED' | 'PROCESSING') =>

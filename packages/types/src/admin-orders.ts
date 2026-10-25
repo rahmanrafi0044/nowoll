@@ -42,6 +42,11 @@ export interface AdminOrderDetail {
     hasAccount: boolean
     /** The customer account that placed it (null = guest) — for the customer page link. */
     accountId: string | null
+    /**
+     * Earlier orders with this phone number whose parcel came back undelivered —
+     * worth a careful confirmation call before sending cash on delivery again.
+     */
+    parcelsReturned: number
   }
   address: {
     line1: string
@@ -112,6 +117,8 @@ export interface AdminOrderDetail {
   allowedNext: AdminOrderStatus[]
   /** COD, not yet marked paid, and already shipped or delivered. */
   canMarkCashCollected: boolean
+  /** Shipped — so "Parcel came back (not delivered)" can be pressed. */
+  canMarkNotDelivered: boolean
   createdAt: string
   updatedAt: string
 }
@@ -144,3 +151,19 @@ export interface OrderInvoice {
   /** Today, as a shop date (Bangladesh): YYYY-MM-DD. */
   issuedOn: string
 }
+
+/**
+ * Why a shipped parcel came back undelivered — POST /orders/:id/not-delivered.
+ * Recorded in the cancel reason so repeat problems (fake orders, refusals) show up.
+ */
+export const NOT_DELIVERED_REASONS = {
+  REFUSED: 'customer refused the parcel',
+  UNREACHABLE: 'customer could not be reached',
+  WRONG_ADDRESS: 'wrong or incomplete address',
+  FAKE_ORDER: 'fake order',
+  OTHER: 'other reason',
+} as const
+export type NotDeliveredReason = keyof typeof NOT_DELIVERED_REASONS
+
+/** Every cancel reason written by that button starts with this. */
+export const NOT_DELIVERED_PREFIX = 'Not delivered — returned by courier'

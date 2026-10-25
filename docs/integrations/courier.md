@@ -59,6 +59,14 @@ Rafi's choice: **Steadfast first** (he has a merchant account). Two parts:
   exceptional: one note in the order's history, order unchanged; `_approval_pending`: only shown. Other
   events answered and ignored. Tests: `test/steadfast-webhook.e2e-spec.ts`.
 - Admin order page shows "Steadfast says: …" in plain words, highlighted when it needs the shop.
+- **Parcel came back (not delivered)** — a button on every shipped order (any courier, booked by hand or
+  through the API), pressed once the parcel is physically back (Rafi's decision 1A: never automatic on the
+  courier's "cancelled"). `POST /api/v1/orders/:id/not-delivered` `{ reason, note? }` → the ordinary
+  cancel, in one transaction: stock back on sale (logged `ORDER_CANCELLED`), discount code freed, pending
+  COD payment cancelled, order CANCELLED with "Not delivered — returned by courier (<reason>)". No
+  customer email (decision 2A). Already paid → stays "paid" and the order page says to refund. The
+  button is highlighted when the courier reports `cancelled`; the Customer card warns when earlier
+  parcels to the same phone number came back. Tests: `test/admin-orders.e2e-spec.ts`.
 
 **Setup (Rafi, once):**
 1. Steadfast dashboard → **API keys** → create a key named e.g. "Nowoll shop". Copy the **API key** and

@@ -14,6 +14,7 @@ const ORDER = {
     phone: '+8801712345678',
     hasAccount: true,
     accountId: 'u1',
+    parcelsReturned: 0,
   },
   address: {
     line1: 'বাড়ি ১২, রোড ৫',
@@ -59,6 +60,7 @@ const ORDER = {
   timeline: [],
   allowedNext: ['DELIVERED'],
   canMarkCashCollected: true,
+  canMarkNotDelivered: true,
   createdAt: '2026-10-05T18:30:00Z',
   updatedAt: '2026-10-05T18:30:00Z',
 } as AdminOrderDetail

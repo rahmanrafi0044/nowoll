@@ -18,6 +18,7 @@ vi.mock('@/lib/orders-api', () => ({
   updateOrderNotes: vi.fn(),
   markCashCollected: vi.fn(),
   bookCourier: vi.fn(),
+  markNotDelivered: vi.fn(),
 }))
 const mocked = vi.mocked(api)
 const ok = <T,>(data: T) => ({ ok: true as const, data })
@@ -49,6 +50,7 @@ const ORDER: AdminOrderDetail = {
     phone: '+8801712345678',
     hasAccount: false,
     accountId: null,
+    parcelsReturned: 0,
   },
   address: {
     line1: 'House 12, Road 5',
@@ -107,6 +109,7 @@ const ORDER: AdminOrderDetail = {
   ],
   allowedNext: ['CONFIRMED', 'CANCELLED'],
   canMarkCashCollected: false,
+  canMarkNotDelivered: false,
   createdAt: '2026-10-05T18:30:00Z',
   updatedAt: '2026-10-05T18:30:00Z',
 }
@@ -117,6 +120,7 @@ const shipped: AdminOrderDetail = {
   trackingNumber: 'SF123',
   allowedNext: ['DELIVERED'],
   canMarkCashCollected: true,
+  canMarkNotDelivered: true,
 }
 
 beforeEach(() => {
@@ -400,6 +404,83 @@ describe('OrderDetail', () => {
     expect(await within(next).findByRole('alert')).toHaveTextContent('changed by someone else')
     expect(await within(next).findByText('Cancelled: Customer said no')).toBeInTheDocument()
     expect(within(next).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  describe('parcel came back (not delivered)', () => {
+    it('not shown before the order is shipped', async () => {
+      await openOrder()
+      expect(screen.queryByRole('button', { name: 'Parcel came back (not delivered)' })).toBeNull()
+    })
+
+    it('sends the chosen reason; "other" needs a note; no email is promised', async () => {
+      mocked.fetchOrder.mockResolvedValue(ok(shipped))
+      mocked.markNotDelivered.mockResolvedValue(
+        ok({ ...shipped, status: 'CANCELLED', allowedNext: [], canMarkNotDelivered: false }),
+      )
+      await openOrder()
+      const pressed = screen.getByRole('button', { name: 'Parcel came back (not delivered)' })
+      expect(pressed).not.toHaveClass('bg-danger') // not highlighted without a courier report
+      fireEvent.click(pressed)
+      const next = card('Next step')
+      expect(next).toHaveTextContent('back in your hands')
+      expect(next).toHaveTextContent('The customer is not emailed')
+      fireEvent.change(within(next).getByLabelText('Why did it come back?'), {
+        target: { value: 'OTHER' },
+      })
+      fireEvent.click(within(next).getByRole('button', { name: 'Yes — it came back' }))
+      expect(within(next).getByRole('alert')).toHaveTextContent('Say what happened')
+      expect(mocked.markNotDelivered).not.toHaveBeenCalled()
+
+      fireEvent.change(within(next).getByLabelText('Why did it come back?'), {
+        target: { value: 'FAKE_ORDER' },
+      })
+      fireEvent.change(within(next).getByLabelText('Note (optional)'), {
+        target: { value: ' Number switched off ' },
+      })
+      fireEvent.click(within(next).getByRole('button', { name: 'Yes — it came back' }))
+      await waitFor(() =>
+        expect(mocked.markNotDelivered).toHaveBeenCalledWith('o1', {
+          reason: 'FAKE_ORDER',
+          note: 'Number switched off',
+        }),
+      )
+    })
+
+    it('highlighted when the courier says it was not delivered', async () => {
+      mocked.fetchOrder.mockResolvedValue(ok({ ...shipped, courierStatus: 'cancelled' }))
+      await openOrder()
+      expect(card('Next step')).toHaveTextContent('says this parcel wasn’t delivered')
+      expect(screen.getByRole('button', { name: 'Parcel came back (not delivered)' })).toHaveClass(
+        'bg-danger',
+      )
+    })
+
+    it('paid, then cancelled → reminds to refund', async () => {
+      mocked.fetchOrder.mockResolvedValue(
+        ok({
+          ...ORDER,
+          status: 'CANCELLED',
+          paymentMethod: 'SSLCOMMERZ',
+          paymentStatus: 'PAID',
+          cancelReason: 'Not delivered — returned by courier (fake order)',
+          allowedNext: [],
+        }),
+      )
+      await openOrder()
+      expect(card('Next step')).toHaveTextContent(
+        'This order was paid (৳3,040) — refund the customer from your payment gateway’s panel',
+      )
+    })
+
+    it('earlier parcels to this phone came back → warning on the customer', async () => {
+      mocked.fetchOrder.mockResolvedValue(
+        ok({ ...ORDER, customer: { ...ORDER.customer, parcelsReturned: 2 } }),
+      )
+      await openOrder()
+      expect(card('Customer')).toHaveTextContent(
+        '2 earlier parcels to this phone number came back undelivered',
+      )
+    })
   })
 
   it('an unpaid online order explains that the payment confirms it', async () => {

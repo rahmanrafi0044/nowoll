@@ -9,7 +9,14 @@ import {
 } from '@nestjs/common'
 import { Prisma } from '@nowoll/database'
 import { OrderStatus, PaymentMethod, PaymentStatus } from '@nowoll/database/enums'
-import type { AdminOrderDetail, AdminOrderList, AdminOrderRow, OrderInvoice } from '@nowoll/types'
+import {
+  type AdminOrderDetail,
+  type AdminOrderList,
+  type AdminOrderRow,
+  NOT_DELIVERED_PREFIX,
+  NOT_DELIVERED_REASONS,
+  type OrderInvoice,
+} from '@nowoll/types'
 import { addDays, startOfStoreDay, storeDate } from '../analytics/store-time.js'
 import { COURIER, type CourierProvider, type ParcelBooking } from '../courier/courier.js'
 import { CUSTOMER_NOTIFIER, type CustomerNotifier } from '../notifications/customer-notifier.js'
@@ -17,6 +24,7 @@ import { PrismaService } from '../prisma/prisma.service.js'
 import { SettingsService } from '../settings/settings.service.js'
 import type {
   AdminOrdersQuery,
+  NotDeliveredDto,
   OrderNotesDto,
   OrderStatusChangeDto,
   OrderTrackingDto,
@@ -35,6 +43,9 @@ import { OrdersService } from './orders.service.js'
 //   PENDING ──(COD, after the confirmation call)──▶ CONFIRMED ──▶ PROCESSING ──▶ SHIPPED ──▶ DELIVERED
 //      │                                               │  └────────────────────────▲
 //      └──────────────── CANCELLED ◀───────────────────┴── (not after shipping)
+//
+// One more exit, by its own button: SHIPPED ──▶ CANCELLED when the parcel comes
+// back undelivered (markNotDelivered — never automatic, never from the menu above).
 //
 // Online orders become CONFIRMED when SSLCommerz confirms the payment (never by
 // hand). RETURNED belongs to the returns module.
@@ -149,6 +160,17 @@ export class AdminOrdersService {
       this.settings.all(),
     ])
     if (!o) throw new NotFoundException('Order not found')
+    // Same phone, parcel came back before (fake orders / refusals repeat). The
+    // phone is checked rather than the account: most COD buyers are guests.
+    // (Uses the status index: only cancelled orders are looked at — few.)
+    const parcelsReturned = await this.prisma.order.count({
+      where: {
+        phone: o.phone,
+        id: { not: o.id },
+        status: OrderStatus.CANCELLED,
+        cancelReason: { startsWith: NOT_DELIVERED_PREFIX },
+      },
+    })
     const money = (d: Prisma.Decimal) => d.toString()
     return {
       id: o.id,
@@ -162,6 +184,7 @@ export class AdminOrdersService {
         phone: o.phone,
         hasAccount: !!o.userId,
         accountId: o.userId,
+        parcelsReturned,
       },
       address: {
         line1: o.shippingAddressLine1,
@@ -223,6 +246,7 @@ export class AdminOrdersService {
       })),
       allowedNext: allowedNext(o),
       canMarkCashCollected: canMarkCashCollected(o),
+      canMarkNotDelivered: o.status === OrderStatus.SHIPPED,
       createdAt: o.createdAt.toISOString(),
       updatedAt: o.updatedAt.toISOString(),
     }
@@ -301,6 +325,34 @@ export class AdminOrdersService {
     // AFTER the commit: the customer is told only about what really happened.
     if (dto.to === OrderStatus.SHIPPED) await this.tell(() => this.notifier.orderShipped(id))
     if (dto.to === OrderStatus.DELIVERED) await this.tell(() => this.notifier.orderDelivered(id))
+    return this.detail(id)
+  }
+
+  /**
+   * POST /orders/:id/not-delivered — "Parcel came back (not delivered)".
+   * Pressed by staff once the parcel is physically back (Rafi's decision 1A:
+   * never automatic — a courier saying "cancelled" isn't the clothes on the
+   * shelf). It reuses the ordinary cancel, so in ONE transaction: stock back on
+   * sale (logged), the discount code freed, a pending COD payment cancelled,
+   * order CANCELLED with the reason. No customer email (decision 2A).
+   * Money already paid stays "paid" — the admin page then says to refund it.
+   */
+  async markNotDelivered(
+    id: string,
+    dto: NotDeliveredDto,
+    actorId: string | null,
+  ): Promise<AdminOrderDetail> {
+    const order = await this.prisma.order.findUnique({ where: { id } })
+    if (!order) throw new NotFoundException('Order not found')
+    if (order.status !== OrderStatus.SHIPPED && order.status !== OrderStatus.CANCELLED)
+      throw new ConflictException({
+        message: `Order ${displayNumber(order.orderNumber)} is ${order.status.toLowerCase()} — only a shipped order can come back undelivered.`,
+        code: 'NOT_SHIPPED',
+      })
+    const why = NOT_DELIVERED_REASONS[dto.reason]
+    const reason = `${NOT_DELIVERED_PREFIX} (${why})${dto.note ? `: ${dto.note}` : ''}`
+    // Already cancelled (a double click) → cancel() changes nothing; the page just reloads.
+    await this.orders.cancel(id, { reason, actorId, from: [OrderStatus.SHIPPED] })
     return this.detail(id)
   }
 
