@@ -5,6 +5,7 @@ import { type Dispatch, type FormEvent, type SetStateAction, useState } from 're
 import type { AdminContentBlock } from '@/lib/content-api'
 import { saveContentBlock } from '@/lib/content-api'
 import { ImageField, LIVE_NOTE, LinkInput, SaveProblems } from './fields'
+import { PHOTO_HINT } from '@/lib/photo-sizes'
 
 type Slide = {
   heading: string
@@ -110,7 +111,12 @@ export function HeroEditor({ block, onSaved }: { block: AdminContentBlock; onSav
         />
         <LinkInput label="Button link" value={ctaHref} onChange={setCtaHref} />
       </div>
-      <ImageField label="Background picture (optional)" url={imageUrl} onChange={setImageUrl} />
+      <ImageField
+        label="Background picture (optional)"
+        url={imageUrl}
+        onChange={setImageUrl}
+        hint={PHOTO_HINT.hero}
+      />
       {imageUrl && (
         <Input
           label="Describe the picture"
@@ -208,6 +214,7 @@ function MoreSlides({
             </div>
             <ImageField
               label={`Slide ${n} picture (optional)`}
+              hint={PHOTO_HINT.hero}
               url={m.imageUrl}
               onChange={(url) => patch(j, { imageUrl: url })}
             />

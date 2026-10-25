@@ -27,6 +27,7 @@ import {
   saveSettings,
   uploadBrandImage,
 } from '@/lib/settings-api'
+import { PHOTO_HINT } from '@/lib/photo-sizes'
 
 // ============================================================================
 // Admin → Settings (step 38, part 1): the shop's details and business rules,
@@ -323,21 +324,21 @@ export function SettingsForm({ initial }: { initial: StoreSettings }) {
             url={form.logo_url || null}
             onChange={(u) => set('logo_url')(u ?? '')}
             upload={(f) => uploadBrandImage('logo', f)}
-            hint="In the header, up to 40 px tall. A PNG with a see-through background looks best."
+            hint={PHOTO_HINT.logo}
           />
           <ImageField
             label={LABEL.favicon_url}
             url={form.favicon_url || null}
             onChange={(u) => set('favicon_url')(u ?? '')}
             upload={(f) => uploadBrandImage('favicon', f)}
-            hint="The browser-tab icon. Cropped to a square; at least 64×64."
+            hint={`The browser-tab icon. ${PHOTO_HINT.favicon}`}
           />
           <ImageField
             label={LABEL.share_image_url}
             url={form.share_image_url || null}
             onChange={(u) => set('share_image_url')(u ?? '')}
             upload={(f) => uploadBrandImage('share', f)}
-            hint="Facebook / WhatsApp link preview. Cropped to 1200×630; at least 600×315."
+            hint={PHOTO_HINT.share}
           />
         </div>
         <div className="sm:col-span-2">

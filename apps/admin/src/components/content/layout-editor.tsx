@@ -15,6 +15,7 @@ import type { AdminContentBlock } from '@/lib/content-api'
 import { saveContentBlock } from '@/lib/content-api'
 import type { CategoryNode } from '@/lib/products-api'
 import { ImageField, LIVE_NOTE, LinkInput, SaveProblems } from './fields'
+import { PHOTO_HINT } from '@/lib/photo-sizes'
 
 // ============================================================================
 // The homepage builder (step 36): an ORDERED list of sections. Move a section
@@ -456,6 +457,7 @@ function SectionFields({
                 </div>
                 <ImageField
                   label={`Picture for banner ${j + 1}`}
+                  hint={PHOTO_HINT.banner}
                   url={b.imageUrl || null}
                   required
                   onChange={(url) =>
@@ -561,7 +563,7 @@ function SectionFields({
               label="Photo"
               url={s.imageUrl || null}
               required
-              hint="Tall photos look best (4:5, e.g. 1200 × 1500)."
+              hint={PHOTO_HINT.split}
               onChange={(url) => edit('split', (cur) => ({ ...cur, imageUrl: url ?? '' }))}
             />
             <Input
@@ -639,7 +641,7 @@ function SectionFields({
                   label={`Photo for circle ${j + 1}`}
                   url={c.imageUrl || null}
                   required
-                  hint="Square photos work best; the shop crops them round."
+                  hint={PHOTO_HINT.circle}
                   onChange={(url) =>
                     edit('circles', (cur) => ({
                       ...cur,
@@ -744,7 +746,7 @@ function SectionFields({
                   label={`Lookbook photo ${j + 1}`}
                   url={item.imageUrl || null}
                   required
-                  hint="Tall photos look best (4:5, e.g. 1200 × 1500)."
+                  hint={PHOTO_HINT.lookbook}
                   onChange={(url) =>
                     edit('lookbook', (cur) => ({
                       ...cur,
@@ -814,6 +816,7 @@ function SectionFields({
             <ImageField
               label="Photo (optional)"
               url={s.imageUrl}
+              hint={PHOTO_HINT.story}
               onChange={(url) => edit('story', (cur) => ({ ...cur, imageUrl: url }))}
             />
             {s.imageUrl && (

@@ -5,6 +5,7 @@ import { Button, Input } from '@nowoll/ui'
 import type { Dispatch, SetStateAction } from 'react'
 import { ImageField } from '@/components/content/fields'
 import { TextArea } from '@/components/form-fields'
+import { PHOTO_HINT } from '@/lib/photo-sizes'
 
 /** The boxes of one tile (numbers as typed, until saving). */
 export interface TileForm {
@@ -91,6 +92,7 @@ export function EditorialTiles({
             url={t.imageUrl}
             onChange={(url) => set(i, { imageUrl: url })}
             required
+            hint={PHOTO_HINT.tile}
           />
           <Input
             label="Describe the photo"
