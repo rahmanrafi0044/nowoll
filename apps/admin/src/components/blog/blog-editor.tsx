@@ -29,6 +29,7 @@ import { uploadContentImage } from '@/lib/content-api'
 import { publicEnv } from '@/lib/env'
 import { fetchProducts } from '@/lib/products-api'
 import { postState } from './blog-labels'
+import { PHOTO_HINT } from '@/lib/photo-sizes'
 
 // ============================================================================
 // One blog post (step 43). Like the page editor: Markdown on the left, the
@@ -233,12 +234,7 @@ export function BlogEditor({ initial }: { initial: AdminBlogDetail | null }) {
             hint="Shown on the blog page under the title. Empty = none."
           />
         </div>
-        <ImageField
-          label="Cover photo"
-          url={cover}
-          onChange={setCover}
-          hint="Landscape, at least 1200 × 800 — the blog page and Facebook link previews use it."
-        />
+        <ImageField label="Cover photo" url={cover} onChange={setCover} hint={PHOTO_HINT.blog} />
         {cover && (
           <Input
             label="Cover photo description"

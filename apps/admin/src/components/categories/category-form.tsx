@@ -22,6 +22,7 @@ import {
 } from '@/lib/categories-api'
 import { flattenCategories } from '@/lib/categories'
 import { publicEnv } from '@/lib/env'
+import { PHOTO_HINT } from '@/lib/photo-sizes'
 
 // ============================================================================
 // One category (step 36b): name, address, parent, picture, on/off, size
@@ -289,7 +290,12 @@ export function CategoryForm({
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <ImageField label="Picture (optional)" url={imageUrl} onChange={setImageUrl} />
+        <ImageField
+          label="Picture (optional)"
+          url={imageUrl}
+          onChange={setImageUrl}
+          hint={PHOTO_HINT.category}
+        />
         {imageUrl && (
           <Input
             label="Describe the picture"

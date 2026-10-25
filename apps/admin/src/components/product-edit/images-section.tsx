@@ -6,6 +6,7 @@ import { type FormEvent, useState } from 'react'
 import { FormProblem, SelectField } from '@/components/form-fields'
 import { ProductThumb } from '@/components/products/product-thumb'
 import { deleteImage, updateImage, uploadImage } from '@/lib/products-api'
+import { PHOTO_HINT } from '@/lib/photo-sizes'
 
 // ============================================================================
 // Photos. The first one is the main photo (product cards, Google, social
@@ -289,7 +290,7 @@ function UploadForm({
           }}
         />
         <span id="photo-file-hint" className="text-xs text-muted-foreground">
-          JPEG, PNG or WebP, up to 5 MB.
+          JPEG, PNG or WebP, up to 5 MB. {PHOTO_HINT.product}
         </span>
       </div>
       <Input
