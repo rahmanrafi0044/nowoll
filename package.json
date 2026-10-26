@@ -30,10 +30,10 @@
   "devDependencies": {
     "@nowoll/config": "workspace:*",
     "eslint": "^9.39.0",
-    "prettier": "^3.9.0",
+    "prettier": "^3.9.10",
     "turbo": "2.11.7",
     "typescript": "6.0.3",
-    "@types/node": "^24.0.0"
+    "@types/node": "^24.19.2"
   },
   "engines": {
     "node": ">=22.12.0",
