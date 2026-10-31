@@ -17,6 +17,7 @@ import { AdminOrdersService } from './admin-orders.service.js'
 import {
   AdminOrdersQuery,
   BookCourierDto,
+  NotDeliveredDto,
   OrderNotesDto,
   OrderStatusChangeDto,
   OrderTrackingDto,
@@ -69,6 +70,18 @@ export class AdminOrdersController {
     @CurrentAdmin() admin: AdminProfile | undefined,
   ) {
     return this.adminOrders.bookCourier(id, dto.from, admin?.id ?? null)
+  }
+
+  /** "Parcel came back (not delivered)" — stock back, order cancelled, no email. */
+  @Post(':id/not-delivered')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  notDelivered(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: NotDeliveredDto,
+    @CurrentAdmin() admin: AdminProfile | undefined,
+  ) {
+    return this.adminOrders.markNotDelivered(id, dto, admin?.id ?? null)
   }
 
   @Patch(':id/tracking')

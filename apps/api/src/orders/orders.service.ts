@@ -317,6 +317,12 @@ export class OrdersService {
       actorId?: string | null
       onlyIfUnpaid?: boolean
       paymentStatus?: PaymentStatus
+      /**
+       * The statuses this cancel is allowed from. Default: before shipping.
+       * "Parcel came back (not delivered)" passes [SHIPPED] — the only way a
+       * shipped order is ever cancelled.
+       */
+      from?: OrderStatus[]
     },
   ): Promise<{ cancelled: boolean }> {
     const changes: StockChange[] = []
@@ -338,7 +344,7 @@ export class OrdersService {
       ) {
         return { cancelled: false }
       }
-      if (!CANCELLABLE.includes(order.status)) {
+      if (!(opts.from ?? CANCELLABLE).includes(order.status)) {
         throw new ConflictException(
           `Order ${displayNumber(order.orderNumber)} is ${order.status.toLowerCase()} and can't be cancelled.`,
         )

@@ -1,12 +1,17 @@
 'use client'
 
-import type { AdminOrderDetail, AdminOrderStatus } from '@nowoll/types'
+import {
+  type AdminOrderDetail,
+  type AdminOrderStatus,
+  NOT_DELIVERED_REASONS,
+  type NotDeliveredReason,
+} from '@nowoll/types'
 import { Badge, Button, Input } from '@nowoll/ui'
 import Link from 'next/link'
 import { type FormEvent, type ReactNode, useCallback, useState } from 'react'
 import { Panel } from '@/components/dashboard/panel'
 import { useLoad } from '@/components/dashboard/use-load'
-import { FormProblem, TextArea } from '@/components/form-fields'
+import { FormProblem, SelectField, TextArea } from '@/components/form-fields'
 import { ProductThumb } from '@/components/products/product-thumb'
 import { formatInstantDateTime } from '@/lib/date'
 import { formatBdt } from '@/lib/format'
@@ -22,6 +27,7 @@ import {
   changeOrderStatus,
   fetchOrder,
   markCashCollected,
+  markNotDelivered,
   updateOrderNotes,
   updateTracking,
 } from '@/lib/orders-api'
@@ -199,6 +205,15 @@ function Customer({ order }: { order: AdminOrderDetail }) {
       ) : (
         <span className="text-xs text-muted-foreground">Guest checkout</span>
       )}
+      {order.customer.parcelsReturned > 0 && (
+        <p role="note" className="mt-1 font-medium text-warning">
+          ⚠{' '}
+          {order.customer.parcelsReturned === 1
+            ? 'An earlier parcel'
+            : `${order.customer.parcelsReturned} earlier parcels`}{' '}
+          to this phone number came back undelivered — confirm by phone before sending.
+        </p>
+      )}
       <address className="mt-2 not-italic">
         {a.line1}
         {a.line2 && <>, {a.line2}</>}
@@ -212,7 +227,7 @@ function Customer({ order }: { order: AdminOrderDetail }) {
 
 /** The buttons for the next status, each opening its own small form. */
 function Actions({ order, onChanged }: { order: AdminOrderDetail; onChanged: () => void }) {
-  const [acting, setActing] = useState<AdminOrderStatus | null>(null)
+  const [acting, setActing] = useState<AdminOrderStatus | 'NOT_DELIVERED' | null>(null)
   // e.g. "changed by someone else" — kept after the form closes and the order reloads.
   const [notice, setNotice] = useState<string | null>(null)
   const finish = (message: string | null) => {
@@ -220,6 +235,8 @@ function Actions({ order, onChanged }: { order: AdminOrderDetail; onChanged: () 
     setNotice(message)
     onChanged()
   }
+  if (acting === 'NOT_DELIVERED')
+    return <NotDeliveredForm order={order} onDone={finish} onCancel={() => setActing(null)} />
   if (acting)
     return <ActionForm order={order} to={acting} onDone={finish} onCancel={() => setActing(null)} />
   if (order.allowedNext.length === 0)
@@ -233,8 +250,19 @@ function Actions({ order, onChanged }: { order: AdminOrderDetail; onChanged: () 
               ? 'Delivered — nothing more to do. Returns are handled on the Returns page.'
               : 'Nothing more to do.'}
         </p>
+        {order.status === 'CANCELLED' && order.paymentStatus === 'PAID' && (
+          <p role="status" className="text-sm font-medium text-warning">
+            This order was paid ({formatBdt(order.totals.total)}) — refund the customer
+            {order.paymentMethod === 'COD'
+              ? ' (the cash was marked collected)'
+              : ' from your payment gateway’s panel'}
+            , then write it in Staff notes.
+          </p>
+        )}
       </div>
     )
+  // The courier says the parcel is on its way back → point at the button.
+  const comingBack = order.canMarkNotDelivered && order.courierStatus === 'cancelled'
   return (
     <div className="flex flex-col gap-2">
       <FormProblem message={notice} />
@@ -252,7 +280,103 @@ function Actions({ order, onChanged }: { order: AdminOrderDetail; onChanged: () 
           {ACTION_LABEL[to] ?? to}
         </Button>
       ))}
+      {order.canMarkNotDelivered && (
+        <>
+          {comingBack && (
+            <p className="text-sm font-medium text-warning">
+              {order.courierName} says this parcel wasn’t delivered. When it’s back with you, press:
+            </p>
+          )}
+          <Button
+            variant={comingBack ? 'danger' : 'ghost'}
+            onClick={() => setActing('NOT_DELIVERED')}
+          >
+            Parcel came back (not delivered)
+          </Button>
+        </>
+      )}
     </div>
+  )
+}
+
+/**
+ * "Parcel came back (not delivered)" — the only way a shipped order is cancelled.
+ * Pressed once the parcel is physically back (decision 1A); the customer is
+ * NOT emailed (decision 2A). The reason is kept so repeat problems show up.
+ */
+function NotDeliveredForm({
+  order,
+  onDone,
+  onCancel,
+}: {
+  order: AdminOrderDetail
+  onDone: (message: string | null) => void
+  onCancel: () => void
+}) {
+  const [reason, setReason] = useState<NotDeliveredReason>('REFUSED')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+  const paid = order.paymentStatus === 'PAID'
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    if (reason === 'OTHER' && !note.trim()) return setProblem('Say what happened.')
+    setBusy(true)
+    setProblem(null)
+    const r = await markNotDelivered(order.id, {
+      reason,
+      ...(note.trim() && { note: note.trim() }),
+    })
+    setBusy(false)
+    if (r.ok) return onDone(null)
+    if (r.error === 'NOT_SHIPPED') return onDone(r.message)
+    setProblem(r.message)
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="flex flex-col gap-3">
+      <p className="text-sm font-medium">Parcel came back (not delivered)</p>
+      <p className="text-sm text-warning">
+        Only press this when the parcel is back in your hands. The items go back on sale, any
+        discount code can be used again and the order becomes Cancelled. The customer is not
+        emailed. This can’t be undone.
+      </p>
+      {paid && (
+        <p className="text-sm font-medium text-warning">
+          This order was paid ({formatBdt(order.totals.total)}) — you’ll need to refund the
+          customer.
+        </p>
+      )}
+      <SelectField
+        label="Why did it come back?"
+        value={reason}
+        onChange={(e) => setReason(e.target.value as NotDeliveredReason)}
+      >
+        {Object.entries(NOT_DELIVERED_REASONS).map(([code, text]) => (
+          <option key={code} value={code}>
+            {text[0]!.toUpperCase() + text.slice(1)}
+          </option>
+        ))}
+      </SelectField>
+      <TextArea
+        label={reason === 'OTHER' ? 'What happened' : 'Note (optional)'}
+        value={note}
+        maxLength={300}
+        rows={2}
+        onChange={(e) => setNote(e.target.value)}
+        hint="Kept in the history — staff only."
+      />
+      <FormProblem message={problem} />
+      <div className="flex gap-2">
+        <Button type="submit" variant="danger" disabled={busy}>
+          {busy ? 'Saving…' : 'Yes — it came back'}
+        </Button>
+        <Button variant="ghost" onClick={onCancel}>
+          Back
+        </Button>
+      </div>
+    </form>
   )
 }
 

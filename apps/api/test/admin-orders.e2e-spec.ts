@@ -2,6 +2,7 @@
 //   • only the allowed status changes; the customer emails go out exactly once, after saving
 //   • two staff members at once: a change based on an outdated view is refused
 //   • cancelling puts the stock back; COD cash collected → paid
+//   • "Parcel came back (not delivered)": shipped → cancelled, stock back, no email
 import { randomUUID } from 'node:crypto'
 import type { NestExpressApplication } from '@nestjs/platform-express'
 import request from 'supertest'
@@ -289,6 +290,98 @@ describe('admin orders (step 31a)', () => {
         await db.inventoryLog.count({ where: { orderId: id, reason: 'ORDER_CANCELLED' } }),
       ).toBe(1)
       expect(events).toEqual([])
+    })
+  })
+
+  describe('parcel came back (not delivered)', () => {
+    const notDelivered = (id: string, body: object) =>
+      http().post(`/api/v1/orders/${id}/not-delivered`).send(body)
+    const ship = async (id: string) => {
+      await status(id, { from: 'PENDING', to: 'CONFIRMED' }).expect(200)
+      await status(id, {
+        from: 'CONFIRMED',
+        to: 'SHIPPED',
+        courierName: 'Steadfast',
+        trackingNumber: 'SF1',
+      }).expect(200)
+    }
+
+    it('COD: stock back on sale (logged), COD payment cancelled, reason kept, NO email; repeats change nothing', async () => {
+      const { id, variantId } = await placeOrder()
+      await ship(id)
+      expect(await stockOf(variantId)).toBe(3)
+      expect((await detail(id)).canMarkNotDelivered).toBe(true)
+
+      const d = (
+        await notDelivered(id, { reason: 'REFUSED', note: '  Said she never ordered  ' }).expect(
+          200,
+        )
+      ).body.data
+      expect(d).toMatchObject({
+        status: 'CANCELLED',
+        paymentStatus: 'CANCELLED',
+        cancelReason:
+          'Not delivered — returned by courier (customer refused the parcel): Said she never ordered',
+        canMarkNotDelivered: false,
+        canMarkCashCollected: false,
+        allowedNext: [],
+      })
+      expect(d.payments[0]).toMatchObject({ method: 'COD', status: 'CANCELLED' })
+      expect(d.timeline.at(-1)).toMatchObject({ from: 'SHIPPED', to: 'CANCELLED' })
+      expect(await stockOf(variantId)).toBe(5)
+      expect(
+        await db.inventoryLog.count({ where: { orderId: id, reason: 'ORDER_CANCELLED' } }),
+      ).toBe(1)
+      expect(events).toEqual([{ type: 'order-shipped', id }]) // nothing more (decision 2A)
+
+      // A double click: answered, nothing restocked twice.
+      await notDelivered(id, { reason: 'REFUSED' }).expect(200)
+      expect(await stockOf(variantId)).toBe(5)
+    })
+
+    it('only for a shipped order; the reason is checked; "other" needs a note', async () => {
+      const { id } = await placeOrder()
+      expect((await notDelivered(id, { reason: 'REFUSED' }).expect(409)).body.error).toBe(
+        'NOT_SHIPPED',
+      )
+      expect((await detail(id)).canMarkNotDelivered).toBe(false)
+      await ship(id)
+      await notDelivered(id, { reason: 'LOST_IT' }).expect(400)
+      await notDelivered(id, { reason: 'OTHER' }).expect(400)
+      await notDelivered(id, { reason: 'OTHER', note: '   ' }).expect(400)
+      await notDelivered(id, { reason: 'OTHER', note: 'Rider lost the address' }).expect(200)
+      // Once delivered it can't come back this way (returns handle that).
+      const other = await placeOrder()
+      await ship(other.id)
+      await status(other.id, { from: 'SHIPPED', to: 'DELIVERED' }).expect(200)
+      await notDelivered(other.id, { reason: 'REFUSED' }).expect(409)
+    })
+
+    it('paid online → stays "paid" (the page says to refund); the phone is flagged on the next order', async () => {
+      const { id } = await placeOrder()
+      await ship(id)
+      await db.order.update({
+        where: { id },
+        data: { paymentMethod: 'SSLCOMMERZ', paymentStatus: 'PAID' },
+      })
+      const d = (await notDelivered(id, { reason: 'FAKE_ORDER' }).expect(200)).body.data
+      expect(d).toMatchObject({ status: 'CANCELLED', paymentStatus: 'PAID' })
+
+      // An ordinary cancel (before shipping) by the same phone doesn't count.
+      const changedMind = await placeOrder()
+      await status(changedMind.id, {
+        from: 'PENDING',
+        to: 'CANCELLED',
+        note: 'Customer changed their mind',
+      }).expect(200)
+      const again = await placeOrder() // same phone number
+      expect((await detail(again.id)).customer.parcelsReturned).toBe(1)
+      const stranger = await placeOrder('COD', {
+        fullName: 'Someone Else',
+        email: 'else@example.com',
+        phone: '01812345678',
+      })
+      expect((await detail(stranger.id)).customer.parcelsReturned).toBe(0)
     })
   })
 
